@@ -14,10 +14,24 @@
           "speckit.tasks",
           "speckit.implement",
           "speckit.constitution"
+        ],
+        "claude": [
+          "speckit.specify",
+          "speckit.plan",
+          "speckit.tasks",
+          "speckit.implement",
+          "speckit.constitution"
         ]
       },
       "registered_skills": {
         "codex": [
+          "speckit-specify",
+          "speckit-plan",
+          "speckit-tasks",
+          "speckit-implement",
+          "speckit-constitution"
+        ],
+        "claude": [
           "speckit-specify",
           "speckit-plan",
           "speckit-tasks",
