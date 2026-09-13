@@ -69,6 +69,10 @@ feat: ebook 사이드바 채팅 구현
 
 `.specify/memory/constitution.md`를 따르고 명세 범위를 지킨다. 범위 변경 시 명세·계획부터 갱신한다.
 
+### 한국어 글쓰기
+
+- 한국어 커밋 메시지, PR 제목·본문, 이슈, 문서(스킬·Spec Kit·Markdown), 코드 주석을 작성하거나 다듬을 때는 [korean-dev-writing 스킬](.agents/skills/korean-dev-writing/SKILL.md)을 따른다.
+
 ### shadcn 디자인 시스템
 
 - UI 구현과 검토는 설치된 [shadcn 스킬](.agents/skills/shadcn/SKILL.md)과 관련 참조 문서의 전체 규칙을 따른다.
