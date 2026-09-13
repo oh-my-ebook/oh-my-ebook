@@ -105,4 +105,4 @@ feat: ebook 사이드바 채팅 구현
 
 ## 보안 및 설정
 
-배포 설정은 `.env.example`을 기준으로 한다. Vercel 인증 정보는 GitHub Actions 비밀 값에 저장하고, `VERCEL_DEPLOY_ENABLED`는 저장소 변수로 설정한다. 인증 정보는 절대 커밋하지 않는다.
+환경 변수는 `.env.example`을 기준으로 한다. 배포는 Vercel Git 연동으로 수행하며, 배포 환경 변수는 Vercel 프로젝트 설정에서 관리한다. Preview와 Production 배포 전 `pnpm check && pnpm build`를 실행한다. 인증 정보는 절대 커밋하지 않는다.

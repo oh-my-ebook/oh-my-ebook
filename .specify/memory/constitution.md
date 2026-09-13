@@ -26,14 +26,14 @@ Vitest, React Testing Library, user-event로 내부 구현보다 사용자가 �
 
 - React 19, TypeScript, Vite 기반 웹 앱을 유지한다. Node와 pnpm 버전은 `package.json`, `.node-version`, `.nvmrc`를 따른다.
 - 포맷은 Prettier, 린트는 Oxlint, UI는 Tailwind CSS와 shadcn(Base UI)을 사용한다. 세부 설정과 생성 코드 예외는 `AGENTS.md` 및 설정 파일을 따른다.
-- 배포 설정은 `.env.example`을 참고한다. 인증 정보는 커밋하지 않고, Vercel 인증 정보는 GitHub Actions 비밀 값으로 관리한다.
+- 환경 변수는 `.env.example`을 참고한다. 인증 정보는 커밋하지 않는다.
 
 ## 개발 절차와 품질 기준
 
 1. 구현 전 명세·계획·작업 목록이 헌법과 일치하는지 확인한다. 동작 변경 작업에는 테스트와 실패 확인을 구현보다 먼저 배치한다.
 2. 현재 작업의 TDD 사이클을 완료한다. 코드 변경은 `pnpm check`와 `pnpm build`로 검증하며, 동작 변경 없이 문서만 수정한 경우에는 관련 포맷과 내용 검사로 검증한다.
 3. 검증이 통과하면 해당 `tasks.md` 항목을 체크하고 변경 파일, 구현 내용, 검증 결과, 추천 커밋 메시지를 보고한다. 실행하지 못한 검사는 이유를 명시한다.
-4. CI는 포맷·린트·타입·커버리지 테스트·빌드를 검사한다. PR에는 구현 근거와 검증 결과를 기록하고 헌법 준수 여부를 확인한다.
+4. CI는 포맷·린트·타입·커버리지 테스트를 검사한다. Vercel은 Preview와 Production 배포 시 `pnpm check && pnpm build`를 실행하고, 성공한 결과만 배포한다. PR에는 구현 근거와 검증 결과를 기록하고 Constitution 준수 여부를 확인한다.
 
 ## 운영 및 개정
 
@@ -43,4 +43,6 @@ Vitest, React Testing Library, user-event로 내부 구현보다 사용자가 �
 
 최초 제정: 현재 React·Vite 프로젝트의 개발 기준과 TDD 의무를 정의하고, `AGENTS.md` 및 작업 템플릿의 테스트 지침을 동기화했다. 기존 구현은 관련 동작을 변경할 때 테스트를 먼저 확보한다.
 
-**버전**: 1.0.0 | **제정일**: 2026-09-13 | **최종 개정일**: 2026-09-13
+2.0.0 개정: GitHub CI를 품질 검사로 한정하고 빌드·배포를 Vercel Git 연동으로 이전했다. CI의 빌드·배포 작업을 제거하고, Vercel Build Command에서 배포 전 검사를 실행한다. GitHub Actions의 Vercel 인증 정보와 배포 활성화 변수는 더 이상 필요하지 않다.
+
+**버전**: 2.0.0 | **제정일**: 2026-09-13 | **최종 개정일**: 2026-09-14
