@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm check && pnpm build",
+  "buildCommand": "git diff -- vercel.json && pnpm exec prettier --version && pnpm check && pnpm build",
   "outputDirectory": "dist"
 }
