@@ -1,50 +1,46 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# oh-my-ebook 프로젝트 Constitution
 
-## Core Principles
+## 핵심 원칙
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. 명세에 따른 작은 단위의 개발
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+기능의 목적과 사용자 관점의 완료 조건을 `spec.md`에 정의하고, `plan.md`와 `tasks.md`에 따라 구현한다. 범위가 바뀌면 명세와 계획부터 갱신한다. 기본적으로 한 번에 하나의 작업만 완료하고, 결과를 보고한 뒤 멈춘다.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. 테스트 우선 개발 (필수)
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+새 기능과 버그 수정은 반드시 TDD를 따른다. 기대 동작의 테스트 작성 → 의도한 이유로 실패 확인(Red) → 최소 구현으로 통과(Green) → 테스트를 유지하며 리팩터링(Refactor) 순서를 지킨다. 버그는 재현 테스트부터 작성한다. 동작을 바꾸지 않는 문서·포맷 변경은 관련 검사로 검증하고, 리팩터링은 기존 동작을 검증하는 테스트를 확보한 뒤 진행한다.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. 사용자 동작과 통합 검증
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Vitest, React Testing Library, user-event로 내부 구현보다 사용자가 관찰하는 결과를 검증한다. 변경에 관련된 정상 동작, 오류, 경계 조건을 다루며, 컴포넌트나 외부 연동의 경계를 바꾸면 해당 통합 동작도 검증한다. 테스트는 소스 옆에 `*.test.ts` 또는 `*.test.tsx`로 둔다.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. 일관된 UI와 접근성
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+`DESIGN.md`와 설치된 shadcn 스킬을 따르고 기존 UI 컴포넌트를 재사용한다. 테마 토큰, 컴포넌트 variant, 서비스 컴포넌트 조합 순서로 디자인을 적용한다. 키보드 조작, 접근 가능한 이름, 포커스 표시와 복원을 보존하고 관련 상호작용을 테스트한다.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. 단순성과 변경 근거
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+현재 명세를 충족하는 가장 단순한 구현을 선택한다. 기존 코드와 도구를 우선 사용하고, 예상만으로 기능·추상화·의존성을 추가하지 않는다. 복잡성이 필요하면 이유와 검토한 단순한 대안을 계획 또는 PR에 기록한다.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+## 기술 및 보안 기준
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+- React 19, TypeScript, Vite 기반 웹 앱을 유지한다. Node와 pnpm 버전은 `package.json`, `.node-version`, `.nvmrc`를 따른다.
+- 포맷은 Prettier, 린트는 Oxlint, UI는 Tailwind CSS와 shadcn(Base UI)을 사용한다. 세부 설정과 생성 코드 예외는 `AGENTS.md` 및 설정 파일을 따른다.
+- 배포 설정은 `.env.example`을 참고한다. 인증 정보는 커밋하지 않고, Vercel 인증 정보는 GitHub Actions 비밀 값으로 관리한다.
+
+## 개발 절차와 품질 기준
+
+1. 구현 전 명세·계획·작업 목록이 헌법과 일치하는지 확인한다. 동작 변경 작업에는 테스트와 실패 확인을 구현보다 먼저 배치한다.
+2. 현재 작업의 TDD 사이클을 완료한다. 코드 변경은 `pnpm check`와 `pnpm build`로 검증하며, 동작 변경 없이 문서만 수정한 경우에는 관련 포맷과 내용 검사로 검증한다.
+3. 검증이 통과하면 해당 `tasks.md` 항목을 체크하고 변경 파일, 구현 내용, 검증 결과, 추천 커밋 메시지를 보고한다. 실행하지 못한 검사는 이유를 명시한다.
+4. CI는 포맷·린트·타입·커버리지 테스트·빌드를 검사한다. PR에는 구현 근거와 검증 결과를 기록하고 헌법 준수 여부를 확인한다.
+
+## 운영 및 개정
+
+헌법은 저장소의 개발 원칙 기준이며, 세부 실행 지침은 `AGENTS.md`를 따른다. 충돌하는 문서와 Spec Kit 템플릿은 헌법에 맞춰 갱신한다.
+
+개정 시 변경 이유와 영향을 기록하고 관련 지침·템플릿을 함께 갱신한다. 기존 구현이나 절차에 영향이 있으면 전환 방법을 명시한다. 원칙의 삭제·호환되지 않는 변경은 주 버전, 원칙 추가는 부 버전, 의미를 바꾸지 않는 문구 수정은 패치 버전을 올린다.
+
+최초 제정: 현재 React·Vite 프로젝트의 개발 기준과 TDD 의무를 정의하고, `AGENTS.md` 및 작업 템플릿의 테스트 지침을 동기화했다. 기존 구현은 관련 동작을 변경할 때 테스트를 먼저 확보한다.
+
+**버전**: 1.0.0 | **제정일**: 2026-09-13 | **최종 개정일**: 2026-09-13
