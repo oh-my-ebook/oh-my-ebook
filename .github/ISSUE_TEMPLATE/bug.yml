@@ -1,0 +1,34 @@
+name: 🐛 버그 제보
+description: 웹 앱이나 개발 환경에서 발생한 문제를 알려주세요.
+title: '[버그] '
+labels: ['bug']
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 문제와 기대 동작
+      description: 어떤 문제가 발생했고, 어떻게 동작해야 하나요?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 방법
+      description: 문제가 발생한 화면이나 실행한 명령어를 포함해 주세요.
+      placeholder: |
+        1. pnpm dev로 앱 실행
+        2. 문제가 발생한 화면으로 이동
+        3. 수행한 동작과 결과 작성
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 실행 환경
+      description: OS·브라우저 버전과 접속 주소(로컬·Vercel)를 적어주세요. 개발 도구 문제라면 Node·pnpm 버전도 적어주세요.
+      placeholder: macOS, Chrome 버전, 로컬 / Node 24.x, pnpm 12.4.1
+  - type: textarea
+    id: logs
+    attributes:
+      label: 스크린샷·오류 로그
+      description: 관련 화면이나 브라우저 콘솔·터미널 오류가 있다면 첨부해 주세요.
