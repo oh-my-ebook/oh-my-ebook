@@ -5,3 +5,6 @@ dist-ssr/
 coverage/
 .vercel/
 pnpm-lock.yaml
+
+# Preserve shadcn CLI output verbatim.
+src/components/ui/
