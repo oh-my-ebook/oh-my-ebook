@@ -4,7 +4,7 @@
 
 **완료 기준:** 텍스트·스캔 PDF의 첫 페이지를 원본 비율과 너비 맞춤으로 표시한다. 문서·페이지 표시 실패에서 재시도할 수 있고, 초기 화면을 실제 PDF와 worker로 검증한다. 탐색·보기 전환·크기 조절·패널 버튼은 아직 표시하지 않는다.
 
-- [ ] [T001] `package.json`, `pnpm-lock.yaml`에 `pnpm add pdfjs-dist`로 의존성을 추가하고 설치한 버전의 Node 요구사항을 확인한다. 버전이나 `--save-exact`를 지정하지 않는다.
+- [x] [T001] `package.json`, `pnpm-lock.yaml`에 `pnpm add pdfjs-dist`로 의존성을 추가하고 설치한 버전의 Node 요구사항을 확인한다. 버전이나 `--save-exact`를 지정하지 않는다.
 - [ ] [T002] `public/samples/basic-reader.pdf`에 직접 작성한 세로 텍스트 PDF 5장, `e2e/fixtures/pdf/scanned.pdf`에 이미지로만 된 세로 PDF 5장을 준비한다. 한글 폰트 포함, 페이지별 고유 번호·도형, 페이지 수·크기와 스캔 파일의 텍스트 부재를 확인한다. 테스트 실행 중 생성하지 않는 정적 파일로 준비한다.
 - [ ] [T003] `src/index.css`의 기존 테마 토큰을 확인하고 필요한 토큰만 보완한다. `src/components/ui/`에 현재 로딩·오류 화면에 필요한 Skeleton·Alert·Tooltip과 의존 컴포넌트만 공식 CLI로 추가한다. Button은 재사용하고 생성 코드의 Base UI API·의미 토큰·접근성·포맷을 검토한다.
 - [ ] [T004] `src/features/reader/hooks/use-pdf-document.test.ts`에 문서 로딩·재시도·페이지 크기 조회 실패·URL 변경·늦은 완료와 오류·StrictMode·unmount 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/pdf-document.ts`, `src/features/reader/hooks/use-pdf-document.ts`에 같은 패키지의 worker `?url` 설정, PDF 열기·회전 적용 크기 조회·해제를 구현한다. 손상·암호 필요 문서는 로딩을 끝내고 오류로 처리한다. 이전 응답을 무시하고 `destroy()` 실패도 처리한다. PDF 모듈 경계의 Promise를 제어해 검증하며 PDF.js 객체 전체를 타입 단언으로 위조하지 않는다. (FR-002, FR-006, FR-018)
