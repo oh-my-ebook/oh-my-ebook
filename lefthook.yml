@@ -1,5 +1,8 @@
 pre-commit:
   parallel: true
+  scripts:
+    'protect-main.sh':
+      runner: sh
   commands:
     lint:
       glob: '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}'
@@ -14,6 +17,10 @@ commit-msg:
 
 pre-push:
   parallel: true
+  scripts:
+    'protect-main.sh':
+      runner: sh
+      use_stdin: true
   commands:
     typecheck:
       run: pnpm typecheck
