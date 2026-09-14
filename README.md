@@ -1,5 +1,38 @@
 ## oh-my-ebook
 
+### 테스트
+
+단위·통합 테스트는 기존 Vitest + jsdom + React Testing Library를 사용한다.
+실제 앱의 E2E 테스트는 Playwright Test로 실행한다.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm test
+pnpm test:e2e
+```
+
+E2E 실행 시 Playwright가 `http://127.0.0.1:4173`에서 Vite 개발 서버를 자동으로 시작하고
+Chromium으로 테스트한다. 로컬에서 같은 주소의 서버가 실행 중이면 재사용하며 CI에서는 새로 시작한다.
+브라우저를 업데이트할 때도 `pnpm exec playwright install chromium`을 실행한다.
+Linux에서 브라우저 시스템 의존성도 필요하면 `pnpm exec playwright install --with-deps chromium`을 사용한다.
+
+- `pnpm test:e2e:ui`: UI Mode에서 테스트를 실행하고 디버깅한다.
+- `pnpm test:e2e --headed`: 브라우저 창을 표시하며 실행한다.
+- `pnpm test:e2e:report`: 마지막 HTML 보고서를 연다.
+
+Vitest 테스트는 `src/**/*.test.{ts,tsx}`, E2E 테스트는 `e2e/*.spec.ts`에 둔다.
+E2E는 `playwright.config.ts`에서 관리하며 Chromium 한 종류로 시작한다.
+첫 테스트는 초기 앱 접속·카운트 변경·새로고침을 검증한다. PDF Reader 구현 시 실제 독서 흐름으로 갱신한다.
+
+`pnpm check`는 기존 품질 검사와 Vitest 테스트를 실행한다. E2E는 `pnpm test:e2e`로 별도 실행하며,
+GitHub CI에서는 커버리지 검사 후 Chromium 설치와 E2E를 실행하고 HTML 보고서를 30일간 보관한다.
+CI의 첫 실패 재시도에서 trace를 수집한다. 로컬에서 trace가 필요하면 `pnpm test:e2e --trace on`으로 실행한다.
+이 E2E는 개발 서버를 대상으로 하며 배포용 빌드 검증은 기존 `pnpm check && pnpm build` 절차를 따른다.
+
+설정 근거: Playwright 공식 [설치](https://playwright.dev/docs/intro),
+[서버 실행](https://playwright.dev/docs/test-webserver), [CI](https://playwright.dev/docs/ci-intro) 문서.
+
 ### Node.js 버전 설정
 
 Node.js 버전은 [`.nvmrc`](.nvmrc)에 고정해 팀에서 공유한다.

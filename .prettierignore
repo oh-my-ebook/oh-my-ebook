@@ -3,6 +3,9 @@ node_modules/
 dist/
 dist-ssr/
 coverage/
+playwright-report/
+test-results/
+playwright/.cache/
 .vercel/
 pnpm-lock.yaml
 /vercel.json
