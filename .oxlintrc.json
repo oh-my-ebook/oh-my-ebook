@@ -1,7 +1,14 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react", "typescript", "oxc"],
-  "ignorePatterns": ["dist/**", "coverage/**", ".vercel/**"],
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    ".vercel/**",
+    "playwright-report/**",
+    "test-results/**",
+    "playwright/.cache/**"
+  ],
   "rules": {
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",

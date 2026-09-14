@@ -15,6 +15,8 @@ Node 24.x(`.node-version`과 `.nvmrc`에 고정)와 pnpm 12.4.1을 사용한다.
 - `pnpm check`: 포맷, 린트, 타입 및 단위 테스트 검사를 실행한다.
 - `pnpm test:watch`: 개발 중 변경 사항을 감지하여 테스트를 반복 실행한다.
 - `pnpm test:coverage`: 테스트를 실행하고 V8 커버리지 보고서를 생성한다.
+- `pnpm test:e2e`: Vite 서버를 자동으로 시작하고 Playwright로 Chromium E2E 테스트를 실행한다.
+- `pnpm test:e2e:ui` / `pnpm test:e2e:report`: E2E를 UI Mode에서 실행하거나 마지막 HTML 보고서를 연다.
 - `pnpm format` / `pnpm lint:fix`: 포맷 또는 린트 수정을 적용하고 결과 변경 사항을 검토한다.
 
 ## 코드 스타일 및 명명 규칙
@@ -36,6 +38,8 @@ Prettier 설정은 `.prettierrc`를 기준으로 공백 2칸 들여쓰기, 작�
 Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한다. 테스트 파일 이름은 `*.test.ts` 또는 `*.test.tsx`로 작성한다. `src/App.test.tsx`를 참고하여 접근성을 고려한 쿼리와 사용자 상호작용으로 관찰 가능한 동작을 테스트한다. 테스트를 한 번 실행하려면 `pnpm test`를 사용한다. CI는 최소 임계값 설정 없이 커버리지를 수집하며, 동작 변경 시 관련 회귀 테스트를 추가한다.
 
 새 기능과 버그 수정은 TDD로 진행한다. 기대 동작을 테스트로 작성하고 의도한 이유로 실패하는지 확인한 뒤, 최소 구현으로 통과시키고 테스트를 유지하며 리팩터링한다. 동작을 바꾸지 않는 문서·포맷 변경은 관련 문서와 설정 검사로 검증한다.
+
+E2E는 Playwright Test를 사용하고 `e2e/*.spec.ts`에 둔다. 최초 실행 전 `pnpm exec playwright install chromium`으로 브라우저를 설치한다. 실제 앱의 주요 사용자 흐름을 검증하며 단위·통합 테스트의 세부 조건을 반복하지 않는다. 접근 가능한 이름 기반 locator와 자동 재시도 assertion을 사용한다. `pnpm check`와 별도로 실행하고, GitHub CI에서는 E2E 실행 후 HTML 보고서를 보관한다.
 
 ## Git 작업
 
@@ -73,7 +77,7 @@ feat: ebook 사이드바 채팅 구현
 
 ## 작업 원칙
 
-`.specify/memory/constitution.md`를 따르고 명세 범위를 지킨다. 범위 변경 시 명세·계획부터 갱신한다.
+`.specify/memory/constitution.md`를 따른다. 기능 추가는 명세 범위를 지키고, 기능 범위가 바뀌면 명세·계획부터 갱신한다. 기능 추가가 아닌 작업에는 아래 Spec Kit 적용 범위를 따른다.
 
 ### 한국어 글쓰기
 
@@ -100,9 +104,12 @@ feat: ebook 사이드바 채팅 구현
 
 ### Spec Kit 기반 SDD (개발 방식)
 
+- `specs/`는 기능 추가의 명세·계획·작업 목록을 관리하는 데 사용한다.
+- 기능 추가가 아닌 테스트 도구 도입, CI·빌드 설정, 의존성 관리, 리팩터링, 버그 수정, 문서 정리는 `specs/`에 별도 문서를 만들지 않는다. 작업 이유와 검증 결과는 PR에 기록한다.
+- PR 작성 전 참고 메모가 필요하면 저장소 밖의 임시 파일에 보관하고 위치를 작업 결과에 남긴다. 임시 메모를 `specs/`나 커밋 대상에 포함하지 않는다.
 - 기본적으로 한 번에 하나의 작업만 구현한다.
 - 현재 작업이 완료되면 다음 작업을 시작하지 말고 중단한다.
-- 완료된 작업은 `tasks.md`에서 체크한다.
+- 기능 명세의 `tasks.md`가 있는 작업은 완료 후 해당 항목을 체크한다. 기능 추가가 아닌 작업을 위해 `tasks.md`를 만들지 않는다.
 - 작업 완료 후 다음 내용을 보고한다:
   - 변경된 파일
   - 구현 내용
