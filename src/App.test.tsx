@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import App from './app'
 
 describe('App', () => {
   it('버튼을 누르면 표시된 카운트가 증가한다', async () => {

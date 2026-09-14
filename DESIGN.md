@@ -142,7 +142,8 @@ shadcn Nova(Base UI)로 통일하고 필요한 컴포넌트만 설치한다.
 - `src/components/ui/`: CLI로 추가한 컴포넌트의 기존 variant를 우선 사용한다.
   Button의 `default`·`outline`·`secondary`·`ghost`처럼 같은 역할 안에서 별도 표현 종류가 필요할 때만 의미 토큰으로 variant를 확장한다.
   외부 CSS로 기본 형태·상태를 덮어쓰지 않는다. 업스트림 갱신 시 diff를 확인하고 로컬 확장을 보존한다.
-- `src/components/` (`ui/` 제외): 서비스 컴포넌트에서 기존 UI 컴포넌트를 조합한다.
+- `src/components/` (`ui/` 제외): 여러 기능에서 사용하는 서비스 공통 UI를 조합한다.
+- `src/features/<기능>/components/`: 해당 기능 전용 UI를 기존 공통 컴포넌트로 조합한다.
   `className`은 레이아웃에만 사용한다. 정적 콘텐츠는 시맨틱 HTML을 쓰되,
   Button·Separator·Badge·Empty 등 대응 컴포넌트가 있는 UI를 직접 재구현하지 않는다.
 - 기존 `variant`·`size`와 공식 조합 API를 우선한다. 새로운 표현 종류가 필요하면 [CVA](https://cva.style/getting-started/variants/)의

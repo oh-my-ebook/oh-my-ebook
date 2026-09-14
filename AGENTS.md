@@ -2,7 +2,15 @@
 
 ## 프로젝트 구조 및 모듈 구성
 
-이 저장소는 TypeScript와 Vite를 사용하는 React 19 애플리케이션이다. `src/main.tsx`에서 `src/App.tsx`를 마운트하며, 스타일은 `src/index.css`와 `src/App.css`에 둔다. 가져와서 사용하는 이미지는 `src/assets/`에, 직접 제공하는 정적 파일은 `public/`에 둔다. 테스트는 `src/App.test.tsx`처럼 소스 파일과 같은 위치에 두며, 공통 테스트 설정은 `src/test/setup.ts`에 둔다. 빌드 결과물은 `dist/`에, 커버리지 보고서는 `coverage/`에 생성된다. Spec Kit 템플릿과 스크립트는 `.specify/`에 둔다.
+이 저장소는 TypeScript와 Vite를 사용하는 React 19 애플리케이션이다. `src/main.tsx`에서 `src/app.tsx`를 마운트하며, 스타일은 `src/index.css`와 `src/app.css`에 둔다. 가져와서 사용하는 이미지는 `src/assets/`에, 직접 제공하는 정적 파일은 `public/`에 둔다. 테스트는 `src/app.test.tsx`처럼 소스 파일과 같은 위치에 두며, 공통 테스트 설정은 `src/test/setup.ts`에 둔다. 빌드 결과물은 `dist/`에, 커버리지 보고서는 `coverage/`에 생성된다. Spec Kit 템플릿과 스크립트는 `.specify/`에 둔다.
+
+### 기능별 코드 배치
+
+- 기능 전용 컴포넌트·훅·로직은 `src/features/<기능>/` 안에 모은다. 필요한 경우 `components/`, `hooks/`, `lib/`로 나누며 빈 폴더를 미리 만들지 않는다.
+- `src/components/`에는 여러 기능에서 사용하는 공통 UI만 둔다. shadcn 기본 UI는 `src/components/ui/`, 서비스 공통 UI는 그 밖에 둔다.
+- 최상위 `src/hooks/`와 `src/lib/`는 공통 코드에 사용한다. 기능 전용 코드는 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다.
+- 공통 코드는 특정 기능을 import하지 않는다. 기능 간 연결은 `app.tsx`나 페이지에서 조합하고 다른 기능의 내부 컴포넌트·훅을 직접 사용하지 않는다.
+- 라우팅 도입 시 `src/pages/`에 URL별 화면 조합을 둔다. 현재는 `app.tsx`에서 기능 화면을 직접 연결한다.
 
 ## 빌드, 테스트 및 개발 명령어
 
@@ -21,7 +29,7 @@ Node 24.x(`.node-version`과 `.nvmrc`에 고정)와 pnpm 12.4.1을 사용한다.
 
 ## 코드 스타일 및 명명 규칙
 
-TypeScript와 ES 모듈, 함수 컴포넌트를 사용한다. 컴포넌트 이름은 PascalCase(`App.tsx`), 변수와 함수 이름은 camelCase, 유틸리티 파일 이름은 kebab-case로 작성한다. 필요한 모듈은 명시적으로 import한다.
+TypeScript와 ES 모듈, 함수 컴포넌트를 사용한다. 컴포넌트 함수 이름은 PascalCase(`App`, `PdfViewport`), 일반 변수와 함수 이름은 camelCase로 작성한다. 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case(`app.tsx`, `reader-page.tsx`, `pdf-viewport.tsx`, `use-pdf-document.ts`)로 통일한다. 테스트 파일은 대상 파일 이름에 `.test`를 붙인다. 필요한 모듈은 명시적으로 import한다.
 
 Prettier 설정은 `.prettierrc`를 기준으로 공백 2칸 들여쓰기, 작은따옴표, 세미콜론 생략, 후행 쉼표, LF 줄바꿈, 줄 너비 100자를 사용한다. 단, `src/components/ui/`는 shadcn CLI 생성 결과의 포맷을 보존하기 위해 `.prettierignore` 설정에 따라 포맷 검사·수정 대상에서 제외한다. 이 경로에 일괄 포맷을 적용하지 않는다.
 
@@ -35,7 +43,7 @@ Prettier 설정은 `.prettierrc`를 기준으로 공백 2칸 들여쓰기, 작�
 
 ## 테스트 가이드
 
-Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한다. 테스트 파일 이름은 `*.test.ts` 또는 `*.test.tsx`로 작성한다. `src/App.test.tsx`를 참고하여 접근성을 고려한 쿼리와 사용자 상호작용으로 관찰 가능한 동작을 테스트한다. 테스트를 한 번 실행하려면 `pnpm test`를 사용한다. CI는 최소 임계값 설정 없이 커버리지를 수집하며, 동작 변경 시 관련 회귀 테스트를 추가한다.
+Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한다. 테스트 파일 이름은 `*.test.ts` 또는 `*.test.tsx`로 작성한다. `src/app.test.tsx`를 참고하여 접근성을 고려한 쿼리와 사용자 상호작용으로 관찰 가능한 동작을 테스트한다. 테스트를 한 번 실행하려면 `pnpm test`를 사용한다. CI는 최소 임계값 설정 없이 커버리지를 수집하며, 동작 변경 시 관련 회귀 테스트를 추가한다.
 
 새 기능과 버그 수정은 TDD로 진행한다. 기대 동작을 테스트로 작성하고 의도한 이유로 실패하는지 확인한 뒤, 최소 구현으로 통과시키고 테스트를 유지하며 리팩터링한다. 동작을 바꾸지 않는 문서·포맷 변경은 관련 문서와 설정 검사로 검증한다.
 
@@ -95,7 +103,7 @@ feat: ebook 사이드바 채팅 구현
 - variant는 같은 역할의 컴포넌트 안에서 구분되는 표현 종류를 나타낸다. Button의 `default`·`outline`·`secondary`·`ghost` 등이 해당한다.
   기존 컴포넌트와 내장 `variant`·`size`를 먼저 사용하고, 기존 종류로 표현할 수 없는 별도 종류가 필요할 때만 variant를 추가한다.
   사용처의 `className`은 레이아웃에만 사용하며 색상·타이포그래피를 덮어쓰지 않는다.
-- 서비스 컴포넌트는 `src/components/`의 `ui/` 밖에서 조합한다.
+- 서비스 공통 컴포넌트는 `src/components/`의 `ui/` 밖에, 기능 전용 컴포넌트는 `src/features/<기능>/components/`에 두고 기본 UI를 조합한다.
   대응하는 shadcn 컴포넌트가 있는 UI를 임의 마크업으로 재구현하지 않는다.
 - CLI는 `pnpm dlx shadcn@latest`로 실행하고 설정·설치 목록·공식 문서를 먼저 확인한다.
   현재 Base UI에 맞는 API를 사용하고 동작·키보드 접근성·focus를 보존한다.
