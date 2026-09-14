@@ -42,5 +42,3 @@ description: 한국어 커밋 메시지, PR 제목·본문, 이슈, 문서(스�
 제출 전 원문과 대조해 의미와 문서 구조가 유지됐는지 확인한다. 요청한 결과물을 우선 제시하고, 별도 요청이 없으면 문장별 진단이나 점수표는 덧붙이지 않는다.
 
 참고: [im-not-ai](https://github.com/epoko77-ai/im-not-ai)의 의미 보존·국소 수정·장르 유지·과윤문 방지 원칙과 [윤문 처방집](https://github.com/epoko77-ai/im-not-ai/blob/main/skills/humanize-korean/references/rewriting-playbook.md)을 개발 문서에 맞게 추렸다.
-
-참고 자료의 저작권과 MIT 라이선스 원문은 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)에 보존한다. 이 스킬을 공유할 때 함께 포함한다.
