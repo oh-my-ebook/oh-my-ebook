@@ -1,6 +1,6 @@
 name: 📝 문서 개선
 description: README, 개발 가이드나 Spec Kit 문서에서 보완할 내용을 알려주세요.
-title: '[문서] '
+title: '[📝 문서] '
 labels: ['documentation']
 body:
   - type: input
