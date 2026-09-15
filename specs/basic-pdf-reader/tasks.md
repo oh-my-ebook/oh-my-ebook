@@ -30,7 +30,7 @@
 - [ ] [T010] `src/features/reader/lib/page-navigation.test.ts`에 한 페이지 보기의 앞뒤 이동·첫과 마지막 경계·번호 입력 검증 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-navigation.ts`에 페이지 범위 계산과 입력 검증을 구현한다. 표지를 포함한 1부터의 번호를 사용하고 빈 값·문자·소수·지수 표기·범위 밖 값은 거부한다. (FR-005, FR-011, FR-012)
 - [ ] [T011] `src/features/reader/components/page-navigator.test.tsx`에 이전·다음·번호 동기화·Enter 확정·잘못된 입력 후 위치 유지·오류 수정·한 장 문서 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/page-navigator.tsx`는 현재 페이지·전체 페이지 수·사용 가능 여부와 `onPageChange`만 props로 받고, Reader 상태를 직접 import하지 않는다. 첫·마지막과 로딩 중 이동을 비활성화하며 오류를 입력과 연결한다. (FR-003, FR-005, FR-011부터 FR-013, FR-019)
 - [ ] [T012] `src/features/reader/components/page-navigator.test.tsx`에 슬라이더 선택·키보드 이동·입력창 동기화·한 장 문서 비활성화 테스트를 먼저 작성해 실패를 확인한다. Slider 반환값은 타입과 길이를 확인해 처리하고 320px 화면에서도 조작이 겹치지 않도록 배치한다. `e2e/fixtures/pdf/single-page.pdf`에 번호와 도형으로 식별할 수 있는 한 장 문서를 준비한다. (FR-013, FR-019, FR-020)
-- [ ] [T013] `pnpm test -- src/features/reader/lib/page-navigation.test.ts src/features/reader/components/page-navigator.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 props 계약과 한 장 fixture 경로를 인계한다.
+- [ ] [T013] `pnpm test -- src/features/reader/lib/page-navigation.test.ts src/features/reader/components/page-navigator.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일과 테스트, shadcn CLI가 실제로 변경한 `package.json`, `pnpm-lock.yaml` 외에는 변경되지 않았는지 확인하고 통합 담당자에게 props 계약과 한 장 fixture 경로를 인계한다.
 
 ## 섹션 2 [P] 한 페이지·두 페이지 보기
 
@@ -40,7 +40,7 @@
 - [ ] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리와 두 페이지 허용 조건을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-016)
 - [ ] [T016] `src/features/reader/components/pdf-viewport.test.tsx`에 최대 두 페이지의 완료 대기·한쪽 실패·작업 취소·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`는 페이지 목록과 공통 배율을 받아 Canvas를 최대 두 개만 만들고 표시 상태를 콜백으로 알린다. 모든 페이지가 준비된 뒤 본문을 표시하며 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. 기존 한 페이지 호출 계약은 통합 전까지 유지한다. (FR-005, FR-007, FR-009, FR-018)
 - [ ] [T017] `src/features/reader/components/view-mode-control.test.tsx`에 보기 전환·빈 배열 선택 유지·제한 사유·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/view-mode-control.tsx`는 보기 선호·적용 가능 여부와 변경 콜백만 받고, 제한 사유를 hover 없이 확인할 수 있게 한다. (FR-003, FR-010, FR-016, FR-019)
-- [ ] [T018] `pnpm test -- src/features/reader/lib/page-spread.test.ts src/features/reader/components/view-mode-control.test.tsx src/features/reader/components/pdf-viewport.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 보기·표시 상태 계약과 fixture 경로를 인계한다.
+- [ ] [T018] `pnpm test -- src/features/reader/lib/page-spread.test.ts src/features/reader/components/view-mode-control.test.tsx src/features/reader/components/pdf-viewport.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일과 테스트, shadcn CLI가 실제로 변경한 `package.json`, `pnpm-lock.yaml` 외에는 변경되지 않았는지 확인하고 통합 담당자에게 보기·표시 상태 계약과 fixture 경로를 인계한다.
 
 ## 섹션 3 [P] 크기 조절
 
@@ -48,7 +48,7 @@
 
 - [ ] [T019] `src/features/reader/lib/reader-zoom.test.ts`에 한 페이지·두 페이지 높이 맞춤, 간격 포함 너비, 너비 초과 방지, 수동 배율 25%부터 300%, 25%p 증감, 높이 맞춤 해제·복귀와 한도 밖에서 시작하는 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/reader-zoom.ts`에 현재 표시하는 모든 페이지가 가용 너비와 높이 안에 들어오는 같은 배율과 수동 배율 계산을 구현한다. 높이 맞춤에는 수동 한도를 적용하지 않고 상한 이상에서 확대·하한 이하에서 축소를 비활성화한다. (FR-014, FR-015)
 - [ ] [T020] `src/features/reader/components/zoom-controls.test.tsx`에 확대·축소·확대율·높이 맞춤·한계 비활성화·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/zoom-controls.tsx`는 맞춤 여부·표시 배율·조작 가능 여부와 변경 콜백만 받고, 페이지·보기·패널 상태를 직접 import하지 않는다. 320px 화면에서도 조작부가 잘리거나 겹치지 않아야 한다. (FR-003, FR-014, FR-015, FR-019, FR-020)
-- [ ] [T021] `pnpm test -- src/features/reader/lib/reader-zoom.test.ts src/features/reader/components/zoom-controls.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 배율 계산과 조작 콜백 계약을 인계한다.
+- [ ] [T021] `pnpm test -- src/features/reader/lib/reader-zoom.test.ts src/features/reader/components/zoom-controls.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일과 테스트, shadcn CLI가 실제로 변경한 `package.json`, `pnpm-lock.yaml` 외에는 변경되지 않았는지 확인하고 통합 담당자에게 배율 계산과 조작 콜백 계약을 인계한다.
 
 ## 섹션 4 [P] 보조 패널과 반응형 동작
 
