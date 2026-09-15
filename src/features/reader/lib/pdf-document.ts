@@ -12,7 +12,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 // PDF의 1/72인치 포인트를 CSS의 1/96인치 픽셀 기준으로 변환하는 배율이다.
-const PDF_CSS_SCALE = 96 / 72
+export const PDF_CSS_SCALE = 96 / 72
 
 export type PdfDocumentErrorKind =
   'invalid-document' | 'load-failed' | 'page-info' | 'password-required'
