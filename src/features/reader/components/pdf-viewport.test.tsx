@@ -17,15 +17,14 @@ function createRenderTask() {
 }
 
 function createPdfPage(renderTasks: ReturnType<typeof createRenderTask>[]) {
-  let renderIndex = 0
+  const pendingRenderTasks = [...renderTasks]
   const getViewport = vi.fn(({ scale }: { scale: number }) => ({
     width: 600 * scale,
     height: 900 * scale,
     rotation: 0,
   }))
   const render = vi.fn(() => {
-    const renderTask = renderTasks[renderIndex]
-    renderIndex += 1
+    const renderTask = pendingRenderTasks.shift()
     if (!renderTask) {
       throw new Error('렌더링 작업이 준비되지 않았습니다.')
     }

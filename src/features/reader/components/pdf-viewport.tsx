@@ -77,56 +77,53 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
       return
     }
 
-    let active = true
-    let canvas: HTMLCanvasElement | undefined
-    let renderTask: PdfRenderTask | undefined
-    let renderPending = false
-    canvasContainer.replaceChildren()
+    const controller = new AbortController()
+    const canvas = canvasContainer.ownerDocument.createElement('canvas')
+    canvas.setAttribute('role', 'img')
+    canvas.setAttribute('aria-label', `PDF ${page.pageNumber}페이지`)
+    canvas.textContent = `PDF ${page.pageNumber}페이지`
+    canvasContainer.replaceChildren(canvas)
 
     const renderPage = async () => {
       try {
         const pdfPage = await document.getPage(page.pageNumber)
-        if (!active) {
-          return
-        }
+        controller.signal.throwIfAborted()
         if (!isRenderablePdfPage(pdfPage)) {
           throw new Error('PDF 페이지를 그릴 수 없습니다.')
         }
 
         const viewport = pdfPage.getViewport({ scale: PDF_CSS_SCALE * scale })
         const pixelRatio = getDevicePixelRatio()
-        canvas = canvasContainer.ownerDocument.createElement('canvas')
         canvas.width = Math.floor(viewport.width * pixelRatio)
         canvas.height = Math.floor(viewport.height * pixelRatio)
         canvas.style.width = `${viewport.width}px`
         canvas.style.height = `${viewport.height}px`
-        canvas.setAttribute('role', 'img')
-        canvas.setAttribute('aria-label', `PDF ${page.pageNumber}페이지`)
-        canvas.textContent = `PDF ${page.pageNumber}페이지`
-        canvasContainer.replaceChildren(canvas)
 
         // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
-        renderTask = pdfPage.render({
+        const renderTask = pdfPage.render({
           canvas,
           viewport,
           transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
         })
-        renderPending = true
-        await renderTask.promise
-        renderPending = false
-        if (!active) {
-          return
+        const cancelRender = () => {
+          renderTask.cancel()
         }
+        controller.signal.addEventListener('abort', cancelRender, { once: true })
+        try {
+          await renderTask.promise
+        } finally {
+          controller.signal.removeEventListener('abort', cancelRender)
+        }
+        controller.signal.throwIfAborted()
         setOutcome({
           request: { attempt, document, pageNumber: page.pageNumber, scale },
           status: 'ready',
         })
       } catch {
-        renderPending = false
-        if (!active) {
+        if (controller.signal.aborted) {
           return
         }
-        canvas?.remove()
+        canvas.remove()
         setOutcome({
           request: { attempt, document, pageNumber: page.pageNumber, scale },
           status: 'error',
@@ -137,11 +134,8 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
     renderPage()
 
     return () => {
-      active = false
-      if (renderPending) {
-        renderTask?.cancel()
-      }
-      canvas?.remove()
+      controller.abort()
+      canvas.remove()
     }
   }, [attempt, document, page.pageNumber, scale])
 

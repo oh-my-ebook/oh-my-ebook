@@ -49,12 +49,11 @@ function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
 function createControlledLoader(loads: readonly PromiseController<LoadedPdfDocument>[]) {
   const requestedUrls: string[] = []
   const requestSignals: AbortSignal[] = []
-  let loadIndex = 0
+  const pendingLoads = [...loads]
   const loadDocument: PdfDocumentLoader = (url, signal) => {
     requestedUrls.push(url)
     requestSignals.push(signal)
-    const load = loads[loadIndex]
-    loadIndex += 1
+    const load = pendingLoads.shift()
     if (!load) {
       return Promise.reject(new Error(`No document load for ${url}`))
     }
