@@ -96,8 +96,8 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
         const pixelRatio = getDevicePixelRatio()
         canvas.width = Math.floor(viewport.width * pixelRatio)
         canvas.height = Math.floor(viewport.height * pixelRatio)
-        canvas.style.width = `${viewport.width}px`
-        canvas.style.height = `${viewport.height}px`
+        canvas.style.width = '100%'
+        canvas.style.height = '100%'
 
         // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
         const renderTask = pdfPage.render({
@@ -148,17 +148,24 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
       aria-label="PDF 본문"
       className="flex h-full min-h-0 items-start justify-center overflow-hidden"
     >
-      <div className="w-fit" hidden={status !== 'ready'} ref={canvasContainerRef} />
+      <div
+        data-slot="pdf-page-frame"
+        className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none"
+        hidden={status === 'error'}
+        style={{ height: displayHeight, width: displayWidth }}
+      >
+        <div className="h-full w-full" hidden={status !== 'ready'} ref={canvasContainerRef} />
 
-      {status === 'loading' && (
-        <div
-          aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
-          role="status"
-          style={{ height: displayHeight, width: displayWidth }}
-        >
-          <Skeleton className="h-full w-full" />
-        </div>
-      )}
+        {status === 'loading' && (
+          <div
+            aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
+            className="absolute inset-0"
+            role="status"
+          >
+            <Skeleton className="h-full w-full" />
+          </div>
+        )}
+      </div>
 
       {status === 'error' && (
         <Alert className="mx-auto max-w-md" variant="destructive">
