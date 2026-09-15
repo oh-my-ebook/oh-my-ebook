@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
+import { calculatePageSpread, isTwoPageViewAvailable, type PageViewMode } from '../lib/page-spread'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -75,22 +76,27 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 }
 
 export function Reader({ url, title }: ReaderProps) {
+  const [preferredView, setPreferredView] = useState<PageViewMode>('single')
   const documentState = usePdfDocument(url)
   const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
-  const firstPage = documentState.pages[0]
+  const isSpreadAvailable = isTwoPageViewAvailable(window.innerWidth, availableWidth)
+  const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
+  const firstPage = pageSpread.pages[0]
+  const pageRange = pageSpread.pages.map(({ pageNumber }) => pageNumber).join('–')
   const isPageReady =
     documentState.status === 'ready' &&
     firstPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const fitHeightScale = isPageReady
-    ? calculateFitHeightScale([firstPage], {
-        width: availableWidth,
-        height: availableHeight,
-      })
+    ? calculateFitHeightScale(
+        [firstPage, ...pageSpread.pages.slice(1)],
+        { width: availableWidth, height: availableHeight },
+        16,
+      )
     : null
   const displayScale = fitHeightScale === null ? 1 : getZoomScale(zoom, fitHeightScale)
 
@@ -111,9 +117,12 @@ export function Reader({ url, title }: ReaderProps) {
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
       <ReaderToolbar
+        isSpreadAvailable={isSpreadAvailable}
         onTogglePanel={() => setPanelOpen((open) => !open)}
+        onViewChange={setPreferredView}
         panelButtonRef={panelButtonRef}
         panelOpen={panelOpen}
+        preferredView={preferredView}
         title={getReaderTitle(url, title)}
       >
         <ZoomControls
@@ -151,7 +160,11 @@ export function Reader({ url, title }: ReaderProps) {
             )}
 
           {isPageReady && fitHeightScale !== null && (
-            <PdfViewport document={documentState.document} page={firstPage} scale={displayScale} />
+            <PdfViewport
+              document={documentState.document}
+              pages={pageSpread.pages}
+              scale={displayScale}
+            />
           )}
         </main>
 
@@ -164,7 +177,11 @@ export function Reader({ url, title }: ReaderProps) {
       </div>
 
       <footer className="flex min-h-12 shrink-0 items-center justify-center border-t px-4 py-2">
-        {isPageReady && <output aria-label="페이지 위치">1 / {documentState.pages.length}</output>}
+        {isPageReady && (
+          <output aria-label="페이지 위치">
+            {pageRange} / {documentState.pages.length}
+          </output>
+        )}
       </footer>
     </div>
   )
