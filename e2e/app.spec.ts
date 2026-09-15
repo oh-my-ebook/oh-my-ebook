@@ -1,13 +1,14 @@
 import { expect, test } from '@playwright/test'
 
-test('앱에서 카운트를 변경하고 새로고침하면 초기 상태로 돌아온다', async ({ page }) => {
+test('첫 진입과 새로고침 후 PDF 첫 페이지를 표시한다', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'Get started', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Count is 0', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Count is 1', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeVisible()
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('1 / 5')
 
   await page.reload()
 
-  await expect(page.getByRole('button', { name: 'Count is 0', exact: true })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeVisible()
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('1 / 5')
 })
