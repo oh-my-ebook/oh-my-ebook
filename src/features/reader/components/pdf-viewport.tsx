@@ -10,11 +10,23 @@ import {
   type PdfPageViewport,
 } from '../lib/pdf-document'
 
-interface PdfViewportProps {
+interface PdfViewportBaseProps {
   document: PdfDocumentHandle
-  page: PdfPageInfo
   scale: number
+  onStatusChange?: (status: PdfViewportStatus) => void
 }
+
+interface PdfViewportSinglePageProps extends PdfViewportBaseProps {
+  page: PdfPageInfo
+}
+
+interface PdfViewportPagesProps extends PdfViewportBaseProps {
+  pages: readonly PdfPageInfo[]
+}
+
+type PdfViewportProps = PdfViewportSinglePageProps | PdfViewportPagesProps
+
+export type PdfViewportStatus = 'error' | 'loading' | 'ready'
 
 interface PdfRenderParameters {
   canvas: HTMLCanvasElement
@@ -34,7 +46,7 @@ interface RenderablePdfPage extends PdfPageHandle {
 interface PdfViewportRequest {
   attempt: number
   document: PdfDocumentHandle
-  pageNumber: number
+  pageNumbers: string
   scale: number
 }
 
@@ -55,7 +67,7 @@ function isCurrentOutcome(
     outcome !== null &&
     outcome.request.attempt === request.attempt &&
     outcome.request.document === request.document &&
-    outcome.request.pageNumber === request.pageNumber &&
+    outcome.request.pageNumbers === request.pageNumbers &&
     outcome.request.scale === request.scale
   )
 }
@@ -64,83 +76,106 @@ function getDevicePixelRatio() {
   return Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1
 }
 
-export function PdfViewport({ document, page, scale }: PdfViewportProps) {
+export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
+export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
+export function PdfViewport(props: PdfViewportProps) {
+  const { document, onStatusChange, scale } = props
+  const requestedPages = 'pages' in props ? props.pages : [props.page]
+  const pages = requestedPages.slice(0, 2)
+  const firstPageNumber = pages[0]?.pageNumber
+  const secondPageNumber = pages[1]?.pageNumber
+  const pageNumbers = pages.map(({ pageNumber }) => pageNumber).join(',')
+  const pageRange = pages.map(({ pageNumber }) => pageNumber).join('–')
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [attempt, setAttempt] = useState(0)
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
-  const request = { attempt, document, pageNumber: page.pageNumber, scale }
+  const request = { attempt, document, pageNumbers, scale }
   const status = isCurrentOutcome(outcome, request) ? outcome.status : 'loading'
 
   useEffect(() => {
+    onStatusChange?.(status)
+  }, [onStatusChange, status])
+
+  useEffect(() => {
     const canvasContainer = canvasContainerRef.current
-    if (!canvasContainer) {
+    const requestedPageNumbers = [firstPageNumber, secondPageNumber].filter(
+      (pageNumber): pageNumber is number => pageNumber !== undefined,
+    )
+    if (!canvasContainer || requestedPageNumbers.length === 0) {
       return
     }
 
     const controller = new AbortController()
-    const canvas = canvasContainer.ownerDocument.createElement('canvas')
-    canvas.setAttribute('role', 'img')
-    canvas.setAttribute('aria-label', `PDF ${page.pageNumber}페이지`)
-    canvas.textContent = `PDF ${page.pageNumber}페이지`
-    canvasContainer.replaceChildren(canvas)
+    const canvases = requestedPageNumbers.map((pageNumber) => {
+      const canvas = canvasContainer.ownerDocument.createElement('canvas')
+      canvas.setAttribute('role', 'img')
+      canvas.setAttribute('aria-label', `PDF ${pageNumber}페이지`)
+      canvas.textContent = `PDF ${pageNumber}페이지`
+      return canvas
+    })
+    const renderPage = async (pageNumber: number, canvas: HTMLCanvasElement) => {
+      const pdfPage = await document.getPage(pageNumber)
+      controller.signal.throwIfAborted()
+      if (!isRenderablePdfPage(pdfPage)) {
+        throw new Error('PDF 페이지를 그릴 수 없습니다.')
+      }
 
-    const renderPage = async () => {
+      const viewport = pdfPage.getViewport({ scale: PDF_CSS_SCALE * scale })
+      const pixelRatio = getDevicePixelRatio()
+      canvas.width = Math.floor(viewport.width * pixelRatio)
+      canvas.height = Math.floor(viewport.height * pixelRatio)
+      canvas.style.width = '100%'
+      canvas.style.height = '100%'
+
+      // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
+      const renderTask = pdfPage.render({
+        canvas,
+        viewport,
+        transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
+      })
+      const cancelRender = () => {
+        renderTask.cancel()
+      }
+      controller.signal.addEventListener('abort', cancelRender, { once: true })
       try {
-        const pdfPage = await document.getPage(page.pageNumber)
-        controller.signal.throwIfAborted()
-        if (!isRenderablePdfPage(pdfPage)) {
-          throw new Error('PDF 페이지를 그릴 수 없습니다.')
-        }
+        await renderTask.promise
+      } finally {
+        controller.signal.removeEventListener('abort', cancelRender)
+      }
+      controller.signal.throwIfAborted()
+    }
 
-        const viewport = pdfPage.getViewport({ scale: PDF_CSS_SCALE * scale })
-        const pixelRatio = getDevicePixelRatio()
-        canvas.width = Math.floor(viewport.width * pixelRatio)
-        canvas.height = Math.floor(viewport.height * pixelRatio)
-        canvas.style.width = '100%'
-        canvas.style.height = '100%'
-
-        // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
-        const renderTask = pdfPage.render({
-          canvas,
-          viewport,
-          transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
-        })
-        const cancelRender = () => {
-          renderTask.cancel()
-        }
-        controller.signal.addEventListener('abort', cancelRender, { once: true })
-        try {
-          await renderTask.promise
-        } finally {
-          controller.signal.removeEventListener('abort', cancelRender)
-        }
-        controller.signal.throwIfAborted()
+    const renderPages = async () => {
+      try {
+        await Promise.all(
+          requestedPageNumbers.map((pageNumber, index) => renderPage(pageNumber, canvases[index])),
+        )
         setOutcome({
-          request: { attempt, document, pageNumber: page.pageNumber, scale },
+          request: { attempt, document, pageNumbers, scale },
           status: 'ready',
         })
       } catch {
         if (controller.signal.aborted) {
           return
         }
-        canvas.remove()
+        controller.abort()
+        canvases.forEach((canvas) => canvas.remove())
         setOutcome({
-          request: { attempt, document, pageNumber: page.pageNumber, scale },
+          request: { attempt, document, pageNumbers, scale },
           status: 'error',
         })
       }
     }
 
-    renderPage()
+    const canvasContainers = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
+    canvasContainers.forEach((container, index) => container.replaceChildren(canvases[index]))
+    void renderPages()
 
     return () => {
       controller.abort()
-      canvas.remove()
+      canvases.forEach((canvas) => canvas.remove())
     }
-  }, [attempt, document, page.pageNumber, scale])
-
-  const displayWidth = page.width * scale
-  const displayHeight = page.height * scale
+  }, [attempt, document, firstPageNumber, pageNumbers, scale, secondPageNumber])
 
   return (
     <section
@@ -148,38 +183,41 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
       aria-label="PDF 본문"
       className="h-full min-h-0 overflow-auto"
     >
-      <div className="flex min-h-full w-max min-w-full items-start justify-center">
-        <div
-          data-slot="pdf-page-frame"
-          className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none"
-          hidden={status === 'error'}
-          style={{ height: displayHeight, width: displayWidth }}
-        >
-          <div className="h-full w-full" hidden={status !== 'ready'} ref={canvasContainerRef} />
-
-          {status === 'loading' && (
+      <div
+        aria-label={status === 'loading' ? `PDF ${pageRange}페이지 표시 중` : undefined}
+        className="flex min-h-full w-max min-w-full items-start justify-center gap-reader-spread-gap"
+        hidden={status === 'error'}
+        ref={canvasContainerRef}
+        role={status === 'loading' ? 'status' : undefined}
+      >
+        {pages.map((page) => (
+          <div
+            className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none"
+            data-slot="pdf-page-frame"
+            key={page.pageNumber}
+            style={{ height: page.height * scale, width: page.width * scale }}
+          >
             <div
-              aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
-              className="absolute inset-0"
-              role="status"
-            >
-              <Skeleton className="h-full w-full" />
-            </div>
-          )}
-        </div>
-
-        {status === 'error' && (
-          <Alert className="mx-auto max-w-md" variant="destructive">
-            <AlertTitle>{page.pageNumber}페이지를 표시하지 못했습니다.</AlertTitle>
-            <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
-            <AlertAction>
-              <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
-                다시 시도
-              </Button>
-            </AlertAction>
-          </Alert>
-        )}
+              className="h-full w-full"
+              data-slot="pdf-page-canvas"
+              hidden={status !== 'ready'}
+            />
+            {status === 'loading' && <Skeleton className="absolute inset-0 h-full w-full" />}
+          </div>
+        ))}
       </div>
+
+      {status === 'error' && (
+        <Alert className="mx-auto max-w-md" variant="destructive">
+          <AlertTitle>{pageRange}페이지를 표시하지 못했습니다.</AlertTitle>
+          <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
+          <AlertAction>
+            <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
+              다시 시도
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
     </section>
   )
 }
