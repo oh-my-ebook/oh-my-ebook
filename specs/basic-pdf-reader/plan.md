@@ -111,27 +111,31 @@ UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 �
 
 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case로 통일한다. 컴포넌트 함수 이름은 `PdfViewport`처럼 PascalCase를 유지하며, 테스트 파일은 `pdf-viewport.test.tsx`처럼 대상 파일 이름에 `.test`를 붙인다.
 
-| 경로                                                | 변경 내용                                                              |
-| --------------------------------------------------- | ---------------------------------------------------------------------- |
-| `src/app.tsx`                                       | 기본 시작 화면을 샘플 Reader로 교체하고 `app.css` import 제거          |
-| `src/app.css`                                       | 삭제하고 Reader 레이아웃은 Tailwind 유틸리티로 구성                    |
-| `src/features/reader/components/reader.tsx`         | 상태 소유와 전체 화면 조합                                             |
-| `src/features/reader/components/reader-toolbar.tsx` | 상단 조작부                                                            |
-| `src/features/reader/components/page-navigator.tsx` | 페이지 입력·슬라이더·앞뒤 이동                                         |
-| `src/features/reader/components/pdf-viewport.tsx`   | Canvas 렌더링과 표시 완료·오류 처리                                    |
-| `src/features/reader/components/reader-panel.tsx`   | 반응형 빈 패널과 포커스 복원                                           |
-| `src/features/reader/lib/pdf-document.ts`           | PDF.js worker 설정과 문서·페이지 정보 조회                             |
-| `src/features/reader/lib/reader-state.ts`           | 타입, 함께 표시할 페이지·탐색·입력·배율의 순수 계산                    |
-| `src/features/reader/hooks/use-pdf-document.ts`     | 문서 로딩·재시도·수명 관리                                             |
-| `src/features/reader/hooks/use-reader-layout.ts`    | 화면·읽기 영역 측정과 정리                                             |
-| `src/components/ui/`                                | 필요한 기본 컴포넌트와 의존 컴포넌트를 CLI로 추가                      |
-| `src/index.css`                                     | Tailwind 설정·공통 테마 토큰·전역 기본 스타일 유지, 필요한 토큰만 추가 |
-| `public/samples/basic-reader.pdf`                   | 기본 세로 텍스트 PDF                                                   |
-| `e2e/fixtures/pdf/`                                 | 스캔·가로·혼합·한 장·회전·정사각형 검증 파일                           |
-| `src/**/*.test.ts`, `src/**/*.test.tsx`             | 해당 소스 옆에 계산·상호작용·비동기 경계 테스트                        |
-| `e2e/basic-pdf-reader.spec.ts`, `e2e/app.spec.ts`   | Reader E2E 추가, 기본 카운터 E2E를 Reader 진입·초기화 검증으로 교체    |
-| `src/app.test.tsx`                                  | 기본 카운터 테스트를 Reader 초기 진입 검증으로 교체                    |
-| `package.json`, `pnpm-lock.yaml`                    | PDF.js·아이콘과 UI에 필요한 의존성만 반영                              |
+| 경로                                                   | 변경 내용                                                              |
+| ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `src/app.tsx`                                          | 기본 시작 화면을 샘플 Reader로 교체하고 `app.css` import 제거          |
+| `src/app.css`                                          | 삭제하고 Reader 레이아웃은 Tailwind 유틸리티로 구성                    |
+| `src/features/reader/components/reader.tsx`            | 상태 소유와 전체 화면 조합                                             |
+| `src/features/reader/components/reader-toolbar.tsx`    | 상단 조작부                                                            |
+| `src/features/reader/components/page-navigator.tsx`    | 페이지 입력·슬라이더·앞뒤 이동                                         |
+| `src/features/reader/components/view-mode-control.tsx` | 한 페이지·두 페이지 보기 전환                                          |
+| `src/features/reader/components/zoom-controls.tsx`     | 확대·축소·확대율·높이 맞춤 조작                                        |
+| `src/features/reader/components/pdf-viewport.tsx`      | Canvas 렌더링과 표시 완료·오류 처리                                    |
+| `src/features/reader/components/reader-panel.tsx`      | 반응형 빈 패널과 포커스 복원                                           |
+| `src/features/reader/lib/pdf-document.ts`              | PDF.js worker 설정과 문서·페이지 정보 조회                             |
+| `src/features/reader/lib/page-navigation.ts`           | 페이지 범위·앞뒤 이동·번호 입력의 순수 계산                            |
+| `src/features/reader/lib/page-spread.ts`               | 방향·함께 표시할 페이지·두 페이지 이동의 순수 계산                     |
+| `src/features/reader/lib/reader-zoom.ts`               | 높이 맞춤·수동 배율의 순수 계산                                        |
+| `src/features/reader/hooks/use-pdf-document.ts`        | 문서 로딩·재시도·수명 관리                                             |
+| `src/features/reader/hooks/use-reader-layout.ts`       | 화면·읽기 영역 측정과 정리                                             |
+| `src/components/ui/`                                   | 필요한 기본 컴포넌트와 의존 컴포넌트를 CLI로 추가                      |
+| `src/index.css`                                        | Tailwind 설정·공통 테마 토큰·전역 기본 스타일 유지, 필요한 토큰만 추가 |
+| `public/samples/basic-reader.pdf`                      | 기본 세로 텍스트 PDF                                                   |
+| `e2e/fixtures/pdf/`                                    | 스캔·가로·혼합·한 장·회전·정사각형 검증 파일                           |
+| `src/**/*.test.ts`, `src/**/*.test.tsx`                | 해당 소스 옆에 계산·상호작용·비동기 경계 테스트                        |
+| `e2e/basic-pdf-reader.spec.ts`, `e2e/app.spec.ts`      | Reader E2E 추가, 기본 카운터 E2E를 Reader 진입·초기화 검증으로 교체    |
+| `src/app.test.tsx`                                     | 기본 카운터 테스트를 Reader 초기 진입 검증으로 교체                    |
+| `package.json`, `pnpm-lock.yaml`                       | PDF.js·아이콘과 UI에 필요한 의존성만 반영                              |
 
 파일 분리는 위 책임에 필요한 수준으로 유지한다. EPUB 추상화, 문서 저장소, AI 통신 인터페이스, 범용 이벤트 시스템은 추가하지 않는다.
 
@@ -153,17 +157,16 @@ E2E는 Canvas 존재만 확인하지 않고 렌더링 완료 상태와 페이지
 
 화면 폭 1023px·1024px와 읽기 영역 999px·1000px는 서로 다른 조건으로 검증한다. 순수 계산에서는 두 입력을 독립적으로 다루고, E2E에서는 실제 읽기 영역 측정값을 확인하며 창 크기·패널 상태로 가능한 경계를 만든다. 320px 화면에서는 모든 조작부가 도달 가능한지 확인한다. PDF 로딩 오류는 네트워크 응답 대체로, 개별 render 실패는 제어 가능한 렌더링 경계 테스트로 검증한다.
 
-## 구현 순서와 완료 확인
+## 병렬 구현과 완료 확인
 
-아래 단계는 앞 단계의 결과를 기반으로 구현·검증한다. 필요한 의존성·UI·샘플은 사용하는 단계에서 추가하고, 오류 처리와 키보드 접근성도 해당 기능과 함께 완성한다.
+PDF 첫 페이지 표시를 공통 기반으로 먼저 완료한다. 이후 페이지 탐색, 한 페이지·두 페이지 보기, 크기 조절, 보조 패널과 반응형 동작은 서로 다른 담당자가 병렬로 구현한다. 각 담당자는 다른 섹션의 미완료 코드를 import하지 않고, 자신의 섹션에 지정된 파일과 테스트만 수정한다. 공용 조합 파일과 전체 E2E는 네 섹션을 병합한 뒤 코디네이터가 연결하고 검증한다.
 
-1. **PDF 첫 페이지 표시**: PDF.js, 텍스트·스캔 샘플, 문서 로딩·해제, Canvas 한 장, 기본 화면과 재시도를 구현한다. 초기 상태에 필요한 한 페이지 높이 맞춤과 컨테이너 측정도 포함한다. 실제 PDF·worker와 초기 진입 E2E를 검증한다.
-2. **페이지 탐색**: 한 페이지 기준 이전·다음·번호 입력·슬라이더, 입력 오류, 빠른 이동 중 이전 작업 취소를 구현하고 검증한다.
-3. **한 페이지·두 페이지 보기**: 페이지 방향·배치·두 페이지 탐색, 양쪽 페이지 표시 완료 처리, 함께 표시할 페이지의 높이 맞춤을 구현한다. 창 폭에 따른 보기 제한·선호 복원·현재 페이지 유지까지 검증한다.
-4. **크기 조절**: 확대·축소·확대율·높이 맞춤 버튼을 연결하고 수동 배율 유지와 본문 스크롤을 검증한다.
-5. **보조 패널과 반응형 동작**: 빈 패널과 포커스 복원을 구현하고 패널·창 크기 변경에 따른 보기 제한·배율·현재 페이지 유지 및 좁은 화면 조작을 검증한다.
-6. **전체 독서 흐름 검증**: 완성된 기능을 조합한 독서 흐름, 새로고침 초기화, 실제 브라우저 200% 확대와 배포 빌드를 확인한다. 검증에서 발견한 문제를 수정하며 앞선 단계의 기능 구현을 이 단계로 미루지 않는다.
+1. **페이지 탐색**: 한 페이지 기준 이전·다음·번호 입력·슬라이더와 입력 오류를 독립 모듈과 컴포넌트로 구현한다.
+2. **한 페이지·두 페이지 보기**: 페이지 방향·배치·두 페이지 이동, 양쪽 페이지 표시 완료 처리를 독립 모듈과 컴포넌트로 구현한다.
+3. **크기 조절**: 높이 맞춤과 수동 배율 계산, 확대·축소·확대율·높이 맞춤 조작을 독립 모듈과 컴포넌트로 구현한다.
+4. **보조 패널과 반응형 동작**: 반응형 빈 패널, 화면·읽기 영역 측정, 포커스 복원을 독립 훅과 컴포넌트로 구현한다.
+5. **통합과 전체 독서 흐름 검증**: 네 섹션의 공개 props와 순수 함수만 사용해 `Reader`를 조합한다. 기능을 함께 사용한 독서 흐름, 새로고침 초기화, 실제 브라우저 200% 확대와 배포 빌드를 확인한다. 검증에서 발견한 문제를 수정하며 병렬 섹션의 기능 구현을 이 단계로 미루지 않는다.
 
-`tasks.md`의 각 단계에는 개별 작업과 완료 기준을 둔다. 아직 구현하지 않은 도구 버튼은 표시하지 않는다. 작업마다 실패 확인 → 최소 구현 → 정리 순서로 진행하며, 한 작업을 완료하면 결과를 보고하고 다음 작업은 시작하지 않는다. 각 단계의 완료 기준을 충족한 뒤 기능 전체의 완료 기준을 확인한다.
+`tasks.md`의 섹션 1~4는 각각 한 명에게 배정하며 동시에 시작할 수 있다. 담당자는 자신의 섹션 안에서는 작업을 순서대로 진행하고, 실패 확인 → 최소 구현 → 정리 순서를 지킨다. 아직 통합하지 않은 도구 버튼은 기본 Reader에 표시하지 않는다. 각 섹션은 공개 계약과 집중 테스트를 완료 조건으로 삼고, 사용자 흐름과 전체 완료 기준은 통합 단계에서 확인한다.
 
 코드 변경 완료 시 `pnpm check`, `pnpm build`, `pnpm test:e2e`를 실행한다. PDF worker와 샘플이 프로덕션 번들에서도 제공되는지 `pnpm preview`로 확인한다. 명세의 SC-001~SC-006과 위 검증을 대응시키고 실제 실행 결과를 보고한다. 계획 문서만 작성한 현재 단계에서는 문서 포맷·경로·명세 일치 여부를 검증한다.

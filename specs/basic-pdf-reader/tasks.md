@@ -1,5 +1,14 @@
 # 기본 PDF Reader 구현 작업
 
+## 병렬 진행 규칙
+
+- PDF 첫 페이지 표시(T001~T008)는 네 섹션이 함께 사용하는 완료된 기반이다.
+- 섹션 1~4는 서로 선행 관계가 없으며 각 섹션을 한 명에게 배정해 동시에 진행한다. 담당자는 한 섹션만 맡고, 섹션 안의 작업은 번호 순서대로 진행한다.
+- 각 담당자는 지정된 기능 파일과 같은 위치의 테스트만 수정한다. `reader.tsx`, `reader-toolbar.tsx`, `app.tsx`, `app.test.tsx`, `e2e/app.spec.ts`, `e2e/basic-pdf-reader.spec.ts`는 병렬 작업에서 수정하지 않는다.
+- 다른 섹션의 미완료 모듈을 import하지 않는다. 섹션별 컴포넌트는 props와 콜백으로 상태를 주고받고, 순수 계산은 섹션별 `lib` 파일에 둔다.
+- shadcn CLI가 `package.json`이나 `pnpm-lock.yaml` 변경을 요구하면 해당 섹션에 포함한다. 병합 시 충돌한 의존성 파일은 통합 담당자가 공식 CLI를 한 번 더 실행해 정리한다.
+- `[P]`는 다른 섹션과 병렬로 진행할 수 있다는 표시다. 섹션별 집중 테스트가 통과하면 인계하고, 네 섹션을 병합한 뒤 통합 작업(T025~T028)을 한 명이 순서대로 수행한다.
+
 ## PDF 첫 페이지 표시
 
 **완료 기준:** 텍스트·스캔 PDF의 첫 페이지를 원본 비율과 높이 맞춤으로 한 화면 안에 표시한다. 폭이 남으면 가로 중앙에 배치하고 자동 맞춤에서는 스크롤을 만들지 않는다. 문서·페이지 표시 실패에서 재시도할 수 있고, 초기 화면을 실제 PDF와 worker로 검증한다. 탐색·보기 전환·크기 조절·패널 버튼은 아직 표시하지 않는다.
@@ -13,60 +22,60 @@
 - [x] [T007] `src/app.test.tsx`에 제목·파일명 대체 표시·첫 페이지·높이 맞춤·가로 중앙 배치·로딩과 오류 화면 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader.tsx`, `src/features/reader/components/reader-toolbar.tsx`, `src/app.tsx`를 연결해 `/`에서 Reader를 표시한다. 제목과 `1 / 전체 페이지 수`를 보여주고, 자동 맞춤과 로딩·오류에서 가로·세로 스크롤이나 잘못된 번호 안내를 만들지 않는다. `src/app.css`와 import를 제거하고 Tailwind로 고정 조작부와 필요할 때만 스크롤하는 본문을 구성한다. 320px 화면에서도 제목과 재시도 버튼이 레이아웃 밖으로 밀려나지 않아야 하며, 말줄임된 제목의 전체 이름을 heading의 접근 가능한 이름으로 유지해야 한다. (FR-001, FR-003, FR-004, FR-005, FR-015, FR-020)
 - [x] [T008] `e2e/app.spec.ts`의 카운터 검증을 초기 Reader 진입·새로고침 검증으로 교체한다. `e2e/basic-pdf-reader.spec.ts`에서 실제 텍스트·스캔 PDF 첫 페이지의 높이 맞춤·가로 중앙 배치·스크롤 없음과 요청 실패 후 재시도를 확인한다. `page.route().fulfill({ path })`로 샘플을 바꾸고, 완료 상태와 고유 도형이 있는 텍스트·스캔 대표 본문 스냅샷을 직접 검토한다. 폰트·CMap·이미지 디코더 자원이 필요하면 `src/features/reader/lib/pdf-document.ts`에서 같은 패키지 버전의 필요한 자원만 자체 제공한다. `package.json`의 check·build·E2E 명령과 preview에서 PDF·worker 제공까지 검증한다. (SC-001의 첫 페이지 표시, SC-004의 로딩 복구, FR-021)
 
-## 페이지 탐색
+## 섹션 1 [P] 페이지 탐색
 
-**선행 단계:** PDF 첫 페이지 표시. **완료 기준:** 텍스트·스캔 PDF에서 이전·다음·번호 입력·슬라이더로 이동한다. 잘못된 입력과 빠른 이동에도 마지막 유효 선택의 본문과 번호가 일치하며, 모든 탐색 조작을 키보드로 사용할 수 있다.
+**담당 범위:** `page-navigation.*`, `page-navigator.*`, 한 장 PDF fixture, 탐색용 shadcn UI. **완료 기준:** 다른 미완료 섹션 없이 집중 테스트가 통과하고, 현재 페이지·전체 페이지 수·비활성 상태·변경 콜백만으로 통합할 수 있다.
 
 - [ ] [T009] `package.json`, `pnpm-lock.yaml`에 `pnpm add lucide-react`로 아이콘을 추가한다. `src/components/ui/`에는 Field·Input·Slider·Separator·Tooltip과 의존 컴포넌트를 공식 CLI로 추가한다. Slider는 현재 Base UI API를 확인하고 `[currentPage]`로 thumb 하나를 표시하도록 구성한다. thumb 색상은 의미 토큰을 사용하고 기존 테마·variant·키보드 동작을 유지한다.
-- [ ] [T010] `src/features/reader/lib/reader-state.test.ts`에 한 페이지 보기의 앞뒤 이동·첫과 마지막 경계·번호 입력 검증 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/reader-state.ts`에 페이지 범위 계산과 입력 검증을 구현한다. 표지를 포함한 1부터의 번호를 사용하고 빈 값·문자·소수·지수 표기·범위 밖 값은 거부한다. (FR-005, FR-011, FR-012)
-- [ ] [T011] `src/features/reader/components/page-navigator.test.tsx`, `src/features/reader/components/reader.test.tsx`에 이전·다음·번호 동기화·상단 스크롤·한 장 문서 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/page-navigator.tsx`, `src/features/reader/components/reader.tsx`에 이전·다음과 현재 번호를 연결한다. 첫·마지막 이동은 비활성화하고 로딩 중 사용할 수 없는 조작도 제한한다. 각 버튼에 접근 가능한 이름과 포커스를 제공한다. (FR-003, FR-005, FR-011, FR-013, FR-019)
-- [ ] [T012] `src/features/reader/components/page-navigator.test.tsx`에 Enter 확정·잘못된 입력 후 위치 유지·오류 수정 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/page-navigator.tsx`에 Field·Input·FieldError로 번호 입력을 추가하고 한 장 문서에서 비활성화한다. 오류는 입력과 연결하고 보조 기술로 확인할 수 있게 한다. (FR-012, FR-013, FR-019)
-- [ ] [T013] `src/features/reader/components/page-navigator.test.tsx`에 슬라이더 선택·키보드 이동·입력창과 동기화·한 장 문서 비활성화 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/page-navigator.tsx`에 PDF 페이지 단위 Slider를 연결한다. 반환값은 타입과 길이를 확인해 처리하며 320px 화면에서도 탐색 조작이 겹치지 않도록 배치한다. (FR-013, FR-019, FR-020)
-- [ ] [T014] `e2e/fixtures/pdf/single-page.pdf`에 한 장 문서를 준비한다. `src/features/reader/components/reader.test.tsx`, `src/features/reader/components/pdf-viewport.test.tsx`에서 페이지별 실패와 재시도·빠른 이동 중 늦은 결과 무시를 검증하고, 필요한 수정은 실패 테스트 확인 후 적용한다. `e2e/basic-pdf-reader.spec.ts`에서는 텍스트·스캔·한 장 문서의 탐색, 입력 오류 복구, 연속 이동 후 최종 본문, 키보드 조작과 320px 화면을 확인한다. `package.json`의 check·build·E2E 명령을 통과시킨다. (SC-001의 탐색, SC-004, SC-005의 탐색 조작)
+- [ ] [T010] `src/features/reader/lib/page-navigation.test.ts`에 한 페이지 보기의 앞뒤 이동·첫과 마지막 경계·번호 입력 검증 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-navigation.ts`에 페이지 범위 계산과 입력 검증을 구현한다. 표지를 포함한 1부터의 번호를 사용하고 빈 값·문자·소수·지수 표기·범위 밖 값은 거부한다. (FR-005, FR-011, FR-012)
+- [ ] [T011] `src/features/reader/components/page-navigator.test.tsx`에 이전·다음·번호 동기화·Enter 확정·잘못된 입력 후 위치 유지·오류 수정·한 장 문서 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/page-navigator.tsx`는 현재 페이지·전체 페이지 수·사용 가능 여부와 `onPageChange`만 props로 받고, Reader 상태를 직접 import하지 않는다. 첫·마지막과 로딩 중 이동을 비활성화하며 오류를 입력과 연결한다. (FR-003, FR-005, FR-011부터 FR-013, FR-019)
+- [ ] [T012] `src/features/reader/components/page-navigator.test.tsx`에 슬라이더 선택·키보드 이동·입력창 동기화·한 장 문서 비활성화 테스트를 먼저 작성해 실패를 확인한다. Slider 반환값은 타입과 길이를 확인해 처리하고 320px 화면에서도 조작이 겹치지 않도록 배치한다. `e2e/fixtures/pdf/single-page.pdf`에 번호와 도형으로 식별할 수 있는 한 장 문서를 준비한다. (FR-013, FR-019, FR-020)
+- [ ] [T013] `pnpm test -- src/features/reader/lib/page-navigation.test.ts src/features/reader/components/page-navigator.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 props 계약과 한 장 fixture 경로를 인계한다.
 
-## 한 페이지·두 페이지 보기
+## 섹션 2 [P] 한 페이지·두 페이지 보기
 
-**선행 단계:** 페이지 탐색. **완료 기준:** 세로·가로·혼합 문서에서 누락·중복 없이 배치와 앞뒤 이동이 동작한다. 창 폭에 따른 제한·선호 복원·현재 페이지 유지까지 완성한다. 패널로 읽기 영역이 줄어드는 경우는 보조 패널과 반응형 동작 단계에서 추가 검증한다.
+**담당 범위:** `page-spread.*`, `view-mode-control.*`, `pdf-viewport.*`, 방향별 PDF fixture, 보기용 shadcn UI. **완료 기준:** 방향·배치·앞뒤 범위와 최대 두 Canvas의 완료·실패 계약을 다른 미완료 섹션 없이 검증한다.
 
-- [ ] [T015] `e2e/fixtures/pdf/`에 가로 3장·세로/세로/가로/세로/세로 5장·회전·정사각형 PDF를 준비하고 페이지별 크기·번호·도형을 확인한다. 세로 홀수 검증에는 기존 기본 샘플 5장을 재사용한다. `src/components/ui/`에 ToggleGroup과 의존 컴포넌트를 추가하고 현재 Base UI의 배열 값과 `multiple` API를 확인한다.
-- [ ] [T016] `src/features/reader/lib/reader-state.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·두 페이지 높이 맞춤·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/reader-state.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리, 간격을 포함해 현재 표시하는 모든 페이지가 가용 너비와 높이 안에 들어오는 같은 배율 계산을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-015, FR-016)
-- [ ] [T017] `src/features/reader/components/pdf-viewport.test.tsx`에 양쪽 페이지 완료 대기·한쪽 실패·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`에 최대 두 개의 Canvas 배치를 구현한다. 표시할 페이지가 모두 준비되면 본문과 표시 범위를 함께 갱신하고, 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. (FR-005, FR-007, FR-009, FR-018)
-- [ ] [T018] `src/features/reader/components/reader-toolbar.test.tsx`, `src/features/reader/components/reader.test.tsx`에 실제 Reader의 보기 전환·폭 제한·선호 복원·현재 페이지 유지 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/hooks/use-reader-layout.ts`에 화면 폭의 `matchMedia` 측정·정리를 추가하고, `src/features/reader/components/reader-toolbar.tsx`, `src/features/reader/components/reader.tsx`, `src/features/reader/components/page-navigator.tsx`에 보기 전환과 두 페이지 탐색을 연결한다. ToggleGroup 해제가 빈 배열이면 선택을 유지하고 제한 사유는 hover 없이도 확인할 수 있게 한다. 키보드 전환과 포커스를 보존한다. (FR-003, FR-005, FR-010, FR-011, FR-016, FR-019)
-- [ ] [T019] `e2e/basic-pdf-reader.spec.ts`에서 세로 홀수·가로·혼합·회전·정사각형·한 장 PDF의 앞뒤 이동과 실제 배치를 확인한다. 가로 페이지도 높이 맞춤에서 읽기 영역 안에 들어오고 스크롤 없이 가로 중앙에 놓여야 한다. 오른쪽 페이지 선택 후 보기 전환·창 폭 변경에도 현재 페이지가 유지되고, 폭이 복구되면 보기 선호가 복원되어야 한다. 화면 1023/1024px와 읽기 영역 999/1000px는 실제 측정값을 확인하며 검증한다. 대표 두 페이지 스냅샷을 직접 검토하고 `package.json`의 check·build·E2E 명령을 통과시킨다. (SC-002, SC-003의 창 크기 변경, FR-015)
+- [ ] [T014] `e2e/fixtures/pdf/`에 가로 3장·세로/세로/가로/세로/세로 5장·회전·정사각형 PDF를 준비하고 페이지별 크기·번호·도형을 확인한다. 세로 홀수 검증에는 기존 기본 샘플 5장을 재사용한다. `src/components/ui/`에 ToggleGroup과 의존 컴포넌트를 추가하고 현재 Base UI의 배열 값과 `multiple` API를 확인한다.
+- [ ] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리와 두 페이지 허용 조건을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-016)
+- [ ] [T016] `src/features/reader/components/pdf-viewport.test.tsx`에 최대 두 페이지의 완료 대기·한쪽 실패·작업 취소·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`는 페이지 목록과 공통 배율을 받아 Canvas를 최대 두 개만 만들고 표시 상태를 콜백으로 알린다. 모든 페이지가 준비된 뒤 본문을 표시하며 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. 기존 한 페이지 호출 계약은 통합 전까지 유지한다. (FR-005, FR-007, FR-009, FR-018)
+- [ ] [T017] `src/features/reader/components/view-mode-control.test.tsx`에 보기 전환·빈 배열 선택 유지·제한 사유·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/view-mode-control.tsx`는 보기 선호·적용 가능 여부와 변경 콜백만 받고, 제한 사유를 hover 없이 확인할 수 있게 한다. (FR-003, FR-010, FR-016, FR-019)
+- [ ] [T018] `pnpm test -- src/features/reader/lib/page-spread.test.ts src/features/reader/components/view-mode-control.test.tsx src/features/reader/components/pdf-viewport.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 보기·표시 상태 계약과 fixture 경로를 인계한다.
 
-## 크기 조절
+## 섹션 3 [P] 크기 조절
 
-**선행 단계:** 한 페이지·두 페이지 보기. **완료 기준:** 확대·축소·확대율·높이 맞춤을 조작할 수 있다. 수동 배율은 페이지 이동과 창 크기 변경 후 유지되며, 확대된 본문의 모든 가장자리까지 스크롤할 수 있다.
+**담당 범위:** `reader-zoom.*`, `zoom-controls.*`. **완료 기준:** 한 장 또는 두 장의 크기와 가용 영역을 입력으로 받아 높이 맞춤과 수동 배율을 계산하고, 배율 상태·변경 콜백만으로 조작부를 통합할 수 있다.
 
-- [ ] [T020] `src/features/reader/lib/reader-state.test.ts`에 수동 배율 25%부터 300%, 25%p 증감, 높이 맞춤 해제·복귀, 한도 밖에서 시작하는 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/reader-state.ts`에 수동 배율 계산을 추가한다. 높이 맞춤 계산에는 수동 한도를 적용하지 않고 상한 이상에서 확대·하한 이하에서 축소를 비활성화해 조작 방향이 역전되지 않게 한다. (FR-014, FR-015)
-- [ ] [T021] `src/features/reader/components/reader-toolbar.test.tsx`, `src/features/reader/components/reader.test.tsx`에 크기 조절·페이지 이동 후 배율 유지·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-toolbar.tsx`, `src/features/reader/components/reader.tsx`, `src/features/reader/components/pdf-viewport.tsx`에 확대·축소·확대율·높이 맞춤을 연결한다. 두 페이지에는 같은 배율을 적용하고 수동 조작은 높이 맞춤을 해제한다. 320px 화면에서도 새 조작부가 잘리거나 겹치지 않아야 한다. (FR-003, FR-014, FR-015, FR-019, FR-020)
-- [ ] [T022] `e2e/basic-pdf-reader.spec.ts`에서 텍스트·스캔 PDF의 확대·축소·높이 맞춤·창 크기 변경·빠른 배율 변경을 검증한다. 수동 배율에서는 좌우·상하 가장자리까지 스크롤하고, 높이 맞춤에서는 현재 표시하는 모든 페이지가 읽기 영역에 들어와 스크롤이 생기지 않으며 폭이 남으면 가로 중앙에 놓이는지 확인한다. 본문과 별도로 툴바·탐색 조작을 사용할 수 있는지 확인한다. 실패가 발견되면 `src/features/reader/components/pdf-viewport.test.tsx`에 재현 테스트를 먼저 추가하고 수정한다. `package.json`의 check·build·E2E 명령을 통과시킨다. (SC-001의 크기 조절, SC-004의 배율 변경, SC-005의 크기 조절 조작)
+- [ ] [T019] `src/features/reader/lib/reader-zoom.test.ts`에 한 페이지·두 페이지 높이 맞춤, 간격 포함 너비, 너비 초과 방지, 수동 배율 25%부터 300%, 25%p 증감, 높이 맞춤 해제·복귀와 한도 밖에서 시작하는 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/reader-zoom.ts`에 현재 표시하는 모든 페이지가 가용 너비와 높이 안에 들어오는 같은 배율과 수동 배율 계산을 구현한다. 높이 맞춤에는 수동 한도를 적용하지 않고 상한 이상에서 확대·하한 이하에서 축소를 비활성화한다. (FR-014, FR-015)
+- [ ] [T020] `src/features/reader/components/zoom-controls.test.tsx`에 확대·축소·확대율·높이 맞춤·한계 비활성화·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/zoom-controls.tsx`는 맞춤 여부·표시 배율·조작 가능 여부와 변경 콜백만 받고, 페이지·보기·패널 상태를 직접 import하지 않는다. 320px 화면에서도 조작부가 잘리거나 겹치지 않아야 한다. (FR-003, FR-014, FR-015, FR-019, FR-020)
+- [ ] [T021] `pnpm test -- src/features/reader/lib/reader-zoom.test.ts src/features/reader/components/zoom-controls.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일만 변경됐는지 확인하고 통합 담당자에게 배율 계산과 조작 콜백 계약을 인계한다.
 
-## 보조 패널과 반응형 동작
+## 섹션 4 [P] 보조 패널과 반응형 동작
 
-**선행 단계:** 크기 조절. **완료 기준:** 빈 패널을 열고 닫을 수 있고, 패널이 차지하는 공간에 맞춰 보기 방식과 높이 맞춤이 동작한다. 키보드 포커스 복원과 좁은 화면 조작을 검증한다.
+**담당 범위:** `reader-panel.*`, `use-reader-layout.*`, 패널용 shadcn UI. **완료 기준:** 패널 열림 여부·화면 경계·읽기 영역 측정값과 변경 콜백만으로 통합할 수 있고, 넓은 화면과 좁은 화면의 패널 동작 및 포커스 복원을 독립 검증한다.
 
-- [ ] [T023] `src/components/ui/`에 Collapsible·Sheet와 의존 컴포넌트를 추가한다. `src/index.css`의 기존 토큰을 사용하고 현재 Base UI의 포커스 API와 생성 코드의 키보드 동작을 확인한다. 다른 UI를 재설치하거나 프리셋을 변경하지 않는다.
-- [ ] [T024] `src/features/reader/components/reader-panel.test.tsx`, `src/features/reader/components/reader.test.tsx`에 패널 열기·닫기·좁은 화면 전환·Escape·포커스 복원 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-panel.tsx`, `src/features/reader/components/reader-toolbar.tsx`, `src/features/reader/components/reader.tsx`에 빈 패널을 연결한다. 화면 폭 1024px 이상은 본문 옆 320px 영역, 미만은 본문 위 Sheet를 사용한다. 제목과 닫기 조작만 제공하고 두 방식 모두 닫은 뒤 열기 버튼으로 포커스를 복원한다. (FR-017, FR-019)
-- [ ] [T025] `src/features/reader/components/reader.test.tsx`에 패널 변경 후 현재 페이지·보기 선호·높이 맞춤·수동 배율 유지 테스트를 먼저 작성하고 실패가 있으면 해당 기능을 수정한다. `e2e/basic-pdf-reader.spec.ts`에서 패널로 읽기 영역이 999/1000px 경계를 지날 때 한 페이지 전환과 두 페이지 복원을 검증한다. 화면 1023/1024px의 패널 방식 전환, 가로 단독 유지, 320px 화면의 전체 조작부와 포커스도 확인한다. `package.json`의 check·build·E2E 명령을 통과시킨다. (SC-003, SC-005의 패널 조작, FR-010, FR-014부터 FR-017, FR-020)
+- [ ] [T022] `src/components/ui/`에 Collapsible·Sheet와 의존 컴포넌트를 추가한다. `src/index.css`의 기존 토큰을 사용하고 현재 Base UI의 포커스 API와 생성 코드의 키보드 동작을 확인한다. 다른 UI를 재설치하거나 프리셋을 변경하지 않는다.
+- [ ] [T023] `src/features/reader/hooks/use-reader-layout.test.ts`에 `ResizeObserver`와 `matchMedia`의 최초 측정·변경·정리, 화면 폭 1023/1024px와 읽기 영역 999/1000px 경계를 먼저 작성해 실패를 확인한다. `src/features/reader/hooks/use-reader-layout.ts`가 화면 폭과 읽기 영역의 가용 너비·높이를 구분해 제공하도록 구현한다. (FR-015부터 FR-017)
+- [ ] [T024] `src/features/reader/components/reader-panel.test.tsx`에 패널 열기·닫기·화면 경계 전환·Escape·포커스 복원 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-panel.tsx`는 화면 폭·열림 여부·변경 콜백·열기 버튼 ref만 받는다. 화면 폭 1024px 이상은 본문 옆 320px 영역, 미만은 본문 위 Sheet를 사용하고 제목과 닫기 조작만 제공한다. `pnpm test -- src/features/reader/hooks/use-reader-layout.test.ts src/features/reader/components/reader-panel.test.tsx`와 `pnpm typecheck`를 통과시킨 뒤 통합 담당자에게 레이아웃과 포커스 계약을 인계한다. (FR-017, FR-019)
 
-## 전체 독서 흐름 검증
+## 통합과 전체 독서 흐름 검증
 
-**선행 단계:** 보조 패널과 반응형 동작. **완료 기준:** 앞선 단계에서 완료한 기능을 함께 사용해도 SC-001부터 SC-006까지 만족한다. 이 단계에는 남은 기능의 신규 구현을 미루지 않고, 통합 검증과 검증에서 발견한 문제의 수정만 포함한다.
+**선행 단계:** 섹션 1~4 병합. **담당 범위:** 병렬 진행 규칙에서 제외한 공용 조합 파일과 전체 E2E. **완료 기준:** 병렬 섹션의 공개 계약을 연결해 SC-001부터 SC-006까지 만족한다. 이 단계에는 병렬 섹션의 남은 기능 구현을 미루지 않고 연결, 통합 회귀 테스트와 검증에서 발견한 결함 수정만 포함한다.
 
-- [ ] [T026] `src/app.test.tsx`, `src/features/reader/components/reader.test.tsx`, `e2e/app.spec.ts`, `e2e/basic-pdf-reader.spec.ts`에서 탐색·보기·확대·패널을 조합한 독서 흐름과 새로고침 초기화를 검증한다. 목차·검색·북마크·설정·AI 도구가 없고 OCR·AI 서비스 없이 텍스트·스캔 독서를 완료하는지 확인한다. 초기 상태는 첫 페이지·한 페이지·높이 맞춤·패널 닫힘이며 영구 저장을 추가하지 않는다. 발견한 결함은 실패 테스트를 먼저 확인하고 관련 소스에서 수정한다. (FR-001, FR-003, FR-021, SC-001, SC-004, SC-006)
-- [ ] [T027] `e2e/basic-pdf-reader.spec.ts`의 키보드 흐름을 기준으로 브라우저 메뉴에서 실제 200% 확대 후 전체 조작부·긴 제목·높이 맞춤의 스크롤 없음·수동 확대 본문의 스크롤·패널 포커스를 직접 확인한다. viewport 축소나 DPR 변경으로 대체하지 않는다. `src/features/reader/components/`에서 수정이 필요하면 재현 가능한 회귀 테스트를 먼저 추가하고 다시 확인한다. (SC-005)
+- [ ] [T025] `src/features/reader/components/reader.test.tsx`에 탐색·보기 선호·배율·패널 상태를 조합한 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader.tsx`, `src/features/reader/components/reader-toolbar.tsx`, `src/app.tsx`에서 섹션별 공개 props와 순수 함수를 연결한다. 현재 페이지를 유지하고 이전·다음 이동 뒤 본문 상단을 표시하며, 페이지·보기·창·패널 변경에 맞춰 표시 범위와 높이 맞춤을 갱신한다. 수동 배율은 유지하고 확대된 본문의 모든 가장자리까지 스크롤할 수 있게 한다. (FR-001, FR-003, FR-005, FR-010부터 FR-017, FR-020)
+- [ ] [T026] `src/app.test.tsx`, `src/features/reader/components/reader.test.tsx`, `e2e/app.spec.ts`, `e2e/basic-pdf-reader.spec.ts`에서 텍스트·스캔·한 장·세로 홀수·가로·혼합·회전·정사각형 PDF의 탐색·보기·확대·패널과 새로고침 초기화를 검증한다. 빠른 이동과 배율 변경, 페이지 실패·재시도·늦은 결과, 입력 오류 복구, 화면 1023/1024px와 읽기 영역 999/1000px, 320px 키보드 흐름을 확인한다. 대표 두 페이지 스냅샷을 직접 검토한다. 목차·검색·북마크·설정·AI 도구와 영구 저장은 추가하지 않는다. (SC-001부터 SC-004, SC-006)
+- [ ] [T027] `e2e/basic-pdf-reader.spec.ts`의 키보드 흐름을 기준으로 브라우저 메뉴에서 실제 200% 확대 후 전체 조작부·긴 제목·높이 맞춤의 스크롤 없음·수동 확대 본문의 스크롤·패널 포커스를 직접 확인한다. viewport 축소나 DPR 변경으로 대체하지 않는다. 수정이 필요하면 재현 가능한 회귀 테스트를 먼저 추가하고 다시 확인한다. (SC-005)
 - [ ] [T028] `package.json`의 `pnpm check`, `pnpm build`, `pnpm test:e2e`를 실행하고 `pnpm preview`에서 PDF·worker·필요 자원과 실제 독서 흐름을 확인한다. `specs/basic-pdf-reader/spec.md`의 SC-001부터 SC-006까지 아래 대응표로 점검하고, `specs/basic-pdf-reader/tasks.md`에는 실제 완료한 항목만 체크한다. 실행 결과와 미실행 검증이 있다면 그 이유를 보고한다.
 
 ## 완료 기준과 검증 작업
 
-| 완료 기준                                | 확인할 작업                                    |
-| ---------------------------------------- | ---------------------------------------------- |
-| SC-001: 텍스트·스캔 PDF 읽기와 크기 조절 | T008, T014, T022, T026                         |
-| SC-002: 방향별 배치와 페이지 이동        | T016부터 T019                                  |
-| SC-003: 화면·읽기 영역 폭 경계           | T016, T018, T019, T025                         |
-| SC-004: 잘못된 입력·실패·늦은 응답       | T004, T006, T008, T012, T014, T017, T022, T026 |
-| SC-005: 키보드·좁은 화면·브라우저 확대   | 각 UI 구현 작업, T014, T019, T022, T025, T027  |
-| SC-006: 제외 기능 없이 독서 완료         | T026                                           |
+| 완료 기준                                | 확인할 작업                                 |
+| ---------------------------------------- | ------------------------------------------- |
+| SC-001: 텍스트·스캔 PDF 읽기와 크기 조절 | T008, T019부터 T021, T025, T026             |
+| SC-002: 방향별 배치와 페이지 이동        | T014부터 T018, T025, T026                   |
+| SC-003: 화면·읽기 영역 폭 경계           | T015, T023부터 T026                         |
+| SC-004: 잘못된 입력·실패·늦은 응답       | T004, T006, T008, T010부터 T012, T016, T026 |
+| SC-005: 키보드·좁은 화면·브라우저 확대   | 각 UI 구현 작업, T025부터 T027              |
+| SC-006: 제외 기능 없이 독서 완료         | T026                                        |
 
 최종 검증은 T028에서 확인한다.
