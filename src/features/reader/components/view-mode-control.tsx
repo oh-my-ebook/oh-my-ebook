@@ -31,6 +31,7 @@ export function ViewModeControl({
       <ToggleGroup
         aria-label="보기 방식"
         onValueChange={handleValueChange}
+        size="sm"
         spacing={0}
         value={[preferredView]}
         variant="outline"
