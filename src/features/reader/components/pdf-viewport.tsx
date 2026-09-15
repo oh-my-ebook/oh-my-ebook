@@ -18,9 +18,11 @@ interface PdfViewportBaseProps {
 
 interface PdfViewportSinglePageProps extends PdfViewportBaseProps {
   page: PdfPageInfo
+  pages?: never
 }
 
 interface PdfViewportPagesProps extends PdfViewportBaseProps {
+  page?: never
   pages: readonly PdfPageInfo[]
 }
 
@@ -80,7 +82,7 @@ export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Elemen
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
   const { document, onStatusChange, scale } = props
-  const requestedPages = 'pages' in props ? props.pages : [props.page]
+  const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
   const secondPageNumber = pages[1]?.pageNumber
