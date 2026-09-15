@@ -5,6 +5,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { ViewModeControl } from './view-mode-control'
 
 describe('ViewModeControl', () => {
+  it('보기 방식을 아이콘으로 표시하고 Tooltip으로 설명한다', async () => {
+    const user = userEvent.setup()
+    render(<ViewModeControl isSpreadAvailable onViewChange={vi.fn()} preferredView="single" />)
+
+    const singleButton = screen.getByRole('button', { name: '한 페이지' })
+    const spreadButton = screen.getByRole('button', { name: '두 페이지' })
+
+    expect(singleButton.querySelector('svg')).toBeInTheDocument()
+    expect(spreadButton.querySelector('svg')).toBeInTheDocument()
+    expect(singleButton).toHaveClass('cursor-pointer')
+    expect(spreadButton).toHaveClass('cursor-pointer')
+    expect(singleButton).not.toHaveTextContent('한 페이지')
+    expect(spreadButton).not.toHaveTextContent('두 페이지')
+
+    await user.hover(singleButton)
+
+    expect(await screen.findByText('한 페이지')).toHaveAttribute('data-slot', 'tooltip-content')
+  })
+
   it('선택한 보기 방식을 표시하고 변경을 요청한다', async () => {
     const user = userEvent.setup()
     const onViewChange = vi.fn()
@@ -16,6 +35,10 @@ describe('ViewModeControl', () => {
     expect(screen.getByRole('button', { name: '한 페이지' })).toHaveAttribute(
       'aria-pressed',
       'true',
+    )
+    expect(screen.getByRole('button', { name: '한 페이지' })).toHaveClass(
+      'data-pressed:bg-primary',
+      'data-pressed:text-primary-foreground',
     )
     expect(screen.getByRole('button', { name: '두 페이지' })).toHaveAttribute(
       'aria-pressed',

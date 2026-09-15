@@ -1,5 +1,7 @@
+import { BookOpenIcon, FileIcon } from 'lucide-react'
 import { useId } from 'react'
 
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 import type { PageViewMode } from '../lib/page-spread'
@@ -33,14 +35,27 @@ export function ViewModeControl({
         value={[preferredView]}
         variant="outline"
       >
-        <ToggleGroupItem value="single">한 페이지</ToggleGroupItem>
-        <ToggleGroupItem
-          aria-describedby={isSpreadAvailable ? undefined : restrictionId}
-          disabled={!isSpreadAvailable}
-          value="spread"
-        >
-          두 페이지
-        </ToggleGroupItem>
+        <Tooltip>
+          <TooltipTrigger render={<ToggleGroupItem aria-label="한 페이지" value="single" />}>
+            <FileIcon />
+          </TooltipTrigger>
+          <TooltipContent>한 페이지</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <ToggleGroupItem
+                aria-describedby={isSpreadAvailable ? undefined : restrictionId}
+                aria-label="두 페이지"
+                disabled={!isSpreadAvailable}
+                value="spread"
+              />
+            }
+          >
+            <BookOpenIcon />
+          </TooltipTrigger>
+          <TooltipContent>두 페이지</TooltipContent>
+        </Tooltip>
       </ToggleGroup>
       {!isSpreadAvailable && (
         <p className="text-muted-foreground text-xs" id={restrictionId}>
