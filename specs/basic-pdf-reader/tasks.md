@@ -36,11 +36,11 @@
 
 **담당 범위:** `page-spread.*`, `view-mode-control.*`, `pdf-viewport.*`, 방향별 PDF fixture, 보기용 shadcn UI. **완료 기준:** 방향·배치·앞뒤 범위와 최대 두 Canvas의 완료·실패 계약을 다른 미완료 섹션 없이 검증한다.
 
-- [ ] [T014] `e2e/fixtures/pdf/`에 가로 3장·세로/세로/가로/세로/세로 5장·회전·정사각형 PDF를 준비하고 페이지별 크기·번호·도형을 확인한다. 세로 홀수 검증에는 기존 기본 샘플 5장을 재사용한다. `src/components/ui/`에 ToggleGroup과 의존 컴포넌트를 추가하고 현재 Base UI의 배열 값과 `multiple` API를 확인한다.
-- [ ] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리와 두 페이지 허용 조건을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-016)
-- [ ] [T016] `src/features/reader/components/pdf-viewport.test.tsx`에 최대 두 페이지의 완료 대기·한쪽 실패·작업 취소·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`는 페이지 목록과 공통 배율을 받아 Canvas를 최대 두 개만 만들고 표시 상태를 콜백으로 알린다. 모든 페이지가 준비된 뒤 본문을 표시하며 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. 기존 한 페이지 호출 계약은 통합 전까지 유지한다. (FR-005, FR-007, FR-009, FR-018)
-- [ ] [T017] `src/features/reader/components/view-mode-control.test.tsx`에 보기 전환·빈 배열 선택 유지·제한 사유·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/view-mode-control.tsx`는 보기 선호·적용 가능 여부와 변경 콜백만 받고, 제한 사유를 hover 없이 확인할 수 있게 한다. (FR-003, FR-010, FR-016, FR-019)
-- [ ] [T018] `pnpm test -- src/features/reader/lib/page-spread.test.ts src/features/reader/components/view-mode-control.test.tsx src/features/reader/components/pdf-viewport.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일과 테스트, shadcn CLI가 실제로 변경한 `package.json`, `pnpm-lock.yaml` 외에는 변경되지 않았는지 확인하고 통합 담당자에게 보기·표시 상태 계약과 fixture 경로를 인계한다.
+- [x] [T014] `e2e/fixtures/pdf/`에 가로 3장·세로/세로/가로/세로/세로 5장·회전·정사각형 PDF를 준비하고 페이지별 크기·번호·도형을 확인한다. 세로 홀수 검증에는 기존 기본 샘플 5장을 재사용한다. `src/components/ui/`에 ToggleGroup과 의존 컴포넌트를 추가하고 현재 Base UI의 배열 값과 `multiple` API를 확인한다.
+- [x] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리와 두 페이지 허용 조건을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-016)
+- [x] [T016] `src/features/reader/components/pdf-viewport.test.tsx`에 최대 두 페이지의 완료 대기·한쪽 실패·작업 취소·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`는 페이지 목록과 공통 배율을 받아 Canvas를 최대 두 개만 만들고 표시 상태를 콜백으로 알린다. 모든 페이지가 준비된 뒤 본문을 표시하며 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. 기존 한 페이지 호출 계약은 통합 전까지 유지한다. (FR-005, FR-007, FR-009, FR-018)
+- [x] [T017] `src/features/reader/components/view-mode-control.test.tsx`에 보기 전환·빈 배열 선택 유지·제한 사유·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/view-mode-control.tsx`는 보기 선호·적용 가능 여부와 변경 콜백만 받고, 제한 사유를 hover 없이 확인할 수 있게 한다. (FR-003, FR-010, FR-016, FR-019)
+- [x] [T018] `pnpm test -- src/features/reader/lib/page-spread.test.ts src/features/reader/components/view-mode-control.test.tsx src/features/reader/components/pdf-viewport.test.tsx`와 `pnpm typecheck`를 통과시킨다. 섹션 담당 파일과 테스트, shadcn CLI가 실제로 변경한 `package.json`, `pnpm-lock.yaml` 외에는 변경되지 않았는지 확인하고 통합 담당자에게 보기·표시 상태 계약과 fixture 경로를 인계한다.
 
 ## 섹션 3 [P] 크기 조절
 
