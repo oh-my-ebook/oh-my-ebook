@@ -54,7 +54,7 @@
 
 **담당 범위:** `reader-panel.*`, `use-reader-layout.*`, 패널용 shadcn UI. **완료 기준:** 패널 열림 여부·화면 경계·읽기 영역 측정값과 변경 콜백만으로 통합할 수 있고, 넓은 화면과 좁은 화면의 패널 동작 및 포커스 복원을 독립 검증한다.
 
-- [ ] [T022] `src/components/ui/`에 Collapsible·Sheet와 의존 컴포넌트를 추가한다. `src/index.css`의 기존 토큰을 사용하고 현재 Base UI의 포커스 API와 생성 코드의 키보드 동작을 확인한다. 다른 UI를 재설치하거나 프리셋을 변경하지 않는다.
+- [x] [T022] `src/components/ui/`에 Collapsible·Sheet와 의존 컴포넌트를 추가한다. `src/index.css`의 기존 토큰을 사용하고 현재 Base UI의 포커스 API와 생성 코드의 키보드 동작을 확인한다. 다른 UI를 재설치하거나 프리셋을 변경하지 않는다.
 - [ ] [T023] `src/features/reader/hooks/use-reader-layout.test.ts`에 `ResizeObserver`와 `matchMedia`의 최초 측정·변경·정리, 화면 폭 1023/1024px와 읽기 영역 999/1000px 경계를 먼저 작성해 실패를 확인한다. `src/features/reader/hooks/use-reader-layout.ts`가 화면 폭과 읽기 영역의 가용 너비·높이를 구분해 제공하도록 구현한다. (FR-015부터 FR-017)
 - [ ] [T024] `src/features/reader/components/reader-panel.test.tsx`에 패널 열기·닫기·화면 경계 전환·Escape·포커스 복원 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-panel.tsx`는 화면 폭·열림 여부·변경 콜백·열기 버튼 ref만 받는다. 화면 폭 1024px 이상은 본문 옆 320px 영역, 미만은 본문 위 Sheet를 사용하고 제목과 닫기 조작만 제공한다. `pnpm test -- src/features/reader/hooks/use-reader-layout.test.ts src/features/reader/components/reader-panel.test.tsx`와 `pnpm typecheck`를 통과시킨 뒤 통합 담당자에게 레이아웃과 포커스 계약을 인계한다. (FR-017, FR-019)
 
