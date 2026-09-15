@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
 
 export interface ReaderLayout {
   availableHeight: number
   availableWidth: number
-  containerRef: RefObject<HTMLDivElement | null>
+  isWideScreen: boolean
+  containerRef: (node: HTMLDivElement | null) => void
 }
 
 interface AvailableReaderSize {
@@ -30,11 +33,20 @@ function measureAvailableReaderSize(container: HTMLElement): AvailableReaderSize
 }
 
 export function useReaderLayout(): ReaderLayout {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState<AvailableReaderSize>(emptyReaderSize)
+  const [isWideScreen, setIsWideScreen] = useState(
+    () => window.matchMedia(WIDE_SCREEN_QUERY).matches,
+  )
+
+  // 컨테이너 DOM 요소가 바뀌었다는 사실 자체로 관찰을 다시 시작해야 하므로 callback ref로 상태에 반영한다.
+  // 최초 측정도 컨테이너가 정해지는 이 시점에 함께 처리해 effect 본문에서 setState를 호출하지 않는다.
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainer(node)
+    setAvailableSize(node ? measureAvailableReaderSize(node) : emptyReaderSize)
+  }, [])
 
   useEffect(() => {
-    const container = containerRef.current
     if (!container) {
       return
     }
@@ -47,7 +59,21 @@ export function useReaderLayout(): ReaderLayout {
     return () => {
       observer.disconnect()
     }
+  }, [container])
+
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia(WIDE_SCREEN_QUERY)
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsWideScreen(event.matches)
+    }
+
+    mediaQueryList.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQueryList.removeEventListener('change', handleChange)
+    }
   }, [])
 
-  return { ...availableSize, containerRef }
+  return { ...availableSize, isWideScreen, containerRef }
 }
