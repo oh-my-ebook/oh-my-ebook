@@ -18,7 +18,7 @@ reviews:
   sequence_diagrams: true
   estimate_code_review_effort: true
   assess_linked_issues: true
-  enable_prompt_for_ai_agents: true
+  enable_prompt_for_ai_agents: false
   abort_on_close: true
   disable_cache: false
 
