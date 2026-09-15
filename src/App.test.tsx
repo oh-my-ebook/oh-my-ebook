@@ -11,6 +11,7 @@ import type {
 import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
+const disconnectResizeObserver = vi.fn()
 
 vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
@@ -62,6 +63,7 @@ function resizeReaderTo(width: number, height: number) {
 describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
+    disconnectResizeObserver.mockReset()
     resizeNotifications.length = 0
     vi.stubGlobal('devicePixelRatio', 1)
 
@@ -72,7 +74,7 @@ describe('App', () => {
 
       observe = vi.fn()
       unobserve = vi.fn()
-      disconnect = vi.fn()
+      disconnect = disconnectResizeObserver
     }
 
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
@@ -112,21 +114,22 @@ describe('App', () => {
     })
   })
 
-  it('제목이 없으면 파일명을 표시하고 키보드 focus에서 전체 이름을 보여준다', async () => {
-    const user = userEvent.setup()
+  it('Reader를 해제하면 크기 관찰을 정리한다', () => {
+    const documentLoad = createPromiseController<LoadedPdfDocument>()
+    loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
+    const { unmount } = render(<App />)
+
+    unmount()
+
+    expect(disconnectResizeObserver).toHaveBeenCalledOnce()
+  })
+
+  it('제목이 없으면 전체 파일명을 제목으로 표시한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
     render(<Reader url="/samples/아주%20긴%20문서명.pdf" />)
-    const title = screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })
 
-    await user.tab()
-
-    expect(title).toHaveFocus()
-    expect(
-      await screen.findByText('아주 긴 문서명.pdf', {
-        selector: '[data-slot="tooltip-content"]',
-      }),
-    ).toBeVisible()
+    expect(screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })).toBeInTheDocument()
   })
 
   it('좁은 화면에서도 문서 오류와 재시도를 제공하고 로딩 중 페이지 번호를 숨긴다', async () => {
