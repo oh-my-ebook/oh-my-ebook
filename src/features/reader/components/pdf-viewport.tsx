@@ -146,14 +146,13 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
     <section
       aria-busy={status === 'loading'}
       aria-label="PDF 본문"
-      className="min-h-0 overflow-auto p-reader-page-mobile"
+      className="flex h-full min-h-0 items-start justify-center overflow-hidden"
     >
-      <div className="mx-auto w-fit" hidden={status !== 'ready'} ref={canvasContainerRef} />
+      <div className="w-fit" hidden={status !== 'ready'} ref={canvasContainerRef} />
 
       {status === 'loading' && (
         <div
           aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
-          className="mx-auto"
           role="status"
           style={{ height: displayHeight, width: displayWidth }}
         >
