@@ -2,7 +2,15 @@
 
 ## 프로젝트 구조 및 모듈 구성
 
-이 저장소는 TypeScript와 Vite를 사용하는 React 19 애플리케이션이다. `src/main.tsx`에서 `src/App.tsx`를 마운트하며, 스타일은 `src/index.css`와 `src/App.css`에 둔다. 가져와서 사용하는 이미지는 `src/assets/`에, 직접 제공하는 정적 파일은 `public/`에 둔다. 테스트는 `src/App.test.tsx`처럼 소스 파일과 같은 위치에 두며, 공통 테스트 설정은 `src/test/setup.ts`에 둔다. 빌드 결과물은 `dist/`에, 커버리지 보고서는 `coverage/`에 생성된다. Spec Kit 템플릿과 스크립트는 `.specify/`에 둔다.
+이 저장소는 TypeScript와 Vite를 사용하는 React 19 애플리케이션이다. `src/main.tsx`에서 `src/app.tsx`를 마운트하며, 전역 스타일과 테마는 `src/index.css`에 둔다. 기능 화면은 Tailwind 유틸리티를 우선하고 별도 스타일 파일은 실제로 필요할 때만 추가한다. 가져와서 사용하는 이미지는 `src/assets/`에, 직접 제공하는 정적 파일은 `public/`에 둔다. 테스트는 `src/app.test.tsx`처럼 소스 파일과 같은 위치에 두며, 공통 테스트 설정은 `src/test/setup.ts`에 둔다. 빌드 결과물은 `dist/`에, 커버리지 보고서는 `coverage/`에 생성된다. Spec Kit 템플릿과 스크립트는 `.specify/`에 둔다.
+
+### 기능별 코드 배치
+
+- 기능 전용 컴포넌트·훅·로직은 `src/features/<기능>/` 안에 모은다. 필요한 경우 `components/`, `hooks/`, `lib/`로 나누며 빈 폴더를 미리 만들지 않는다.
+- `src/components/`에는 여러 기능에서 사용하는 공통 UI만 둔다. shadcn 기본 UI는 `src/components/ui/`, 서비스 공통 UI는 그 밖에 둔다.
+- 최상위 `src/hooks/`와 `src/lib/`는 공통 코드에 사용한다. 기능 전용 코드는 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다.
+- 공통 코드는 특정 기능을 import하지 않는다. 기능 간 연결은 `app.tsx`나 페이지에서 조합하고 다른 기능의 내부 컴포넌트·훅을 직접 사용하지 않는다.
+- 라우팅 도입 시 `src/pages/`에 URL별 화면 조합을 둔다. 현재는 `app.tsx`에서 기능 화면을 직접 연결한다.
 
 ## 빌드, 테스트 및 개발 명령어
 
@@ -21,21 +29,36 @@ Node 24.x(`.node-version`과 `.nvmrc`에 고정)와 pnpm 12.4.1을 사용한다.
 
 ## 코드 스타일 및 명명 규칙
 
-TypeScript와 ES 모듈, 함수 컴포넌트를 사용한다. 컴포넌트 이름은 PascalCase(`App.tsx`), 변수와 함수 이름은 camelCase, 유틸리티 파일 이름은 kebab-case로 작성한다. 필요한 모듈은 명시적으로 import한다.
+TypeScript와 ES 모듈, 함수 컴포넌트를 사용한다. 컴포넌트 함수 이름은 PascalCase(`App`, `PdfViewport`), 일반 변수와 함수 이름은 camelCase로 작성한다. 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case(`app.tsx`, `reader-page.tsx`, `pdf-viewport.tsx`, `use-pdf-document.ts`)로 통일한다. 테스트 파일은 대상 파일 이름에 `.test`를 붙인다. 필요한 모듈은 명시적으로 import한다.
 
 Prettier 설정은 `.prettierrc`를 기준으로 공백 2칸 들여쓰기, 작은따옴표, 세미콜론 생략, 후행 쉼표, LF 줄바꿈, 줄 너비 100자를 사용한다. 단, `src/components/ui/`는 shadcn CLI 생성 결과의 포맷을 보존하기 위해 `.prettierignore` 설정에 따라 포맷 검사·수정 대상에서 제외한다. 이 경로에 일괄 포맷을 적용하지 않는다.
 
 린트는 `.oxlintrc.json`의 Oxlint 규칙을 따르며, `pnpm lint`는 경고가 발생해도 실패한다. React 훅 규칙을 준수하고, 커밋할 코드에 사용하지 않는 지역 변수와 매개변수를 남기지 않는다. `src/components/ui/**/*.tsx`에는 `react/only-export-components` 규칙만 예외로 적용하며, 나머지 린트 규칙은 유지한다.
 
+코드 주석은 코드만으로 알기 어려운 이유나 제약을 설명할 때만 한국어로 간결하게 작성하고, 자명한 동작을 줄마다 설명하지 않는다.
+
 ### 타입스크립트
 
+- `let` 사용을 지양한다. 재할당하지 않는 값은 `const`로 선언한다. 반복문 카운터나 실제 상태 변경처럼 재할당이 필요한 경우에만 `let`을 사용한다.
+- 객체 모양은 `interface`로 정의하고 union·함수·mapped type은 `type`을 우선한다.
 - 널 아님 단언 연산자를 지양한다. 단, 테스트에서 직접 만든 요소를 바로 찾는 경우에는 일부 허용한다.
 - 타입 단언을 지양한다. 실제로 확인해서 타입을 좁히는 방법을 사용한다.
 - Promise는 `await` 또는 반환으로 호출자에게 연결하고, 실패는 호출자나 명시적인 오류 처리에서 다룬다. 결과를 기다리지 않는 작업도 오류 처리를 생략하지 않는다.
+- 순서대로 진행하는 비동기 코드는 `async`/`await`을 우선한다. 반환 형태를 맞추기 위해 `Promise.resolve()`나 `Promise.reject()`를 만들거나 `{ promise, destroy }` 같은 객체로 감싸지 않는다.
+
+### React
+
+- DOM 요소를 참조할 때는 기본적으로 `useRef`를 사용한다. DOM 요소가 바뀌었다는 사실만으로 다시 렌더링해야 할 때만 callback ref나 state를 사용한다.
+- React Compiler가 처리할 수 있는 값에 `useMemo`나 `useCallback`을 습관적으로 추가하지 않는다. 같은 참조를 유지해야 하는 API를 사용하거나 성능 문제가 확인된 경우에만 직접 추가한다.
+- effect 실행 순서를 바꾸거나 린트 경고를 피하기 위해 `queueMicrotask`나 `Promise.resolve().then()`을 추가하지 않는다. 상태 변경은 React의 렌더링과 effect 구조 안에서 표현한다.
 
 ## 테스트 가이드
 
-Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한다. 테스트 파일 이름은 `*.test.ts` 또는 `*.test.tsx`로 작성한다. `src/App.test.tsx`를 참고하여 접근성을 고려한 쿼리와 사용자 상호작용으로 관찰 가능한 동작을 테스트한다. 테스트를 한 번 실행하려면 `pnpm test`를 사용한다. CI는 최소 임계값 설정 없이 커버리지를 수집하며, 동작 변경 시 관련 회귀 테스트를 추가한다.
+Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한다. 테스트 파일 이름은 `*.test.ts` 또는 `*.test.tsx`로 작성한다. `src/app.test.tsx`를 참고하여 접근성을 고려한 쿼리와 사용자 상호작용으로 관찰 가능한 동작을 테스트한다. 테스트를 한 번 실행하려면 `pnpm test`를 사용한다. CI는 최소 임계값 설정 없이 커버리지를 수집하며, 동작 변경 시 관련 회귀 테스트를 추가한다.
+
+같은 동작을 단위 테스트·훅 테스트·컴포넌트 테스트에서 반복해 확인하지 않는다. 계산 로직은 단위 테스트, 훅은 상태 변경, 컴포넌트는 사용자가 보거나 조작할 수 있는 결과를 중심으로 확인한다. 실제 사용 컴포넌트에서 확인할 수 있다면 훅 테스트만을 위한 임시 컴포넌트를 만들지 않는다. 테스트를 위해 프로덕션 코드의 함수나 타입을 밖으로 노출하지 않는다.
+
+중복 테스트를 제거할 때는 기존에 확인하던 동작이 함께 사라지지 않는지 확인하고, 필요한 검증은 더 적절한 테스트로 옮긴다. 시각 회귀 스냅샷은 직접 확인한 이미지만 테스트와 함께 커밋하며, `test-results/`와 Playwright 보고서는 커밋하지 않는다.
 
 새 기능과 버그 수정은 TDD로 진행한다. 기대 동작을 테스트로 작성하고 의도한 이유로 실패하는지 확인한 뒤, 최소 구현으로 통과시키고 테스트를 유지하며 리팩터링한다. 동작을 바꾸지 않는 문서·포맷 변경은 관련 문서와 설정 검사로 검증한다.
 
@@ -43,7 +66,7 @@ E2E는 Playwright Test를 사용하고 `e2e/*.spec.ts`에 둔다. 최초 실행 
 
 ## Git 작업
 
-- `git add`, `git commit`, `git push`는 절대 실행하지 않는다.
+- 에이전트는 Git index나 `.git` 내부 상태를 변경하지 않는다. `git add`, `git commit`, `git push`뿐 아니라 `git restore --staged`, `git reset`, `git apply --cached`, `git update-index`도 실행하지 않는다. staged·unstaged 조정은 명령만 안내하고 사용자가 직접 실행한다.
 
 ### 브랜치 전략
 
@@ -87,18 +110,16 @@ feat: ebook 사이드바 채팅 구현
 
 - UI 구현과 검토는 설치된 [shadcn 스킬](.agents/skills/shadcn/SKILL.md)과 관련 참조 문서의 전체 규칙을 따른다.
   아래 요약으로 스킬을 대체하지 않는다. 디자인 기준은 [DESIGN.md](DESIGN.md)를 함께 확인한다.
-- 스킬과 최신 공식 문서가 충돌하면 최신 공식 문서를 우선한다. 현재 프로젝트의 Base UI 기준 문서를 확인하고,
-  검토 결과에 충돌한 규칙과 공식 근거를 기록한다. 충돌하지 않는 스킬 규칙은 계속 따른다.
+- 스킬과 최신 공식 문서가 충돌하면 최신 공식 문서를 우선한다. 현재 프로젝트의 Base UI 기준 문서를 확인하고, 충돌을 보고할 때는 “로컬 스킬”로 뭉뚱그려 말하지 않고 규칙 파일 경로·충돌한 내용·공식 근거·선택한 결과를 명확히 적는다. 충돌하지 않는 스킬 규칙은 계속 따른다.
 - **테마 토큰 정의 → 필요한 컴포넌트 variant 선택·정의 → 서비스 컴포넌트 조합** 순서로 커스터마이징한다.
   색상·서체·모서리 등 사용 중인 디자인 값의 재정의는 `src/index.css`의 토큰에서 처리한다.
   라이트·다크 값과 `@theme inline`을 함께 관리하며, 토큰 값 변경을 위해 새 variant를 만들지 않는다.
 - variant는 같은 역할의 컴포넌트 안에서 구분되는 표현 종류를 나타낸다. Button의 `default`·`outline`·`secondary`·`ghost` 등이 해당한다.
   기존 컴포넌트와 내장 `variant`·`size`를 먼저 사용하고, 기존 종류로 표현할 수 없는 별도 종류가 필요할 때만 variant를 추가한다.
   사용처의 `className`은 레이아웃에만 사용하며 색상·타이포그래피를 덮어쓰지 않는다.
-- 서비스 컴포넌트는 `src/components/`의 `ui/` 밖에서 조합한다.
+- 서비스 공통 컴포넌트는 `src/components/`의 `ui/` 밖에, 기능 전용 컴포넌트는 `src/features/<기능>/components/`에 두고 기본 UI를 조합한다.
   대응하는 shadcn 컴포넌트가 있는 UI를 임의 마크업으로 재구현하지 않는다.
-- CLI는 `pnpm dlx shadcn@latest`로 실행하고 설정·설치 목록·공식 문서를 먼저 확인한다.
-  현재 Base UI에 맞는 API를 사용하고 동작·키보드 접근성·focus를 보존한다.
+- CLI는 `pnpm dlx shadcn@latest`로 실행하고 설정·설치 목록·공식 문서를 먼저 확인한다. 현재 Base UI에 맞는 API를 사용하고 동작·키보드 접근성·focus를 보존한다. 현재 작업에서 실제로 사용하는 컴포넌트만 추가하고, 나중에 쓸 UI를 미리 설치하지 않는다.
 - 생성 코드도 스킬 검토 대상에 포함한다. 업스트림 갱신은 `--dry-run`·`--diff`로 확인하고 로컬 확장을 보존한다.
   레지스트리 선택·프리셋 변경·덮어쓰기 절차도 스킬을 따른다.
 
@@ -110,6 +131,7 @@ feat: ebook 사이드바 채팅 구현
 - 기본적으로 한 번에 하나의 작업만 구현한다.
 - 현재 작업이 완료되면 다음 작업을 시작하지 말고 중단한다.
 - 기능 명세의 `tasks.md`가 있는 작업은 완료 후 해당 항목을 체크한다. 기능 추가가 아닌 작업을 위해 `tasks.md`를 만들지 않는다.
+- 검사가 통과하면 `git status`를 다시 확인해 현재 변경이 검증 결과에 모두 반영됐는지 확인한 뒤 `tasks.md`를 체크한다.
 - 작업 완료 후 다음 내용을 보고한다:
   - 변경된 파일
   - 구현 내용

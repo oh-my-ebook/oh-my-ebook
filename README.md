@@ -1,5 +1,32 @@
 ## oh-my-ebook
 
+### 코드 구조
+
+기능 전용 코드는 `src/features/<기능>/`에 모으고, 여러 기능에서 함께 사용하는 코드만 최상위 공통 폴더에 둔다.
+아래는 배치 기준이며, 폴더는 실제 코드가 필요할 때 만든다.
+
+```text
+src/
+├── app.tsx                 # 앱 구성과 기능 연결
+├── main.tsx                # React 진입점
+├── pages/                  # 라우팅 도입 시 URL별 화면 조합
+├── components/             # 서비스 공통 UI
+│   └── ui/                 # shadcn 기본 UI
+├── features/
+│   └── reader/             # 리더 전용 코드
+│       ├── components/     # 리더 화면 구성 요소
+│       ├── hooks/          # 문서 로딩·읽기 영역 측정
+│       └── lib/            # PDF 처리·페이지 탐색 계산
+├── hooks/                  # 공통 훅
+├── lib/                    # 공통 유틸리티
+└── index.css               # Tailwind 설정·공통 테마
+```
+
+- 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case로 작성한다. 컴포넌트 함수 이름은 PascalCase를 사용한다.
+- shadcn이 아닌 공통 UI는 `components/`의 `ui/` 밖에 두고, 한 기능에서만 사용하는 UI는 해당 기능 안에 둔다.
+- 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다. 공통 코드는 특정 기능에 의존하지 않으며, 기능 간 연결은 앱이나 페이지에서 조합한다.
+- 테스트는 대상 파일 옆에 `reader-state.test.ts`, `pdf-viewport.test.tsx`처럼 둔다.
+
 ### 테스트
 
 단위·통합 테스트는 기존 Vitest + jsdom + React Testing Library를 사용한다.
