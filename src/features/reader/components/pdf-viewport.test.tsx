@@ -67,6 +67,15 @@ describe('PdfViewport', () => {
     vi.unstubAllGlobals()
   })
 
+  it('page와 pages를 동시에 전달하지 못하게 한다', () => {
+    const { document } = createPdfDocument(new Map())
+    const page = createPageInfo(1)
+    const props = { document, page, pages: [page], scale: 1 }
+
+    // @ts-expect-error page와 pages는 동시에 전달할 수 없다.
+    expect(<PdfViewport {...props} />).toBeDefined()
+  })
+
   it('한 페이지를 CSS 표시 크기와 DPR 픽셀 크기로 구분해 그린다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
