@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, isTwoPageViewAvailable, type PageViewMode } from '../lib/page-spread'
-import { calculateSinglePageFitScale } from '../lib/reader-state'
+import { calculatePageFitScale } from '../lib/reader-state'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderToolbar } from './reader-toolbar'
 
@@ -22,6 +22,8 @@ interface ReaderErrorProps {
 interface ReaderLoadingProps {
   label: string
 }
+
+const readerSpreadGap = 16
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -78,12 +80,7 @@ export function Reader({ url, title }: ReaderProps) {
     availableWidth > 0 &&
     availableHeight > 0
   const scale = isPageReady
-    ? calculateSinglePageFitScale(
-        firstPage.width,
-        firstPage.height,
-        availableWidth,
-        availableHeight,
-      )
+    ? calculatePageFitScale(pageSpread.pages, availableWidth, availableHeight, readerSpreadGap)
     : null
 
   return (

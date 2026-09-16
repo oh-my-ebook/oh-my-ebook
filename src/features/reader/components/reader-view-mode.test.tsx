@@ -67,6 +67,12 @@ describe('Reader 보기 전환', () => {
     await user.click(screen.getByRole('button', { name: '두 페이지' }))
 
     await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
+    const spreadGap = 16
+    const spreadWidth = screen
+      .getAllByRole('img')
+      .reduce((width, canvas) => width + Number.parseFloat(canvas.style.width), spreadGap)
+
+    expect(spreadWidth).toBeLessThanOrEqual(1000)
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1–2 / 2')
   })
 })
