@@ -1,6 +1,7 @@
 import { BookOpenIcon, FileIcon } from 'lucide-react'
-import { useId } from 'react'
+import { useEffect, useRef } from 'react'
 
+import { toast } from '@/components/ui/toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
@@ -17,7 +18,16 @@ export function ViewModeControl({
   isSpreadAvailable,
   onViewChange,
 }: ViewModeControlProps) {
-  const restrictionId = useId()
+  const wasSpreadAvailable = useRef(isSpreadAvailable)
+
+  useEffect(() => {
+    if (preferredView === 'spread' && wasSpreadAvailable.current && !isSpreadAvailable) {
+      toast.add({ title: '화면이 좁아 한 페이지로 표시합니다.' })
+    }
+
+    wasSpreadAvailable.current = isSpreadAvailable
+  }, [isSpreadAvailable, preferredView])
+
   const handleValueChange = (value: string[]) => {
     const nextView = value[0]
 
@@ -27,42 +37,30 @@ export function ViewModeControl({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <ToggleGroup
-        aria-label="보기 방식"
-        onValueChange={handleValueChange}
-        size="sm"
-        spacing={0}
-        value={[preferredView]}
-        variant="outline"
-      >
-        <Tooltip>
-          <TooltipTrigger render={<ToggleGroupItem aria-label="한 페이지" value="single" />}>
-            <FileIcon />
-          </TooltipTrigger>
-          <TooltipContent>한 페이지</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <ToggleGroupItem
-                aria-describedby={isSpreadAvailable ? undefined : restrictionId}
-                aria-label="두 페이지"
-                disabled={!isSpreadAvailable}
-                value="spread"
-              />
-            }
-          >
-            <BookOpenIcon />
-          </TooltipTrigger>
-          <TooltipContent>두 페이지</TooltipContent>
-        </Tooltip>
-      </ToggleGroup>
-      {!isSpreadAvailable && (
-        <p className="text-muted-foreground text-xs" id={restrictionId}>
-          두 페이지 보기는 화면 폭 1024px 이상, 읽기 영역 1000px 이상에서 사용할 수 있습니다.
-        </p>
-      )}
-    </div>
+    <ToggleGroup
+      aria-label="보기 방식"
+      onValueChange={handleValueChange}
+      size="sm"
+      spacing={0}
+      value={[preferredView]}
+      variant="outline"
+    >
+      <Tooltip>
+        <TooltipTrigger render={<ToggleGroupItem aria-label="한 페이지" value="single" />}>
+          <FileIcon />
+        </TooltipTrigger>
+        <TooltipContent>한 페이지</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <ToggleGroupItem aria-label="두 페이지" disabled={!isSpreadAvailable} value="spread" />
+          }
+        >
+          <BookOpenIcon />
+        </TooltipTrigger>
+        <TooltipContent>두 페이지</TooltipContent>
+      </Tooltip>
+    </ToggleGroup>
   )
 }

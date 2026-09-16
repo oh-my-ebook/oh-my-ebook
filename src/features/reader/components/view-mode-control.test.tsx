@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { toast } from '@/components/ui/toast'
+
 import { ViewModeControl } from './view-mode-control'
 
 describe('ViewModeControl', () => {
@@ -72,20 +74,32 @@ describe('ViewModeControl', () => {
     )
   })
 
-  it('두 페이지 보기를 적용할 수 없으면 선택을 보존하고 제한 사유를 안내한다', () => {
-    render(
+  it('두 페이지 보기를 적용할 수 없으면 문구 없이 버튼을 비활성화한다', () => {
+    const { container } = render(
       <ViewModeControl isSpreadAvailable={false} onViewChange={vi.fn()} preferredView="spread" />,
     )
 
     const spreadButton = screen.getByRole('button', { name: '두 페이지' })
-    const restriction = screen.getByText(
-      '두 페이지 보기는 화면 폭 1024px 이상, 읽기 영역 1000px 이상에서 사용할 수 있습니다.',
-    )
 
     expect(spreadButton).toBeDisabled()
     expect(spreadButton).toHaveAttribute('aria-pressed', 'true')
-    expect(spreadButton).toHaveAttribute('aria-describedby', restriction.id)
-    expect(restriction).toBeVisible()
+    expect(container).not.toHaveTextContent('두 페이지 보기는 화면 폭 1024px 이상')
+  })
+
+  it('두 페이지 보기 중 공간이 부족해지면 toast로 알린다', () => {
+    const addToast = vi.spyOn(toast, 'add')
+    const { rerender } = render(
+      <ViewModeControl isSpreadAvailable onViewChange={vi.fn()} preferredView="spread" />,
+    )
+
+    expect(addToast).not.toHaveBeenCalled()
+
+    rerender(
+      <ViewModeControl isSpreadAvailable={false} onViewChange={vi.fn()} preferredView="spread" />,
+    )
+
+    expect(addToast).toHaveBeenCalledOnce()
+    expect(addToast).toHaveBeenCalledWith({ title: '화면이 좁아 한 페이지로 표시합니다.' })
   })
 
   it('키보드로 항목을 탐색하고 보기 방식을 변경한다', async () => {
