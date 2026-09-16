@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,6 +15,7 @@ import {
   increaseZoom,
   type ReaderZoom,
 } from '../lib/reader-zoom'
+import { PageNavigator } from './page-navigator'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToolbar } from './reader-toolbar'
@@ -78,6 +79,7 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 }
 
 export function Reader({ url, title }: ReaderProps) {
+  const [currentPage, setCurrentPage] = useState(1)
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
   const documentState = usePdfDocument(url)
   const { availableHeight, availableWidth, containerRef, isWideScreen, isSpreadAvailable } =
@@ -85,17 +87,29 @@ export function Reader({ url, title }: ReaderProps) {
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
-  const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
-  const firstPage = pageSpread.pages[0]
-  const pageRange = pageSpread.pages.map(({ pageNumber }) => pageNumber).join('–')
+
+  useEffect(() => {
+    // URL 변경은 새 독서 세션이므로 첫 페이지부터 시작한다.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setCurrentPage(1)
+  }, [url])
+
+  const selectedPage = documentState.pages[currentPage - 1]
+  const pageSpread = calculatePageSpread(
+    documentState.pages,
+    currentPage,
+    preferredView,
+    isSpreadAvailable,
+  )
+  const firstDisplayedPage = pageSpread.pages[0]
   const isPageReady =
     documentState.status === 'ready' &&
-    firstPage !== undefined &&
+    firstDisplayedPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const fitHeightScale = isPageReady
     ? calculateFitHeightScale(
-        [firstPage, ...pageSpread.pages.slice(1)],
+        [firstDisplayedPage, ...pageSpread.pages.slice(1)],
         { width: availableWidth, height: availableHeight },
         READER_SPREAD_GAP,
       )
@@ -114,6 +128,10 @@ export function Reader({ url, title }: ReaderProps) {
       return
     }
     setZoom((currentZoom) => decreaseZoom(currentZoom, fitHeightScale))
+  }
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+    containerRef.current?.scrollTo({ top: 0 })
   }
 
   return (
@@ -151,12 +169,12 @@ export function Reader({ url, title }: ReaderProps) {
             <ReaderError message={documentState.error.message} onRetry={documentState.retry} />
           )}
 
-          {documentState.status === 'ready' && firstPage === undefined && (
+          {documentState.status === 'ready' && selectedPage === undefined && (
             <ReaderError message="표시할 PDF 페이지가 없습니다." onRetry={documentState.retry} />
           )}
 
           {documentState.status === 'ready' &&
-            firstPage !== undefined &&
+            selectedPage !== undefined &&
             (availableWidth === 0 || availableHeight === 0) && (
               <ReaderLoading label="읽기 영역 계산 중" />
             )}
@@ -180,9 +198,11 @@ export function Reader({ url, title }: ReaderProps) {
 
       <footer className="flex min-h-12 shrink-0 items-center justify-center border-t px-4 py-2">
         {isPageReady && (
-          <output aria-label="페이지 위치">
-            {pageRange} / {documentState.pages.length}
-          </output>
+          <PageNavigator
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+            totalPages={documentState.pages.length}
+          />
         )}
       </footer>
     </div>

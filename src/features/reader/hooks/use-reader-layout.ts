@@ -23,14 +23,15 @@ const emptyReaderSize: AvailableReaderSize = {
 
 function measureAvailableReaderSize(container: HTMLElement): AvailableReaderSize {
   const style = getComputedStyle(container)
+  const { height, width } = container.getBoundingClientRect()
   const horizontalPadding =
     Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
   const verticalPadding =
     Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
 
   return {
-    availableHeight: Math.max(0, container.clientHeight - verticalPadding),
-    availableWidth: Math.max(0, container.clientWidth - horizontalPadding),
+    availableHeight: Math.max(0, height - verticalPadding),
+    availableWidth: Math.max(0, width - horizontalPadding),
   }
 }
 

@@ -37,6 +37,9 @@ function setupResizeObserverMock() {
       const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
       Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
       Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
+      vi.spyOn(readerArea, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(0, 0, width, height),
+      )
 
       if (!resizeCallback) {
         throw new Error('읽기 영역 관찰이 시작되지 않았습니다.')

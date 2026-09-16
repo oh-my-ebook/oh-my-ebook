@@ -5,6 +5,23 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@utility reader-slider {
+  &[data-dragging] [data-slot='slider-range'],
+  &[data-dragging] [data-slot='slider-thumb'] {
+    @apply transition-none;
+  }
+
+  [data-slot='slider-range'] {
+    @apply transition-all duration-100;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  [data-slot='slider-thumb'] {
+    @apply bg-primary transition-all duration-100;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
 @font-face {
   font-family: 'Pretendard';
   font-style: normal;
@@ -41,7 +58,7 @@
   --card-foreground: #1f201c;
   --popover: #fffdf8;
   --popover-foreground: #1f201c;
-  --primary: #1f201c;
+  --primary: #3a6b55;
   --primary-foreground: #f4f3ee;
   --secondary: #faf7ef;
   --secondary-foreground: #4a4840;
@@ -76,7 +93,7 @@
   --card-foreground: #dbd7ca;
   --popover: #201f1a;
   --popover-foreground: #dbd7ca;
-  --primary: #dbd7ca;
+  --primary: #86b99c;
   --primary-foreground: #1a1915;
   --secondary: #1a1915;
   --secondary-foreground: #948f80;

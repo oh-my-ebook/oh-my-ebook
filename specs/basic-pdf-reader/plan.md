@@ -53,8 +53,8 @@ PDF.js 본체와 같은 패키지의 `build/pdf.worker.min.mjs?url`을 import해
 
 - 회전 적용 후 폭이 높이보다 큰 페이지는 가로, 나머지는 세로다. `getViewport()`로 크기를 얻으며 내용 분석은 하지 않는다. [PDFPageProxy](https://mozilla.github.io/pdf.js/api/draft/module-pdfjsLib-PDFPageProxy.html)
 - 두 페이지 보기에서 함께 표시할 페이지는 문서 처음부터 순서대로 정한다. 연속된 세로 페이지는 두 장씩 함께 표시하고, 가로 페이지와 짝이 없는 세로 페이지는 한 장만 표시한다. 표지도 같은 규칙을 따른다.
-- 페이지 번호 입력·슬라이더는 선택 페이지를 유지한다. 이전·다음은 앞뒤 화면에 표시할 페이지 중 첫 페이지를 선택한다. 예를 들어 모두 세로인 6페이지 문서에서 3·4페이지를 함께 보고 있다면 다음은 5·6페이지를 표시하고 현재 페이지는 5로 설정한다. 이동한 경우 본문을 상단으로 스크롤한다.
-- 입력 중 문자열은 `PageNavigator`의 지역 상태다. Enter에서 공백을 정리하고 숫자로만 구성된 정수와 문서 범위를 확인한다. 빈 값·소수·지수 표기·범위 밖 값은 이동시키지 않는다.
+- 슬라이더는 선택 페이지를 유지한다. 첫·이전·다음·마지막 이동은 대상 화면에 표시할 페이지 중 첫 페이지를 선택한다. 예를 들어 모두 세로인 6페이지 문서에서 3·4페이지를 함께 보고 있다면 다음은 5·6페이지를 표시하고 현재 페이지는 5로 설정한다. 이동한 경우 본문을 상단으로 스크롤한다.
+- 현재 페이지와 전체 페이지 수는 수정할 수 없는 텍스트로 표시한다. 슬라이더는 shadcn 공식 예시와 같이 현재 페이지를 한 요소 배열로 전달한다. 드래그 중에는 임시 위치와 페이지 텍스트만 갱신하고 `onValueCommitted`에서 본문 페이지를 변경해 반복 렌더링을 피한다. 트랙 클릭과 키보드 변경도 같은 확정 콜백으로 전달한다.
 - 영구 저장을 추가하지 않는다. 새로고침 시 명세의 초기값으로 돌아온다.
 
 ### 페이지 변경 중 이전 작업 취소와 오류 처리 (race condition)
@@ -92,19 +92,19 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 | --------------- | ---------------------------------------------------------------------------- |
 | `Reader`        | 독서 상태, 문서와 화면 조합, 로딩·오류 상태 연결                             |
 | `ReaderToolbar` | Button, ToggleGroup, Tooltip, Separator로 보기·배율·패널 조작                |
-| `PageNavigator` | FieldGroup·Field·Input·FieldError, Slider, 이전·다음 Button                  |
+| `PageNavigator` | 현재·전체 페이지 텍스트, Slider, 첫·이전·다음·마지막 Button                  |
 | `PdfViewport`   | 본문 배치·수동 확대 스크롤, 페이지별 Canvas, Skeleton, Alert와 재시도 Button |
 | `ReaderPanel`   | 넓은 화면은 Collapsible과 320px 보조 영역, 좁은 화면은 Sheet                 |
 
 UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 공식 컴포넌트만 진행한다. Button을 재설치하거나 프리셋을 변경하지 않는다. 색상·서체는 기존 토큰, 표현 종류는 내장 variant, 사용처 `className`은 레이아웃에 사용한다. 필요한 지면 표현은 테마 토큰을 참조하는 Tailwind 유틸리티로 정의하고 토큰 값을 복제하지 않는다.
 
-번호 입력에는 접근 가능한 이름과 오류 연결을 제공한다. 아이콘 버튼에는 이름·Tooltip을 붙이고, 두 페이지 보기를 적용할 수 없으면 버튼을 비활성화한다. 두 페이지 보기 중 공간이 부족해지면 toast로 단면 표시를 알린다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Field](https://ui.shadcn.com/docs/components/base/field), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
+슬라이더와 페이지 탐색·보기 방식의 아이콘 버튼에는 접근 가능한 이름을 제공하고, 해당 버튼에는 Tooltip을 붙인다. 두 페이지 보기를 적용할 수 없으면 버튼을 비활성화하고, 두 페이지 보기 중 공간이 부족해지면 toast로 단면 표시를 알린다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Slider](https://ui.shadcn.com/docs/components/base/slider), [Toast](https://ui.shadcn.com/docs/components/base/toast), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
 
 공식 문서·레지스트리와 스킬을 비교한 결과는 다음과 같이 적용한다.
 
 - ToggleGroup은 Base UI의 배열 값과 `multiple` API를 사용한다. 단일 선택 해제 결과가 빈 배열이면 기존 값을 유지한다. shadcn 문서의 `type="single"` 예시와 달리 현재 Base 레지스트리는 Base UI props를 그대로 사용하므로 해당 예시를 복사하지 않는다. [Base UI ToggleGroup](https://base-ui.com/react/components/toggle-group)
-- Slider 스킬은 단일 값 배열을 잘못된 예시로 분류하지만 공식 API는 `number | number[]`를 허용한다. 조회한 shadcn 생성 코드는 숫자 값에서 thumb 두 개를 만들 수 있으므로 한 요소 배열 `[currentPage]`로 전달한다. 반환값은 실제 타입과 길이를 확인해 좁히며 타입 단언을 추가하지 않는다. [Base UI Slider](https://base-ui.com/react/components/slider)
-- 생성 코드도 검토한다. 확인한 Slider thumb의 `bg-white`는 프로젝트 의미 토큰으로 연결하고, 키보드·포커스·단일 thumb 동작을 유지한다. `src/components/ui/`의 생성 포맷은 유지한다.
+- Slider는 공식 예시처럼 한 요소 배열을 전달해 thumb 하나를 표시한다. 콜백 값은 배열 여부와 첫 값의 타입·범위를 확인해 좁히며 타입 단언을 추가하지 않는다. [shadcn Slider](https://ui.shadcn.com/docs/components/base/slider), [Base UI Slider](https://base-ui.com/react/components/slider)
+- Slider 생성 코드는 수정하지 않는다. 진행 색상은 `src/index.css`의 `--primary`를 accent 초록색 값으로 정의해 연결하고, 기능 컴포넌트에서 thumb 배경도 같은 의미 색상으로 맞춘다. shadcn 기본 edge 정렬·thumb·키보드·포커스·포인터 동작을 유지한다. 드래그 중에는 페이지 텍스트만 갱신하고 본문 렌더링을 미뤄 기본 포인터 이동을 방해하지 않는다. `src/components/ui/`의 생성 포맷을 유지한다.
 
 ## 파일 구성
 
@@ -118,13 +118,13 @@ UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 �
 | `src/app.css`                                          | 삭제하고 Reader 레이아웃은 Tailwind 유틸리티로 구성                    |
 | `src/features/reader/components/reader.tsx`            | 상태 소유와 전체 화면 조합                                             |
 | `src/features/reader/components/reader-toolbar.tsx`    | 상단 조작부                                                            |
-| `src/features/reader/components/page-navigator.tsx`    | 페이지 입력·슬라이더·앞뒤 이동                                         |
+| `src/features/reader/components/page-navigator.tsx`    | 페이지 텍스트·슬라이더·첫/앞뒤/마지막 이동                             |
 | `src/features/reader/components/view-mode-control.tsx` | 한 페이지·두 페이지 보기 전환                                          |
 | `src/features/reader/components/zoom-controls.tsx`     | 확대·축소·확대율·높이 맞춤 조작                                        |
 | `src/features/reader/components/pdf-viewport.tsx`      | Canvas 렌더링과 표시 완료·오류 처리                                    |
 | `src/features/reader/components/reader-panel.tsx`      | 반응형 빈 패널과 포커스 복원                                           |
 | `src/features/reader/lib/pdf-document.ts`              | PDF.js worker 설정과 문서·페이지 정보 조회                             |
-| `src/features/reader/lib/page-navigation.ts`           | 페이지 범위·앞뒤 이동·번호 입력의 순수 계산                            |
+| `src/features/reader/lib/page-navigation.ts`           | 페이지 범위·첫/앞뒤/마지막 이동의 순수 계산                            |
 | `src/features/reader/lib/page-spread.ts`               | 방향·함께 표시할 페이지·두 페이지 이동의 순수 계산                     |
 | `src/features/reader/lib/reader-zoom.ts`               | 높이 맞춤·수동 배율의 순수 계산                                        |
 | `src/features/reader/hooks/use-pdf-document.ts`        | 문서 로딩·재시도·수명 관리                                             |
@@ -162,7 +162,7 @@ E2E는 Canvas 존재만 확인하지 않고 렌더링 완료 상태와 페이지
 
 PDF 첫 페이지 표시를 공통 기반으로 먼저 완료한다. 이후 페이지 탐색, 한 페이지·두 페이지 보기, 크기 조절, 보조 패널과 반응형 동작은 서로 다른 담당자가 병렬로 구현한다. 각 담당자는 다른 섹션의 미완료 코드를 import하지 않고, 기능 구현과 집중 테스트를 자신의 섹션에 지정된 파일에서 완료한다. 마지막에는 섹션별 화면 연결 작업으로 해당 기능만 공통 기반의 `Reader`에 연결해 개발 서버에서 직접 확인할 수 있게 한다.
 
-1. **페이지 탐색**: 한 페이지 기준 이전·다음·번호 입력·슬라이더와 입력 오류를 독립 모듈과 컴포넌트로 구현한 뒤 `Reader` 하단에 연결한다.
+1. **페이지 탐색**: 한 페이지 기준 첫·이전·다음·마지막 이동, 현재·전체 페이지 텍스트와 슬라이더를 독립 모듈과 컴포넌트로 구현한 뒤 `Reader` 하단에 연결한다.
 2. **한 페이지·두 페이지 보기**: 페이지 방향·배치·두 페이지 이동, 양쪽 페이지 표시 완료 처리를 독립 모듈과 컴포넌트로 구현한 뒤 보기 전환을 `ReaderToolbar`와 본문에 연결한다.
 3. **크기 조절**: 높이 맞춤과 수동 배율 계산, 확대·축소·확대율·높이 맞춤 조작을 독립 모듈과 컴포넌트로 구현한 뒤 `ReaderToolbar`와 본문에 연결한다.
 4. **보조 패널과 반응형 동작**: 반응형 빈 패널, 화면·읽기 영역 측정, 포커스 복원을 독립 훅과 컴포넌트로 구현한 뒤 `ReaderToolbar`와 Reader 레이아웃에 연결한다.
