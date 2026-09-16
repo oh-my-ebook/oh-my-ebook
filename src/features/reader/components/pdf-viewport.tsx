@@ -96,8 +96,8 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
         const pixelRatio = getDevicePixelRatio()
         canvas.width = Math.floor(viewport.width * pixelRatio)
         canvas.height = Math.floor(viewport.height * pixelRatio)
-        canvas.style.width = `${viewport.width}px`
-        canvas.style.height = `${viewport.height}px`
+        canvas.style.width = '100%'
+        canvas.style.height = '100%'
 
         // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
         const renderTask = pdfPage.render({
@@ -146,31 +146,40 @@ export function PdfViewport({ document, page, scale }: PdfViewportProps) {
     <section
       aria-busy={status === 'loading'}
       aria-label="PDF 본문"
-      className="flex h-full min-h-0 items-start justify-center overflow-hidden"
+      className="h-full min-h-0 overflow-auto"
     >
-      <div className="w-fit" hidden={status !== 'ready'} ref={canvasContainerRef} />
-
-      {status === 'loading' && (
+      <div className="flex min-h-full w-max min-w-full items-start justify-center">
         <div
-          aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
-          role="status"
+          data-slot="pdf-page-frame"
+          className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none"
+          hidden={status === 'error'}
           style={{ height: displayHeight, width: displayWidth }}
         >
-          <Skeleton className="h-full w-full" />
-        </div>
-      )}
+          <div className="h-full w-full" hidden={status !== 'ready'} ref={canvasContainerRef} />
 
-      {status === 'error' && (
-        <Alert className="mx-auto max-w-md" variant="destructive">
-          <AlertTitle>{page.pageNumber}페이지를 표시하지 못했습니다.</AlertTitle>
-          <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
-          <AlertAction>
-            <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
-              다시 시도
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
+          {status === 'loading' && (
+            <div
+              aria-label={`PDF ${page.pageNumber}페이지 표시 중`}
+              className="absolute inset-0"
+              role="status"
+            >
+              <Skeleton className="h-full w-full" />
+            </div>
+          )}
+        </div>
+
+        {status === 'error' && (
+          <Alert className="mx-auto max-w-md" variant="destructive">
+            <AlertTitle>{page.pageNumber}페이지를 표시하지 못했습니다.</AlertTitle>
+            <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
+            <AlertAction>
+              <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
+                다시 시도
+              </Button>
+            </AlertAction>
+          </Alert>
+        )}
+      </div>
     </section>
   )
 }
