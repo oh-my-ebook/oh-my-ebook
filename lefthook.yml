@@ -22,7 +22,7 @@ pre-push:
       runner: sh
       use_stdin: true
   commands:
-    typecheck:
-      run: pnpm typecheck
     test:
       run: pnpm test
+    build:
+      run: pnpm build

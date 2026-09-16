@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
+const MIN_SPREAD_WIDTH = 1000
 
 export interface ReaderLayout {
   availableHeight: number
   availableWidth: number
   isWideScreen: boolean
+  isSpreadAvailable: boolean
   containerRef: RefObject<HTMLElement | null>
 }
 
@@ -21,14 +23,15 @@ const emptyReaderSize: AvailableReaderSize = {
 
 function measureAvailableReaderSize(container: HTMLElement): AvailableReaderSize {
   const style = getComputedStyle(container)
+  const { height, width } = container.getBoundingClientRect()
   const horizontalPadding =
     Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
   const verticalPadding =
     Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
 
   return {
-    availableHeight: Math.max(0, container.clientHeight - verticalPadding),
-    availableWidth: Math.max(0, container.clientWidth - horizontalPadding),
+    availableHeight: Math.max(0, height - verticalPadding),
+    availableWidth: Math.max(0, width - horizontalPadding),
   }
 }
 
@@ -38,6 +41,7 @@ export function useReaderLayout(): ReaderLayout {
   const [isWideScreen, setIsWideScreen] = useState(
     () => window.matchMedia(WIDE_SCREEN_QUERY).matches,
   )
+  const isSpreadAvailable = isWideScreen && availableSize.availableWidth >= MIN_SPREAD_WIDTH
 
   // 이 훅이 연결되는 컨테이너는 조건부로 사라지거나 다른 DOM 노드로 바뀌지 않으므로 일반 ref로 충분하다.
   // paint 전에 측정해 잘못된 크기가 잠깐이라도 그려지지 않도록 useLayoutEffect를 사용한다.
@@ -74,5 +78,10 @@ export function useReaderLayout(): ReaderLayout {
     }
   }, [])
 
-  return { ...availableSize, isWideScreen, containerRef }
+  return {
+    ...availableSize,
+    isWideScreen,
+    isSpreadAvailable,
+    containerRef,
+  }
 }

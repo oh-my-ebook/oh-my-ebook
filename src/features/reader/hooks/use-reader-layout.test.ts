@@ -103,9 +103,18 @@ function renderLayoutHarness() {
   return { layout: capture, unmount: view.unmount }
 }
 
-function setContainerSize(container: HTMLElement, width: number, height: number) {
+function setContainerSize(
+  container: HTMLElement,
+  width: number,
+  height: number,
+  layoutWidth = width,
+  layoutHeight = height,
+) {
   Object.defineProperty(container, 'clientWidth', { configurable: true, value: width })
   Object.defineProperty(container, 'clientHeight', { configurable: true, value: height })
+  vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, layoutWidth, layoutHeight),
+  )
 }
 
 describe('useReaderLayout', () => {
@@ -131,6 +140,23 @@ describe('useReaderLayout', () => {
     expect(resizeObserver.observeResizeTarget).toHaveBeenCalledWith(container)
   })
 
+  it('소수점 단위의 실제 레이아웃 크기를 유지한다', () => {
+    const resizeObserver = setupResizeObserverMock()
+    setupMatchMediaMock()
+    const { layout } = renderLayoutHarness()
+    const container = layout.current!.containerRef.current!
+    container.style.paddingLeft = '24px'
+    container.style.paddingRight = '24px'
+    container.style.paddingTop = '24px'
+    container.style.paddingBottom = '24px'
+
+    setContainerSize(container, 1048, 1248, 1047.75, 1247.652)
+    resizeObserver.triggerResize()
+
+    expect(layout.current?.availableWidth).toBe(999.75)
+    expect(layout.current?.availableHeight).toBe(1199.652)
+  })
+
   it('읽기 영역 가용 폭 999px과 1000px 경계를 정확히 구분한다', () => {
     const resizeObserver = setupResizeObserverMock()
     setupMatchMediaMock()
@@ -144,6 +170,24 @@ describe('useReaderLayout', () => {
     setContainerSize(container, 1000, 800)
     resizeObserver.triggerResize()
     expect(layout.current?.availableWidth).toBe(1000)
+  })
+
+  it('화면과 읽기 영역의 변경을 각각 반영해 두 페이지 가능 여부를 계산한다', () => {
+    const resizeObserver = setupResizeObserverMock()
+    const mediaQuery = setupMatchMediaMock(false)
+    const { layout } = renderLayoutHarness()
+    const container = layout.current!.containerRef.current!
+
+    setContainerSize(container, 1000, 800)
+    resizeObserver.triggerResize()
+    expect(layout.current?.isSpreadAvailable).toBe(false)
+
+    mediaQuery.triggerMediaChange(true)
+    expect(layout.current?.isSpreadAvailable).toBe(true)
+
+    setContainerSize(container, 999, 800)
+    resizeObserver.triggerResize()
+    expect(layout.current?.isSpreadAvailable).toBe(false)
   })
 
   it('읽기 영역 크기가 바뀌면 다시 측정한다', () => {
