@@ -5,6 +5,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@utility reader-slider {
+  &[data-dragging] [data-slot='slider-range'],
+  &[data-dragging] [data-slot='slider-thumb'] {
+    @apply transition-none;
+  }
+
+  [data-slot='slider-range'] {
+    @apply transition-all duration-100 ease-[cubic-bezier(0.16, 1, 0.3, 1)];
+  }
+
+  [data-slot='slider-thumb'] {
+    @apply bg-primary transition-all duration-100 ease-[cubic-bezier(0.16, 1, 0.3, 1)];
+  }
+}
+
 @font-face {
   font-family: 'Pretendard';
   font-style: normal;

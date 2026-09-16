@@ -98,7 +98,7 @@ export function PageNavigator({
           <span className="sr-only"> / {totalPages}</span>
         </output>
         <Slider
-          className="min-w-0 flex-1 px-2 [&_[data-slot=slider-thumb]]:bg-primary"
+          className="min-w-0 flex-1 px-2 reader-slider"
           disabled={disabled || totalPages === 1}
           getAriaLabel={() => '페이지 슬라이더'}
           getAriaValueText={(_formattedValue, pageNumber) => `${pageNumber} / ${totalPages}페이지`}
