@@ -95,15 +95,21 @@ export function Reader({ url, title }: ReaderProps) {
   }, [url])
 
   const selectedPage = documentState.pages[currentPage - 1]
-  const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
+  const pageSpread = calculatePageSpread(
+    documentState.pages,
+    currentPage,
+    preferredView,
+    isSpreadAvailable,
+  )
+  const firstDisplayedPage = pageSpread.pages[0]
   const isPageReady =
     documentState.status === 'ready' &&
-    selectedPage !== undefined &&
+    firstDisplayedPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const fitHeightScale = isPageReady
     ? calculateFitHeightScale(
-        [selectedPage, ...pageSpread.pages.slice(1)],
+        [firstDisplayedPage, ...pageSpread.pages.slice(1)],
         { width: availableWidth, height: availableHeight },
         READER_SPREAD_GAP,
       )
@@ -176,7 +182,7 @@ export function Reader({ url, title }: ReaderProps) {
           {isPageReady && fitHeightScale !== null && (
             <PdfViewport
               document={documentState.document}
-              page={selectedPage}
+              pages={pageSpread.pages}
               scale={displayScale}
             />
           )}

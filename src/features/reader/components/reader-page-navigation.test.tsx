@@ -10,9 +10,10 @@ const useReaderLayoutMock = vi.hoisted(() => vi.fn())
 vi.mock('../hooks/use-pdf-document', () => ({ usePdfDocument: usePdfDocumentMock }))
 vi.mock('../hooks/use-reader-layout', () => ({ useReaderLayout: useReaderLayoutMock }))
 vi.mock('./pdf-viewport', () => ({
-  PdfViewport: ({ page }: { page: PdfPageInfo }) => (
-    <div aria-label={`PDF ${page.pageNumber}페이지`} role="img" />
-  ),
+  PdfViewport: ({ pages }: { pages: readonly PdfPageInfo[] }) =>
+    pages.map((page) => (
+      <div aria-label={`PDF ${page.pageNumber}페이지`} key={page.pageNumber} role="img" />
+    )),
 }))
 
 const pages = Array.from({ length: 5 }, (_, index) => ({

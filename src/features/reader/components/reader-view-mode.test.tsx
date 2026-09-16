@@ -70,7 +70,7 @@ describe('Reader 보기 전환', () => {
     await user.click(screen.getByRole('button', { name: '두 페이지' }))
 
     await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
-    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1–2 / 2')
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1 / 2')
     const frames = screen
       .getByRole('region', { name: 'PDF 본문' })
       .querySelectorAll('[data-slot="pdf-page-frame"]')
