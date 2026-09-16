@@ -10,7 +10,7 @@
 
 **완료 기준:** 실제 AI 백엔드 없이 스트리밍 텍스트를 생성하고, 실패·재시도를 재현할 수 있는 `ChatModelAdapter`가 준비된다. 이후 모든 UI 작업이 이 어댑터에 의존한다.
 
-- [ ] [T002] `src/features/reader/lib/mock-chat-adapter.test.ts`에 스트리밍 조각이 누적되어 최종 텍스트가 되는 경우, 실패가 주입됐을 때 오류를 던지는 경우, 재시도 시 같은 입력으로 다시 스트리밍하는 경우를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/mock-chat-adapter.ts`에 `ChatModelAdapter`를 구현한다. `run()`은 고정 지연 후 누적 텍스트를 `yield`하는 async generator로 만들고, 실행 결과를 결정하는 부분(성공/실패/지연)은 테스트가 제어 가능한 형태로 분리해 실제 `setTimeout` 의존 없이 검증한다. 제어 가능한 Promise는 기존 `src/test/promise-controller.ts` 패턴을 재사용한다. (FR-003, FR-004)
+- [x] [T002] `src/features/reader/lib/mock-chat-adapter.test.ts`에 스트리밍 조각이 누적되어 최종 텍스트가 되는 경우, 실패가 주입됐을 때 오류를 던지는 경우, 재시도 시 같은 입력으로 다시 스트리밍하는 경우를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/mock-chat-adapter.ts`에 `ChatModelAdapter`를 구현한다. `run()`은 고정 지연 후 누적 텍스트를 `yield`하는 async generator로 만들고, 실행 결과를 결정하는 부분(성공/실패/지연)은 테스트가 제어 가능한 형태로 분리해 실제 `setTimeout` 의존 없이 검증한다. 제어 가능한 Promise는 기존 `src/test/promise-controller.ts` 패턴을 재사용한다. (FR-003, FR-004)
 
 ## Phase 3: 채팅 UI
 
