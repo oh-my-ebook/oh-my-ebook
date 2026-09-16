@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -15,13 +15,14 @@ vi.mock('../lib/pdf-document', async (importOriginal) => {
 const PANEL_OPEN_LABEL = '보조 패널 열기'
 const PANEL_TITLE = '보조 패널'
 
-let resizeObserveCallback: ResizeObserverCallback | null = null
-let mediaQueryMatches = true
+// mock 상태를 모듈 전역 let 대신 각 테스트가 직접 만드는 팩토리로 캡슐화해, beforeEach 초기화
+// 누락으로 테스트 간 상태가 새는 걸 원천적으로 막는다.
+function setupResizeObserverMock() {
+  let resizeCallback: ResizeObserverCallback | null = null
 
-function stubResizeObserver() {
   class ResizeObserverMock {
     constructor(callback: ResizeObserverCallback) {
-      resizeObserveCallback = callback
+      resizeCallback = callback
     }
 
     observe = vi.fn()
@@ -30,15 +31,29 @@ function stubResizeObserver() {
   }
 
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+
+  return {
+    resizeReaderAreaTo(width: number, height: number) {
+      const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
+      Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
+      Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
+
+      if (!resizeCallback) {
+        throw new Error('읽기 영역 관찰이 시작되지 않았습니다.')
+      }
+      const notifyResize = resizeCallback
+      act(() => {
+        notifyResize([], {} as ResizeObserver)
+      })
+    },
+  }
 }
 
-function stubMatchMedia() {
+function setupMatchMediaMock(isWideScreen: boolean) {
   vi.stubGlobal(
     'matchMedia',
     vi.fn((query: string) => ({
-      get matches() {
-        return mediaQueryMatches
-      },
+      matches: isWideScreen,
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -65,25 +80,12 @@ function createLoadedDocument(): LoadedPdfDocument {
   }
 }
 
-function resizeReaderAreaTo(width: number, height: number) {
-  const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
-  Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
-  Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
-
-  if (!resizeObserveCallback) {
-    throw new Error('읽기 영역 관찰이 시작되지 않았습니다.')
-  }
-  const notifyResize = resizeObserveCallback
-  act(() => {
-    notifyResize([], {} as ResizeObserver)
-  })
-}
-
-async function renderLoadedReader() {
+async function renderLoadedReader(resizeObserverMock: ReturnType<typeof setupResizeObserverMock>) {
+  vi.stubGlobal('devicePixelRatio', 1)
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
   render(<Reader url="/sample.pdf" />)
-  resizeReaderAreaTo(1000, 1200)
+  resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
     documentLoad.resolve(createLoadedDocument())
@@ -93,23 +95,16 @@ async function renderLoadedReader() {
 }
 
 describe('Reader 보조 패널 연결', () => {
-  beforeEach(() => {
-    loadPdfDocumentMock.mockReset()
-    resizeObserveCallback = null
-    mediaQueryMatches = true
-    vi.stubGlobal('devicePixelRatio', 1)
-    stubResizeObserver()
-    stubMatchMedia()
-  })
-
   afterEach(() => {
+    loadPdfDocumentMock.mockReset()
     vi.unstubAllGlobals()
   })
 
   it('넓은 화면에서 패널을 열면 본문 옆 영역이 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
     const user = userEvent.setup()
-    mediaQueryMatches = true
-    await renderLoadedReader()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    await renderLoadedReader(resizeObserverMock)
 
     const panelButton = screen.getByRole('button', { name: PANEL_OPEN_LABEL })
     await user.click(panelButton)
@@ -124,8 +119,9 @@ describe('Reader 보조 패널 연결', () => {
 
   it('좁은 화면에서 패널을 열면 Sheet로 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
     const user = userEvent.setup()
-    mediaQueryMatches = false
-    await renderLoadedReader()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(false)
+    await renderLoadedReader(resizeObserverMock)
 
     const panelButton = screen.getByRole('button', { name: PANEL_OPEN_LABEL })
     await user.click(panelButton)
@@ -140,11 +136,13 @@ describe('Reader 보조 패널 연결', () => {
 
   it('패널이 열린 상태에서도 읽기 영역 크기 변화가 본문 배율에 반영된다', async () => {
     const user = userEvent.setup()
-    await renderLoadedReader()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    await renderLoadedReader(resizeObserverMock)
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
 
-    resizeReaderAreaTo(400, 600)
+    resizeObserverMock.resizeReaderAreaTo(400, 600)
 
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
     expect(firstPage).toHaveStyle({ width: '400px', height: '600px' })
