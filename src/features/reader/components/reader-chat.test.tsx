@@ -169,4 +169,23 @@ describe('ReaderChat', () => {
     secondController.resolve('재시도 성공')
     expect(await screen.findByText('같은 질문 답변: 재시도 성공')).toBeInTheDocument()
   })
+
+  it('전송한 질문에 현재 페이지 번호가 함께 전달된다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    const receivedContexts: Parameters<MockResponder>[1][] = []
+    const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
+      receivedContexts.push(context)
+      yield '답변'
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(<ReaderChat chatModel={adapter} currentPage={5} />)
+
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(receivedContexts).toHaveLength(1))
+    expect(receivedContexts[0]?.system).toContain('5')
+  })
 })

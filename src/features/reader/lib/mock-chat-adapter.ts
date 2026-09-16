@@ -1,11 +1,15 @@
 import type {
   ChatModelRunOptions,
   ChatModelRunResult,
+  ModelContext,
   TextMessagePart,
   ThreadMessage,
 } from '@assistant-ui/react'
 
-export type MockResponder = (question: string) => AsyncGenerator<string, void>
+export type MockResponder = (
+  question: string,
+  context: ModelContext,
+) => AsyncGenerator<string, void>
 
 function isTextPart(part: { type: string }): part is TextMessagePart {
   return part.type === 'text'
@@ -24,10 +28,10 @@ function extractLatestUserText(messages: readonly ThreadMessage[]) {
 
 export function createMockChatModelAdapter(respond: MockResponder) {
   return {
-    async *run({ messages }: ChatModelRunOptions) {
+    async *run({ context, messages }: ChatModelRunOptions) {
       const question = extractLatestUserText(messages)
       let accumulated = ''
-      for await (const chunk of respond(question)) {
+      for await (const chunk of respond(question, context)) {
         accumulated += chunk
         yield { content: [{ type: 'text', text: accumulated }] } satisfies ChatModelRunResult
       }
