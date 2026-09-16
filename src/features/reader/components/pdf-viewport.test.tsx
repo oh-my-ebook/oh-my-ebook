@@ -74,7 +74,11 @@ describe('PdfViewport', () => {
 
     await waitFor(() => expect(page.render).toHaveBeenCalledOnce())
     const canvas = container.querySelector('canvas')
-    expect(canvas).toHaveStyle({ width: '800px', height: '1200px' })
+    expect(container.querySelector('[data-slot="pdf-page-frame"]')).toHaveStyle({
+      width: '800px',
+      height: '1200px',
+    })
+    expect(canvas).toHaveStyle({ width: '100%', height: '100%' })
     expect(canvas).toHaveAttribute('width', '1600')
     expect(canvas).toHaveAttribute('height', '2400')
     expect(getPage).toHaveBeenCalledWith(1)
@@ -113,7 +117,11 @@ describe('PdfViewport', () => {
     const latestCanvas = container.querySelector('canvas')
     expect(firstRender.task.cancel).toHaveBeenCalledOnce()
     expect(latestCanvas).not.toBe(firstCanvas)
-    expect(latestCanvas).toHaveStyle({ width: '400px', height: '600px' })
+    expect(container.querySelector('[data-slot="pdf-page-frame"]')).toHaveStyle({
+      width: '400px',
+      height: '600px',
+    })
+    expect(latestCanvas).toHaveStyle({ width: '100%', height: '100%' })
 
     await act(async () => {
       latestRender.completion.resolve(undefined)
@@ -125,7 +133,33 @@ describe('PdfViewport', () => {
     })
 
     expect(getRenderedCanvas()).toBe(latestCanvas)
-    expect(getRenderedCanvas()).toHaveStyle({ width: '400px', height: '600px' })
+    expect(getRenderedCanvas()).toHaveStyle({ width: '100%', height: '100%' })
+  })
+
+  it('배율 변경을 200ms 동안 전환하고 동작 감소 설정에서는 전환하지 않는다', async () => {
+    const firstRender = createRenderTask()
+    const latestRender = createRenderTask()
+    const page = createPdfPage([firstRender, latestRender])
+    const { document } = createPdfDocument(page.page)
+    const pdfPage = { pageNumber: 1, width: 800, height: 1200, rotation: 0 }
+    const { container, rerender } = render(
+      <PdfViewport document={document} page={pdfPage} scale={1} />,
+    )
+    await waitFor(() => expect(page.render).toHaveBeenCalledOnce())
+    const pageFrame = container.querySelector('[data-slot="pdf-page-frame"]')
+
+    expect(pageFrame).toHaveClass(
+      'transition-[width,height]',
+      'duration-200',
+      'ease-out',
+      'motion-reduce:transition-none',
+    )
+    expect(pageFrame).toHaveStyle({ width: '800px', height: '1200px' })
+
+    rerender(<PdfViewport document={document} page={pdfPage} scale={0.5} />)
+
+    expect(container.querySelector('[data-slot="pdf-page-frame"]')).toBe(pageFrame)
+    expect(pageFrame).toHaveStyle({ width: '400px', height: '600px' })
   })
 
   it('취소한 이전 작업의 늦은 오류를 현재 화면에 표시하지 않는다', async () => {
@@ -149,7 +183,7 @@ describe('PdfViewport', () => {
     })
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(getRenderedCanvas()).toHaveStyle({ width: '400px', height: '600px' })
+    expect(getRenderedCanvas()).toHaveStyle({ width: '100%', height: '100%' })
   })
 
   it('페이지 표시 실패를 안내하고 같은 페이지를 다시 그린다', async () => {
