@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculateSinglePageFitScale } from '../lib/reader-state'
+import { PageNavigator } from './page-navigator'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToolbar } from './reader-toolbar'
@@ -65,24 +66,29 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 }
 
 export function Reader({ url, title }: ReaderProps) {
+  const [currentPage, setCurrentPage] = useState(1)
   const documentState = usePdfDocument(url)
   const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
-  const firstPage = documentState.pages[0]
+  const selectedPage = documentState.pages[currentPage - 1]
   const isPageReady =
     documentState.status === 'ready' &&
-    firstPage !== undefined &&
+    selectedPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const scale = isPageReady
     ? calculateSinglePageFitScale(
-        firstPage.width,
-        firstPage.height,
+        selectedPage.width,
+        selectedPage.height,
         availableWidth,
         availableHeight,
       )
     : null
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+    containerRef.current?.scrollTo({ top: 0 })
+  }
 
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
@@ -105,18 +111,18 @@ export function Reader({ url, title }: ReaderProps) {
             <ReaderError message={documentState.error.message} onRetry={documentState.retry} />
           )}
 
-          {documentState.status === 'ready' && firstPage === undefined && (
+          {documentState.status === 'ready' && selectedPage === undefined && (
             <ReaderError message="표시할 PDF 페이지가 없습니다." onRetry={documentState.retry} />
           )}
 
           {documentState.status === 'ready' &&
-            firstPage !== undefined &&
+            selectedPage !== undefined &&
             (availableWidth === 0 || availableHeight === 0) && (
               <ReaderLoading label="읽기 영역 계산 중" />
             )}
 
           {isPageReady && scale !== null && (
-            <PdfViewport document={documentState.document} page={firstPage} scale={scale} />
+            <PdfViewport document={documentState.document} page={selectedPage} scale={scale} />
           )}
         </main>
 
@@ -129,7 +135,13 @@ export function Reader({ url, title }: ReaderProps) {
       </div>
 
       <footer className="flex min-h-12 shrink-0 items-center justify-center border-t px-4 py-2">
-        {isPageReady && <output aria-label="페이지 위치">1 / {documentState.pages.length}</output>}
+        {isPageReady && (
+          <PageNavigator
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+            totalPages={documentState.pages.length}
+          />
+        )}
       </footer>
     </div>
   )
