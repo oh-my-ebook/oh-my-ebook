@@ -146,6 +146,24 @@ describe('useReaderLayout', () => {
     expect(layout.current?.availableWidth).toBe(1000)
   })
 
+  it('화면과 읽기 영역의 변경을 각각 반영해 두 페이지 가능 여부를 계산한다', () => {
+    const resizeObserver = setupResizeObserverMock()
+    const mediaQuery = setupMatchMediaMock(false)
+    const { layout } = renderLayoutHarness()
+    const container = layout.current!.containerRef.current!
+
+    setContainerSize(container, 1000, 800)
+    resizeObserver.triggerResize()
+    expect(layout.current?.isSpreadAvailable).toBe(false)
+
+    mediaQuery.triggerMediaChange(true)
+    expect(layout.current?.isSpreadAvailable).toBe(true)
+
+    setContainerSize(container, 999, 800)
+    resizeObserver.triggerResize()
+    expect(layout.current?.isSpreadAvailable).toBe(false)
+  })
+
   it('읽기 영역 크기가 바뀌면 다시 측정한다', () => {
     const resizeObserver = setupResizeObserverMock()
     setupMatchMediaMock()

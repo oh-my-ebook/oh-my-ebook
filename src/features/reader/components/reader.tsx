@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
+import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -33,6 +34,8 @@ interface ReaderErrorProps {
 interface ReaderLoadingProps {
   label: string
 }
+
+const READER_SPREAD_GAP = 16
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -77,8 +80,10 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 
 export function Reader({ url, title }: ReaderProps) {
   const [currentPage, setCurrentPage] = useState(1)
+  const [preferredView, setPreferredView] = useState<PageViewMode>('single')
   const documentState = usePdfDocument(url)
-  const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
+  const { availableHeight, availableWidth, containerRef, isWideScreen, isSpreadAvailable } =
+    useReaderLayout()
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
@@ -90,16 +95,18 @@ export function Reader({ url, title }: ReaderProps) {
   }, [url])
 
   const selectedPage = documentState.pages[currentPage - 1]
+  const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
   const isPageReady =
     documentState.status === 'ready' &&
     selectedPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const fitHeightScale = isPageReady
-    ? calculateFitHeightScale([selectedPage], {
-        width: availableWidth,
-        height: availableHeight,
-      })
+    ? calculateFitHeightScale(
+        [selectedPage, ...pageSpread.pages.slice(1)],
+        { width: availableWidth, height: availableHeight },
+        READER_SPREAD_GAP,
+      )
     : null
   const displayScale = fitHeightScale === null ? 1 : getZoomScale(zoom, fitHeightScale)
 
@@ -124,9 +131,12 @@ export function Reader({ url, title }: ReaderProps) {
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
       <ReaderToolbar
+        isSpreadAvailable={isSpreadAvailable}
         onTogglePanel={() => setPanelOpen((open) => !open)}
+        onViewChange={setPreferredView}
         panelButtonRef={panelButtonRef}
         panelOpen={panelOpen}
+        preferredView={preferredView}
         title={getReaderTitle(url, title)}
       >
         <ZoomControls

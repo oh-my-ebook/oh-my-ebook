@@ -37,6 +37,8 @@ describe('Reader 크기 조절 연결', () => {
       availableWidth: 800,
       availableHeight: 900,
       containerRef: createRef<HTMLDivElement>(),
+      isWideScreen: false,
+      isSpreadAvailable: false,
     })
   })
 
