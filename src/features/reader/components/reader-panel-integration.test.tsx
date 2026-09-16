@@ -176,4 +176,25 @@ describe('Reader 보조 패널 연결', () => {
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
     expect(screen.queryByText('질문')).not.toBeInTheDocument()
   })
+
+  it('좁은 화면에서 대화가 길어져도 채팅 조작부가 계속 표시된다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(false)
+    await renderLoadedReader(resizeObserverMock)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    const input = screen.getByRole('textbox', { name: 'Message input' })
+
+    for (const question of ['첫번째 질문', '두번째 질문', '세번째 질문']) {
+      await user.type(input, question)
+      await user.keyboard('{Enter}')
+      await screen.findByText(question)
+      // 다음 질문을 보내기 전에 응답을 끝까지 받아, 실행 중인 Mock 타이머가 남지 않게 한다.
+      await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+    }
+
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeVisible()
+    expect(screen.getByText('세번째 질문')).toBeVisible()
+  })
 })

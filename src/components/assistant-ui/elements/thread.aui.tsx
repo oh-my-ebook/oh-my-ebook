@@ -207,8 +207,10 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
           </AuiIf>
 
           <div
+            aria-live="polite"
             data-slot="aui_message-group"
             className="mb-14 flex flex-col gap-y-6 empty:hidden"
+            role="log"
           >
             <ThreadPrimitive.Messages>
               {() => <ThreadMessage />}

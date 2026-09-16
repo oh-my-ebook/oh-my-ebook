@@ -38,8 +38,8 @@
 
 **완료 기준:** 키보드만으로 조작할 수 있고 스크린 리더로 로딩·응답 갱신을 확인할 수 있으며, 넓은 화면·Sheet·320px 모두에서 레이아웃이 깨지지 않는다.
 
-- [ ] [T008] `src/features/reader/components/reader-chat.test.tsx`에 Tab으로 입력·전송·재시도 조작부를 순서대로 이동할 수 있는지, 각 조작부에 접근 가능한 이름이 있는지, 스트리밍 갱신·완료가 보조 기술로 확인 가능한 영역(`aria-live` 등)에 반영되는지 테스트를 먼저 작성해 실패를 확인한다. assistant-ui 프리미티브의 기본 제공 여부를 먼저 확인하고 부족한 부분만 `reader-chat.tsx`에서 보강한다. (FR-007)
-- [ ] [T009] `src/features/reader/components/reader-panel-integration.test.tsx`에 좁은 화면(Sheet)에서 대화 내역이 길어져도 채팅 영역 안에서만 스크롤되고 조작부가 잘리지 않는 테스트를 먼저 작성해 실패를 확인한다. 필요하면 `reader-chat.tsx`의 레이아웃을 `ReaderPanel`의 기존 스크롤 컨테이너에 맞춰 조정한다. 320px 폭 확인은 T011의 E2E에서 실제 브라우저로 검증한다. (FR-008)
+- [x] [T008] `src/features/reader/components/reader-chat.test.tsx`에 Tab 이동, 실패 후 재시도 조작부로 이동, 스트리밍 갱신·완료를 보조 기술로 확인 가능한지 테스트를 작성했다. 각 조작부의 접근 가능한 이름은 기존 테스트(role+name 쿼리)로 이미 검증되고 있어 중복 작성하지 않았다. 재시도 버튼은 대화 내역 쪽(입력창보다 앞)에 있어 Shift+Tab으로 거슬러 올라가야 닿는 실제 순서를 확인해 테스트에 반영했다. assistant-ui `Thread`에는 스트리밍 갱신을 알리는 라이브 리전이 없어서, `thread.aui.tsx`의 메시지 목록 컨테이너(`data-slot="aui_message-group"`)에 `role="log" aria-live="polite"`를 추가했다(`reader-chat.tsx`가 아니라 이미 있는 컴포넌트를 보강). (FR-007)
+- [x] [T009] `src/features/reader/components/reader-panel-integration.test.tsx`에 좁은 화면(Sheet)에서 대화 3턴을 주고받아도 입력창·최신 메시지가 계속 표시되는 테스트를 작성했다. T005에서 이미 넣어둔 `ReaderPanel`의 `min-h-0 flex-1` 래퍼로 통과해 `reader-chat.tsx` 레이아웃 변경은 필요 없었다(jsdom은 실제 overflow·클리핑을 재현하지 못해 "잘리지 않는다"는 이 테스트로는 완전히 검증되지 않는다). 320px 폭에서 실제로 안 잘리는지는 Playwright로 직접 스크린샷을 찍어 확인했고, T011의 E2E로도 다시 검증한다. (FR-008)
 
 ## Phase 6: 통합 검증
 

@@ -188,4 +188,61 @@ describe('ReaderChat', () => {
     await waitFor(() => expect(receivedContexts).toHaveLength(1))
     expect(receivedContexts[0]?.system).toContain('5')
   })
+
+  it('Tab으로 입력 중인 질문에서 전송 조작부로 이동할 수 있다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    const { respond } = createControllableRespond(1)
+    const adapter = createMockChatModelAdapter(respond)
+    render(<ReaderChat chatModel={adapter} />)
+
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+
+    await user.tab()
+    expect(screen.getByRole('button', { name: SEND_BUTTON_NAME })).toHaveFocus()
+  })
+
+  it('실패 후 Tab으로 재시도 조작부로 이동할 수 있다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    const controller = createPromiseController<void>()
+    // 첫 조각이 도착하기 전에 실패하는 경우를 흉내 내므로 이 제너레이터는 의도적으로 yield하지 않는다.
+    // oxlint-disable-next-line require-yield
+    const respond = vi.fn<MockResponder>(async function* respond() {
+      await controller.promise
+      throw new Error('실패')
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(<ReaderChat chatModel={adapter} />)
+
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+    controller.resolve()
+    const retryButton = await screen.findByRole('button', { name: RETRY_BUTTON_NAME })
+
+    // 재시도 조작부는 대화 내역 쪽(입력창보다 앞, More 버튼보다도 앞)에 있어
+    // Shift+Tab으로 두 번 거슬러 올라가야 닿는다.
+    await user.tab({ shift: true })
+    await user.tab({ shift: true })
+    expect(retryButton).toHaveFocus()
+  })
+
+  it('스트리밍 중인 응답의 갱신과 완료를 보조 기술로 확인할 수 있다', async () => {
+    setupResizeObserverMock()
+    const { respond, controllers } = createControllableRespond(1)
+    const adapter = createMockChatModelAdapter(respond)
+    render(<ReaderChat chatModel={adapter} />)
+
+    const user = userEvent.setup()
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+
+    const liveRegion = await screen.findByRole('log')
+    controllers[0]?.resolve('답변')
+    expect(await screen.findByText('답변', { selector: '[role="log"] *' })).toBeInTheDocument()
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite')
+  })
 })
