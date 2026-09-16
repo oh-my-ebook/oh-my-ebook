@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
 
@@ -6,7 +6,7 @@ export interface ReaderLayout {
   availableHeight: number
   availableWidth: number
   isWideScreen: boolean
-  containerRef: (node: HTMLDivElement | null) => void
+  containerRef: RefObject<HTMLElement | null>
 }
 
 interface AvailableReaderSize {
@@ -33,33 +33,32 @@ function measureAvailableReaderSize(container: HTMLElement): AvailableReaderSize
 }
 
 export function useReaderLayout(): ReaderLayout {
-  const [container, setContainer] = useState<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLElement | null>(null)
   const [availableSize, setAvailableSize] = useState<AvailableReaderSize>(emptyReaderSize)
   const [isWideScreen, setIsWideScreen] = useState(
     () => window.matchMedia(WIDE_SCREEN_QUERY).matches,
   )
 
-  // 컨테이너 DOM 요소가 바뀌었다는 사실 자체로 관찰을 다시 시작해야 하므로 callback ref로 상태에 반영한다.
-  // 최초 측정도 컨테이너가 정해지는 이 시점에 함께 처리해 effect 본문에서 setState를 호출하지 않는다.
-  const containerRef = useCallback((node: HTMLDivElement | null) => {
-    setContainer(node)
-    setAvailableSize(node ? measureAvailableReaderSize(node) : emptyReaderSize)
-  }, [])
-
-  useEffect(() => {
+  // 이 훅이 연결되는 컨테이너는 조건부로 사라지거나 다른 DOM 노드로 바뀌지 않으므로 일반 ref로 충분하다.
+  // paint 전에 측정해 잘못된 크기가 잠깐이라도 그려지지 않도록 useLayoutEffect를 사용한다.
+  useLayoutEffect(() => {
+    const container = containerRef.current
     if (!container) {
       return
     }
 
-    const observer = new ResizeObserver(() => {
+    const measure = () => {
       setAvailableSize(measureAvailableReaderSize(container))
-    })
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(container)
 
     return () => {
       observer.disconnect()
     }
-  }, [container])
+  }, [])
 
   useEffect(() => {
     const mediaQueryList = window.matchMedia(WIDE_SCREEN_QUERY)

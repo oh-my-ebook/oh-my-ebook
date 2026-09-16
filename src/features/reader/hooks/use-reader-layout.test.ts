@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react'
+import { createElement, useEffect } from 'react'
+import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useReaderLayout } from './use-reader-layout'
+import { useReaderLayout, type ReaderLayout } from './use-reader-layout'
 
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
 
@@ -55,14 +56,6 @@ function triggerMediaChange(matches: boolean) {
   })
 }
 
-function createContainer(width: number, height: number) {
-  const container = document.createElement('div')
-  Object.defineProperty(container, 'clientWidth', { configurable: true, value: width })
-  Object.defineProperty(container, 'clientHeight', { configurable: true, value: height })
-  document.body.append(container)
-  return container
-}
-
 function triggerResize() {
   if (!resizeObserveCallback) {
     throw new Error('ResizeObserver가 아직 관찰을 시작하지 않았습니다.')
@@ -73,8 +66,45 @@ function triggerResize() {
   })
 }
 
+// containerRef가 일반 useRef로 바뀌어 실제로 렌더링된 DOM 노드가 있어야 측정할 수 있으므로,
+// renderHook 대신 컨테이너 하나를 렌더링하는 최소 컴포넌트로 확인한다. JSX 없이 createElement를 사용해
+// 파일 확장자를 tasks.md가 지정한 `.test.ts`로 유지한다.
+let latestLayout: ReaderLayout | null = null
+
+function LayoutHarness() {
+  const layout = useReaderLayout()
+  // 렌더 중 바깥 변수를 직접 대입하지 않고, 커밋 이후 effect에서 최신 값을 기록한다.
+  useEffect(() => {
+    latestLayout = layout
+  })
+  return createElement('div', { ref: layout.containerRef })
+}
+
+function renderLayoutHarness() {
+  render(createElement(LayoutHarness))
+  if (!latestLayout) {
+    throw new Error('레이아웃 훅이 아직 초기화되지 않았습니다.')
+  }
+  return latestLayout
+}
+
+function getContainer() {
+  const container = latestLayout?.containerRef.current
+  if (!container) {
+    throw new Error('컨테이너가 아직 연결되지 않았습니다.')
+  }
+  return container
+}
+
+function setContainerSize(width: number, height: number) {
+  const container = getContainer()
+  Object.defineProperty(container, 'clientWidth', { configurable: true, value: width })
+  Object.defineProperty(container, 'clientHeight', { configurable: true, value: height })
+}
+
 describe('useReaderLayout', () => {
   beforeEach(() => {
+    latestLayout = null
     resizeObserveCallback = null
     observeResizeTarget.mockReset()
     disconnectResizeObserver.mockReset()
@@ -87,66 +117,51 @@ describe('useReaderLayout', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    document.body.replaceChildren()
   })
 
-  it('컨테이너가 연결되면 여백을 제외한 크기를 최초 측정한다', () => {
-    const { result } = renderHook(() => useReaderLayout())
-    const container = createContainer(1048, 1248)
+  it('컨테이너가 연결되면 여백을 제외한 크기를 측정한다', () => {
+    renderLayoutHarness()
+    const container = getContainer()
     container.style.paddingLeft = '24px'
     container.style.paddingRight = '24px'
     container.style.paddingTop = '24px'
     container.style.paddingBottom = '24px'
 
-    act(() => {
-      result.current.containerRef(container)
-    })
+    setContainerSize(1048, 1248)
+    triggerResize()
 
-    expect(result.current.availableWidth).toBe(1000)
-    expect(result.current.availableHeight).toBe(1200)
+    expect(latestLayout?.availableWidth).toBe(1000)
+    expect(latestLayout?.availableHeight).toBe(1200)
     expect(observeResizeTarget).toHaveBeenCalledWith(container)
   })
 
   it('읽기 영역 가용 폭 999px과 1000px 경계를 정확히 구분한다', () => {
-    const { result } = renderHook(() => useReaderLayout())
+    renderLayoutHarness()
 
-    const narrowContainer = createContainer(999, 800)
-    act(() => {
-      result.current.containerRef(narrowContainer)
-    })
-    expect(result.current.availableWidth).toBe(999)
+    setContainerSize(999, 800)
+    triggerResize()
+    expect(latestLayout?.availableWidth).toBe(999)
 
-    const wideContainer = createContainer(1000, 800)
-    act(() => {
-      result.current.containerRef(wideContainer)
-    })
-    expect(result.current.availableWidth).toBe(1000)
+    setContainerSize(1000, 800)
+    triggerResize()
+    expect(latestLayout?.availableWidth).toBe(1000)
   })
 
   it('읽기 영역 크기가 바뀌면 다시 측정한다', () => {
-    const { result } = renderHook(() => useReaderLayout())
-    const container = createContainer(800, 600)
+    renderLayoutHarness()
+    setContainerSize(800, 600)
+    triggerResize()
+    expect(latestLayout?.availableWidth).toBe(800)
 
-    act(() => {
-      result.current.containerRef(container)
-    })
-    expect(result.current.availableWidth).toBe(800)
-
-    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 1200 })
-    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 900 })
+    setContainerSize(1200, 900)
     triggerResize()
 
-    expect(result.current.availableWidth).toBe(1200)
-    expect(result.current.availableHeight).toBe(900)
+    expect(latestLayout?.availableWidth).toBe(1200)
+    expect(latestLayout?.availableHeight).toBe(900)
   })
 
-  it('컨테이너가 바뀌거나 해제되면 이전 관찰을 정리한다', () => {
-    const { result, unmount } = renderHook(() => useReaderLayout())
-    const container = createContainer(800, 600)
-
-    act(() => {
-      result.current.containerRef(container)
-    })
+  it('해제되면 크기 관찰을 정리한다', () => {
+    const { unmount } = render(createElement(LayoutHarness))
     expect(disconnectResizeObserver).not.toHaveBeenCalled()
 
     unmount()
@@ -156,35 +171,35 @@ describe('useReaderLayout', () => {
 
   it('화면 폭 1024px 이상일 때만 넓은 화면으로 판단한다', () => {
     mediaQueryMatches = false
-    const { result: narrowResult } = renderHook(() => useReaderLayout())
-    expect(narrowResult.current.isWideScreen).toBe(false)
+    const narrowLayout = renderLayoutHarness()
+    expect(narrowLayout.isWideScreen).toBe(false)
 
     mediaQueryMatches = true
-    const { result: wideResult } = renderHook(() => useReaderLayout())
-    expect(wideResult.current.isWideScreen).toBe(true)
+    const wideLayout = renderLayoutHarness()
+    expect(wideLayout.isWideScreen).toBe(true)
   })
 
   it('화면 폭 경계를 (min-width: 1024px) 미디어 쿼리로 판단한다', () => {
     const matchMedia = stubMatchMedia()
-    renderHook(() => useReaderLayout())
+    renderLayoutHarness()
 
     expect(matchMedia).toHaveBeenCalledWith(WIDE_SCREEN_QUERY)
   })
 
   it('화면 폭이 경계를 넘나들면 넓은 화면 상태를 갱신한다', () => {
     mediaQueryMatches = false
-    const { result } = renderHook(() => useReaderLayout())
-    expect(result.current.isWideScreen).toBe(false)
+    renderLayoutHarness()
+    expect(latestLayout?.isWideScreen).toBe(false)
 
     triggerMediaChange(true)
-    expect(result.current.isWideScreen).toBe(true)
+    expect(latestLayout?.isWideScreen).toBe(true)
 
     triggerMediaChange(false)
-    expect(result.current.isWideScreen).toBe(false)
+    expect(latestLayout?.isWideScreen).toBe(false)
   })
 
   it('해제되면 화면 폭 변경 관찰도 정리한다', () => {
-    const { unmount } = renderHook(() => useReaderLayout())
+    const { unmount } = render(createElement(LayoutHarness))
 
     unmount()
 
