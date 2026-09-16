@@ -189,7 +189,7 @@ export function Reader({ url, title }: ReaderProps) {
         </main>
 
         <ReaderPanel
-          currentPage={firstPage?.pageNumber}
+          currentPage={currentPage}
           isWideScreen={isWideScreen}
           onOpenChange={setPanelOpen}
           open={panelOpen}
