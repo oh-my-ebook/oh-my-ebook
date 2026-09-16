@@ -13,7 +13,6 @@ pnpm-lock.yaml
 # Preserve shadcn CLI output verbatim.
 src/components/ui/
 src/components/assistant-ui/
-src/hooks/use-attachment-src.ts
 src/hooks/use-copy-to-clipboard.ts
 
 # Preserve installed agent skills verbatim.
