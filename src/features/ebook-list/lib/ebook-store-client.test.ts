@@ -53,10 +53,22 @@ describe('EbookStoreClient', () => {
     const { worker, sent, respond } = createWorker()
     const client = new EbookStoreClient(worker)
     const pdfData = new Uint8Array([1, 2, 3]).buffer
-    const added = client.addBook({ pdfData })
+    const input = {
+      pdfData,
+      contentHash: 'hash',
+      fileName: 'a.pdf',
+      title: 'A',
+      author: null,
+      publisher: null,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback' as const,
+    }
+    const added = client.addBook(input)
 
     expect(sent[0]).toEqual({
-      message: { requestId: 1, command: 'addBook', payload: { pdfData } },
+      message: { requestId: 1, command: 'addBook', payload: input },
       transfer: [pdfData],
     })
 
@@ -125,7 +137,18 @@ describe('EbookStoreClient', () => {
   it('전송된 PDF 원본은 잠금 오류가 나도 다시 보내지 않는다', async () => {
     const { worker, sent, respond } = createWorker()
     const client = new EbookStoreClient(worker)
-    const pending = client.addBook({ pdfData: new ArrayBuffer(8) })
+    const pending = client.addBook({
+      pdfData: new ArrayBuffer(8),
+      contentHash: 'hash',
+      fileName: 'a.pdf',
+      title: 'A',
+      author: null,
+      publisher: null,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
 
     respond({ requestId: 1, error: { code: 'locked' } })
 
