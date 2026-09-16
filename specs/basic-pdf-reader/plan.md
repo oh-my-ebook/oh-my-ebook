@@ -98,7 +98,7 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 
 UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 공식 컴포넌트만 진행한다. Button을 재설치하거나 프리셋을 변경하지 않는다. 색상·서체는 기존 토큰, 표현 종류는 내장 variant, 사용처 `className`은 레이아웃에 사용한다. 필요한 지면 표현은 테마 토큰을 참조하는 Tailwind 유틸리티로 정의하고 토큰 값을 복제하지 않는다.
 
-번호 입력에는 접근 가능한 이름과 오류 연결을 제공한다. 아이콘 버튼에는 이름·Tooltip을 붙이고, 두 페이지 제한 사유는 비활성 버튼 hover에만 의존하지 않도록 별도 설명으로 연결한다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Field](https://ui.shadcn.com/docs/components/base/field), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
+번호 입력에는 접근 가능한 이름과 오류 연결을 제공한다. 아이콘 버튼에는 이름·Tooltip을 붙이고, 두 페이지 보기를 적용할 수 없으면 버튼을 비활성화한다. 두 페이지 보기 중 공간이 부족해지면 toast로 단면 표시를 알린다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Field](https://ui.shadcn.com/docs/components/base/field), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
 
 공식 문서·레지스트리와 스킬을 비교한 결과는 다음과 같이 적용한다.
 
