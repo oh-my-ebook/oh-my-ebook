@@ -18,14 +18,12 @@ export function ViewModeControl({
   isSpreadAvailable,
   onViewChange,
 }: ViewModeControlProps) {
-  const wasSpreadAvailable = useRef(isSpreadAvailable)
+  // const wasSpreadAvailable = useRef(isSpreadAvailable)
 
   useEffect(() => {
-    if (preferredView === 'spread' && wasSpreadAvailable.current && !isSpreadAvailable) {
+    if (preferredView === 'spread' && !isSpreadAvailable) {
       toast.add({ title: '화면이 좁아 한 페이지로 표시합니다.' })
     }
-
-    wasSpreadAvailable.current = isSpreadAvailable
   }, [isSpreadAvailable, preferredView])
 
   const handleValueChange = (value: string[]) => {
