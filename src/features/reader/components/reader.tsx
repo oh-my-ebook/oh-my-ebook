@@ -34,7 +34,7 @@ interface ReaderLoadingProps {
   label: string
 }
 
-const readerSpreadGap = 16
+const READER_SPREAD_GAP = 16
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -97,7 +97,7 @@ export function Reader({ url, title }: ReaderProps) {
     ? calculateFitHeightScale(
         [firstPage, ...pageSpread.pages.slice(1)],
         { width: availableWidth, height: availableHeight },
-        readerSpreadGap,
+        READER_SPREAD_GAP,
       )
     : null
   const displayScale = fitHeightScale === null ? 1 : getZoomScale(zoom, fitHeightScale)
