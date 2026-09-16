@@ -4,7 +4,7 @@
 
 ## Phase 1: 설정
 
-- [ ] [T001] `components.json`의 `registries`에 `"@assistant-ui": "https://r.assistant-ui.com/styles/{style}/{name}.json"`을 추가한다. `pnpm dlx shadcn@latest view @assistant-ui/<name>`으로 채팅 목록·입력창에 필요한 최소 프리미티브(메시지 목록, 컴포저, 스트리밍 표시)를 확인한 뒤 `pnpm dlx shadcn@latest add`로 실제 사용할 것만 추가한다. 음성 입력·첨부파일·분기·LaTeX 등 제외 범위에 해당하는 프리미티브는 추가하지 않는다. `package.json`, `pnpm-lock.yaml`에 CLI가 반영한 의존성(`@assistant-ui/react`, `zustand` 등)을 확인한다.
+- [x] [T001] `components.json`의 `registries`에 `"@assistant-ui": "https://r.assistant-ui.com/styles/{style}/{name}.json"`을 추가한다. `pnpm dlx shadcn@latest view @assistant-ui/thread`로 확인한 결과 메시지 목록·컴포저·스트리밍만 따로 떼어낸 프리미티브는 레지스트리에 없고, `@assistant-ui/thread` 하나가 메시지 목록+컴포저+첨부파일+음성 입력+추천 질문+분기+reasoning/tool-call UI를 한 파일(`thread.aui.tsx`)에 묶어 제공한다. 더 잘게 쪼갤 수 없어 `pnpm dlx shadcn@latest add @assistant-ui/thread`로 통째로 추가하고, 제외 범위에 해당하는 조작부(첨부파일·음성 입력·추천 질문·분기·편집·Export 등)가 실제로 화면에 보이는지·눌렀을 때 깨지는지는 T004A에서 확인 후 필요한 것만 제거한다. `--diff`로 `src/index.css` 변경을 먼저 확인(기존 토큰 변경 없음, `tw-shimmer` import와 Collapsible 키프레임·Base UI data-open/closed variant만 추가)한 뒤 적용했다. CLI가 생성한 `src/components/assistant-ui/`, `src/hooks/use-attachment-src.ts`, `src/hooks/use-copy-to-clipboard.ts`는 `src/components/ui/`와 같은 이유로 `.prettierignore`에 추가해 포맷 검사에서 제외했다. `package.json`, `pnpm-lock.yaml`에 `@assistant-ui/react`, `@assistant-ui/react-markdown`, `remark-gfm`, `tw-shimmer`, `zustand`가 반영됐다.
 
 ## Phase 2: Mock 응답 어댑터 (기반)
 
@@ -18,6 +18,7 @@
 
 - [ ] [T003] `src/features/reader/components/reader-chat.test.tsx`에 질문 입력 후 Enter 전송 시 대화 내역에 질문이 먼저 추가되고 이어서 응답이 스트리밍 조각으로 갱신되며 완료 시 스트리밍 상태가 해제되는 테스트, Shift+Enter는 줄바꿈만 하고 전송하지 않는 테스트, 빈 값·공백만 있는 입력은 전송하지 않는 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-chat.tsx`에 `AssistantRuntimeProvider` + `useLocalRuntime(mockChatModelAdapter)`로 런타임을 구성하고 Thread/Composer 프리미티브를 조합해 구현한다. (FR-001, FR-002, FR-003)
 - [ ] [T004] `src/features/reader/components/reader-chat.test.tsx`에 응답을 받는 동안 로딩 상태가 표시되고 전송이 비활성화되는 테스트, 실패 시 오류 안내와 재시도 조작이 나타나는 테스트, 재시도하면 같은 질문으로 다시 응답을 받는 테스트를 먼저 작성해 실패를 확인한다. `T002`의 Mock 어댑터에 실패를 주입해 검증하고, `reader-chat.tsx`에 필요한 로딩·오류·재시도 처리를 추가한다. (FR-004)
+- [ ] [T004A] `pnpm dev`에서 실제로 `ReaderChat`을 렌더링해 T001에서 그대로 받은 `thread.aui.tsx`의 제외 범위 해당 조작부(첨부파일 추가 버튼, 음성 입력 마이크, 추천 질문 칩, 답변 편집·재생성·Export as Markdown, 분기 선택)가 우리 Mock 런타임에서 실제로 보이는지 확인한다. 런타임이 해당 capability를 선언하지 않아 저절로 숨는 것은 그대로 둔다. 보이는데 눌렀을 때 아무 동작도 안 하거나 깨지는 조작부(제외 범위와 직접 겹치는 것 우선)는 `thread.aui.tsx`에서 해당 JSX·import와 사용하지 않게 된 `registryDependencies` 파일을 제거한다. 제거·유지 결정과 이유를 커밋 메시지나 PR에 남긴다.
 
 ## Phase 4: 페이지 번호 전달과 패널 연결
 
