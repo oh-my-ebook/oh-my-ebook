@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getStorageCapacity, isOpfsSupported, requestPersistentStorage } from './storage-manager'
+import {
+  getPersistentStorageStatus,
+  getStorageCapacity,
+  isOpfsSupported,
+  requestPersistentStorage,
+} from './storage-manager'
 
 function mockStorage(overrides: Partial<StorageManager> = {}) {
   const storage = {
@@ -30,6 +35,15 @@ describe('storage-manager', () => {
     const storage = mockStorage({ persisted: vi.fn(async () => true) })
     expect(await requestPersistentStorage()).toBe(true)
     expect(storage.persist).not.toHaveBeenCalled()
+  })
+
+  it('영구 저장 상태를 조회하고 조회 실패는 false로 처리한다', async () => {
+    const persisted = vi.fn(async () => true)
+    mockStorage({ persisted })
+    expect(await getPersistentStorageStatus()).toBe(true)
+
+    persisted.mockRejectedValue(new Error('failed'))
+    expect(await getPersistentStorageStatus()).toBe(false)
   })
 
   it('영구 저장 거부와 API 실패를 허용 실패로 처리한다', async () => {

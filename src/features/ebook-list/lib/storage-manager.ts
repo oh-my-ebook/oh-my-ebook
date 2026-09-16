@@ -13,6 +13,16 @@ export function isOpfsSupported(): boolean {
   )
 }
 
+export async function getPersistentStorageStatus(): Promise<boolean> {
+  if (!navigator.storage?.persisted) return false
+
+  try {
+    return await navigator.storage.persisted()
+  } catch {
+    return false
+  }
+}
+
 export async function requestPersistentStorage(): Promise<boolean> {
   const storage = navigator.storage
   if (!storage?.persisted || !storage.persist) return false
