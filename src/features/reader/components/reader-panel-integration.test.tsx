@@ -144,7 +144,13 @@ describe('Reader 보조 패널 연결', () => {
 
     resizeObserverMock.resizeReaderAreaTo(400, 600)
 
-    const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
-    expect(firstPage).toHaveStyle({ width: '400px', height: '600px' })
+    await screen.findByRole('img', { name: 'PDF 1페이지' })
+    const pageFrame = screen
+      .getByRole('region', { name: 'PDF 본문' })
+      .querySelector('[data-slot="pdf-page-frame"]')
+    expect(pageFrame).toHaveStyle({
+      width: '400px',
+      height: '600px',
+    })
   })
 })
