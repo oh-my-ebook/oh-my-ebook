@@ -60,4 +60,30 @@ describe('Reader 페이지 탐색 연결', () => {
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('2 / 5')
     expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
   })
+
+  it('다른 문서를 열면 첫 페이지로 이동한다', async () => {
+    const user = userEvent.setup()
+    const secondPages = pages.slice(0, 2)
+    usePdfDocumentMock.mockImplementation((url: string) => ({
+      document: {
+        ...document,
+        numPages: url === '/second.pdf' ? secondPages.length : pages.length,
+      },
+      error: null,
+      pages: url === '/second.pdf' ? secondPages : pages,
+      retry: vi.fn(),
+      status: 'ready',
+    }))
+    const { rerender } = render(<Reader title="탐색 테스트" url="/first.pdf" />)
+    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
+
+    await user.click(screen.getByRole('button', { name: '마지막 페이지' }))
+    expect(screen.getByRole('img', { name: 'PDF 5페이지' })).toBeInTheDocument()
+
+    rerender(<Reader title="탐색 테스트" url="/second.pdf" />)
+
+    expect(await screen.findByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1 / 2')
+    expect(screen.queryByText('표시할 PDF 페이지가 없습니다.')).not.toBeInTheDocument()
+  })
 })

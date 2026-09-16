@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -71,6 +71,13 @@ export function Reader({ url, title }: ReaderProps) {
   const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    // URL 변경은 새 독서 세션이므로 첫 페이지부터 시작한다.
+    // oxlint-disable-next-line react/set-state-in-effect
+    setCurrentPage(1)
+  }, [url])
+
   const selectedPage = documentState.pages[currentPage - 1]
   const isPageReady =
     documentState.status === 'ready' &&
