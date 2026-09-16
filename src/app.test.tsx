@@ -101,16 +101,18 @@ describe('App', () => {
     })
 
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
-    expect(firstPage).toHaveStyle({ width: '600px', height: '900px' })
+    expect(firstPage.parentElement?.parentElement).toHaveStyle({
+      width: '600px',
+      height: '900px',
+    })
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1 / 5')
 
     resizeReaderTo(1048, 1248)
 
     await waitFor(() => {
-      expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toHaveStyle({
-        width: '800px',
-        height: '1200px',
-      })
+      expect(
+        screen.getByRole('img', { name: 'PDF 1페이지' }).parentElement?.parentElement,
+      ).toHaveStyle({ width: '800px', height: '1200px' })
     })
   })
 

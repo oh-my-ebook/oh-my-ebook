@@ -4,10 +4,20 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
-import { calculateSinglePageFitScale } from '../lib/reader-state'
+import {
+  FIT_HEIGHT_ZOOM,
+  calculateFitHeightScale,
+  canDecreaseZoom,
+  canIncreaseZoom,
+  decreaseZoom,
+  getZoomScale,
+  increaseZoom,
+  type ReaderZoom,
+} from '../lib/reader-zoom'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToolbar } from './reader-toolbar'
+import { ZoomControls } from './zoom-controls'
 
 interface ReaderProps {
   url: string
@@ -67,6 +77,7 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 export function Reader({ url, title }: ReaderProps) {
   const documentState = usePdfDocument(url)
   const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
+  const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
   const firstPage = documentState.pages[0]
@@ -75,14 +86,27 @@ export function Reader({ url, title }: ReaderProps) {
     firstPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
-  const scale = isPageReady
-    ? calculateSinglePageFitScale(
-        firstPage.width,
-        firstPage.height,
-        availableWidth,
-        availableHeight,
-      )
+  const fitHeightScale = isPageReady
+    ? calculateFitHeightScale([firstPage], {
+        width: availableWidth,
+        height: availableHeight,
+      })
     : null
+  const displayScale = fitHeightScale === null ? 1 : getZoomScale(zoom, fitHeightScale)
+
+  const handleZoomIn = () => {
+    if (fitHeightScale === null) {
+      return
+    }
+    setZoom((currentZoom) => increaseZoom(currentZoom, fitHeightScale))
+  }
+
+  const handleZoomOut = () => {
+    if (fitHeightScale === null) {
+      return
+    }
+    setZoom((currentZoom) => decreaseZoom(currentZoom, fitHeightScale))
+  }
 
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
@@ -91,7 +115,18 @@ export function Reader({ url, title }: ReaderProps) {
         panelButtonRef={panelButtonRef}
         panelOpen={panelOpen}
         title={getReaderTitle(url, title)}
-      />
+      >
+        <ZoomControls
+          isFitHeight={zoom.mode === 'fit-height'}
+          scale={displayScale}
+          canZoomIn={canIncreaseZoom(displayScale)}
+          canZoomOut={canDecreaseZoom(displayScale)}
+          disabled={!isPageReady}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onFitHeight={() => setZoom(FIT_HEIGHT_ZOOM)}
+        />
+      </ReaderToolbar>
 
       <div className="flex min-h-0 flex-1">
         <main
@@ -115,8 +150,8 @@ export function Reader({ url, title }: ReaderProps) {
               <ReaderLoading label="읽기 영역 계산 중" />
             )}
 
-          {isPageReady && scale !== null && (
-            <PdfViewport document={documentState.document} page={firstPage} scale={scale} />
+          {isPageReady && fitHeightScale !== null && (
+            <PdfViewport document={documentState.document} page={firstPage} scale={displayScale} />
           )}
         </main>
 
