@@ -49,6 +49,7 @@ function resizeReaderTo(width: number, height: number) {
   const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
   Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
   Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
+  vi.spyOn(readerArea, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, width, height))
   readerArea.style.paddingLeft = '24px'
   readerArea.style.paddingRight = '24px'
   readerArea.style.paddingTop = '24px'
