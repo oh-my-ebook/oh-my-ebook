@@ -67,6 +67,14 @@ describe('PageNavigator', () => {
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 5')
   })
 
+  it('슬라이더의 range와 thumb에 이동 transition 스타일을 연결한다', () => {
+    render(<PageNavigator currentPage={3} onPageChange={vi.fn()} totalPages={5} />)
+
+    expect(screen.getByLabelText('페이지 슬라이더').closest('[data-slot="slider"]')).toHaveClass(
+      'reader-slider',
+    )
+  })
+
   it('첫 페이지와 마지막 페이지에서 해당 방향 이동을 비활성화한다', () => {
     const { rerender } = render(
       <PageNavigator currentPage={1} onPageChange={vi.fn()} totalPages={5} />,
