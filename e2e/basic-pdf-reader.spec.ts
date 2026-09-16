@@ -75,6 +75,65 @@ test.describe('기본 PDF 리더', () => {
     )
   })
 
+  test('확대한 페이지의 모든 영역을 양방향 스크롤로 확인한다', async ({ page }) => {
+    await openPdf(page, textPdfPath)
+
+    const zoomIn = page.getByRole('button', { name: '확대' })
+    while (await zoomIn.isEnabled()) {
+      await zoomIn.click()
+    }
+
+    await expect(page.getByRole('status', { name: '현재 확대율' })).toHaveText('300%')
+
+    const viewport = page.getByRole('region', { name: 'PDF 본문' })
+    await expect
+      .poll(() =>
+        viewport.evaluate((element) => ({
+          horizontal: element.scrollWidth > element.clientWidth,
+          vertical: element.scrollHeight > element.clientHeight,
+        })),
+      )
+      .toEqual({ horizontal: true, vertical: true })
+
+    const scrollMetrics = await viewport.evaluate((element) => {
+      const frame = element.querySelector('[data-slot="pdf-page-frame"]')
+      const view = element.ownerDocument.defaultView
+      if (!frame || !view) {
+        throw new Error('PDF 페이지 프레임을 찾지 못했습니다.')
+      }
+
+      const viewportRect = element.getBoundingClientRect()
+      const frameRect = frame.getBoundingClientRect()
+      const style = view.getComputedStyle(element)
+      element.scrollTo({ left: element.scrollWidth, top: element.scrollHeight })
+      const endFrameRect = frame.getBoundingClientRect()
+
+      return {
+        canScrollHorizontally: element.scrollWidth > element.clientWidth,
+        canScrollVertically: element.scrollHeight > element.clientHeight,
+        endBottom: endFrameRect.bottom,
+        endRight: endFrameRect.right,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        startLeft: frameRect.left,
+        startTop: frameRect.top,
+        viewportBottom: viewportRect.bottom,
+        viewportLeft: viewportRect.left,
+        viewportRight: viewportRect.right,
+        viewportTop: viewportRect.top,
+      }
+    })
+
+    expect(scrollMetrics.canScrollHorizontally).toBe(true)
+    expect(scrollMetrics.canScrollVertically).toBe(true)
+    expect(scrollMetrics.overflowX).toBe('auto')
+    expect(scrollMetrics.overflowY).toBe('auto')
+    expect(scrollMetrics.startLeft).toBeGreaterThanOrEqual(scrollMetrics.viewportLeft - 1)
+    expect(scrollMetrics.startTop).toBeGreaterThanOrEqual(scrollMetrics.viewportTop - 1)
+    expect(scrollMetrics.endRight).toBeLessThanOrEqual(scrollMetrics.viewportRight + 1)
+    expect(scrollMetrics.endBottom).toBeLessThanOrEqual(scrollMetrics.viewportBottom + 1)
+  })
+
   test('PDF 요청이 실패하면 안내하고 다시 불러온다', async ({ page }) => {
     await page.route(pdfRequestUrl, (route) =>
       route.fulfill({ contentType: 'application/pdf', path: textPdfPath }),
