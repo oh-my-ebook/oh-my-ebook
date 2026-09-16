@@ -17,15 +17,21 @@ const PANEL_TITLE = '보조 패널'
 
 // mock 상태를 모듈 전역 let 대신 각 테스트가 직접 만드는 팩토리로 캡슐화해, beforeEach 초기화
 // 누락으로 테스트 간 상태가 새는 걸 원천적으로 막는다.
+// 보조 패널이 열리면 ReaderChat의 Thread도 별도 ResizeObserver를 만들므로, 마지막으로 생성된
+// 인스턴스가 아니라 실제로 읽기 영역을 observe()한 콜백을 대상 요소 기준으로 찾는다.
 function setupResizeObserverMock() {
-  let resizeCallback: ResizeObserverCallback | null = null
+  const resizeCallbacksByTarget = new Map<Element, ResizeObserverCallback>()
 
   class ResizeObserverMock {
+    #callback: ResizeObserverCallback
+
     constructor(callback: ResizeObserverCallback) {
-      resizeCallback = callback
+      this.#callback = callback
     }
 
-    observe = vi.fn()
+    observe = (target: Element) => {
+      resizeCallbacksByTarget.set(target, this.#callback)
+    }
     unobserve = vi.fn()
     disconnect = vi.fn()
   }
@@ -38,10 +44,10 @@ function setupResizeObserverMock() {
       Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
       Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
 
-      if (!resizeCallback) {
+      const notifyResize = resizeCallbacksByTarget.get(readerArea)
+      if (!notifyResize) {
         throw new Error('읽기 영역 관찰이 시작되지 않았습니다.')
       }
-      const notifyResize = resizeCallback
       act(() => {
         notifyResize([], {} as ResizeObserver)
       })

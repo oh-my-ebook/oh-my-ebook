@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReaderPanel } from './reader-panel'
 
 const PANEL_TITLE = '보조 패널'
 const OPEN_BUTTON_LABEL = '보조 패널 열기'
+const CHAT_INPUT_LABEL = 'Message input'
 
 interface HarnessProps {
   initialOpen?: boolean
@@ -32,6 +33,21 @@ function ReaderPanelHarness({ initialOpen = false, isWideScreen }: HarnessProps)
 }
 
 describe('ReaderPanel', () => {
+  // ReaderChat이 내부적으로 렌더링하는 Thread가 ResizeObserver를 사용하므로 jsdom에 없는 API를 채워준다.
+  // 패널이 열리는 거의 모든 테스트가 이제 ReaderChat을 함께 렌더링하므로 매번 새로 만들어 제공한다.
+  beforeEach(() => {
+    class ResizeObserverMock {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('넓은 화면에서 열림 상태면 본문 옆 보조 영역으로 표시한다', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
@@ -114,5 +130,21 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness isWideScreen />)
 
     expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).not.toHaveFocus()
+  })
+
+  it('패널이 열려 있으면 채팅 입력창이 보인다', () => {
+    render(<ReaderPanelHarness initialOpen isWideScreen />)
+
+    expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
+  })
+
+  it('패널을 닫으면 채팅 UI가 사라진다', async () => {
+    const user = userEvent.setup()
+    render(<ReaderPanelHarness initialOpen isWideScreen />)
+    expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
+
+    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
   })
 })

@@ -8,6 +8,7 @@ import { mockChatModelAdapter } from '../lib/mock-chat-adapter'
 
 interface ReaderChatProps {
   chatModel?: ChatModelAdapter
+  currentPage?: number
 }
 
 export function ReaderChat({ chatModel = mockChatModelAdapter }: ReaderChatProps) {
