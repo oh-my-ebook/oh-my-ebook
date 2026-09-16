@@ -6,17 +6,20 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @utility reader-slider {
+
   &[data-dragging] [data-slot='slider-range'],
   &[data-dragging] [data-slot='slider-thumb'] {
     @apply transition-none;
   }
 
   [data-slot='slider-range'] {
-    @apply transition-all duration-100 ease-[cubic-bezier(0.16, 1, 0.3, 1)];
+    @apply transition-all duration-100;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   [data-slot='slider-thumb'] {
-    @apply bg-primary transition-all duration-100 ease-[cubic-bezier(0.16, 1, 0.3, 1)];
+    @apply bg-primary transition-all duration-100;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
@@ -25,8 +28,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2')
-    format('woff2');
+  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2');
 }
 
 @font-face {
@@ -34,8 +36,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-Regular.woff2')
-    format('woff2');
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-Regular.woff2') format('woff2');
 }
 
 @font-face {
@@ -43,8 +44,7 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-SemiBold.woff2')
-    format('woff2');
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-SemiBold.woff2') format('woff2');
 }
 
 :root {
@@ -187,6 +187,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
