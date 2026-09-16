@@ -153,4 +153,27 @@ describe('Reader 보조 패널 연결', () => {
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
     expect(firstPage).toHaveStyle({ width: '400px', height: '600px' })
   })
+
+  it('패널을 닫았다가 다시 열면 대화 내역이 초기화된다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    await renderLoadedReader(resizeObserverMock)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    const input = screen.getByRole('textbox', { name: 'Message input' })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('질문')).toBeInTheDocument()
+    // 다음 상호작용 전에 응답을 끝까지 받아, 패널을 닫아도 실행 중인 타이머가 남지 않게 한다.
+    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.queryByText('질문')).not.toBeInTheDocument()
+  })
 })

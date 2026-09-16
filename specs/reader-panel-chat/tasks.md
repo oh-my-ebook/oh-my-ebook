@@ -32,7 +32,7 @@
 
 - [x] [T005] `src/features/reader/components/reader-panel.test.tsx`에 패널이 열려 있을 때만 채팅 조작부(질문 입력)가 보이는 테스트, 패널을 닫으면 채팅 UI가 사라지는 테스트를 작성했다. `reader-panel.tsx`의 `WideReaderPanel`·`NarrowReaderPanel` 콘텐츠 영역에 `ReaderChat`을 연결하고 `currentPage?: number`를 prop으로 받아 전달하도록 했다(실제 사용은 T006). 패널이 열릴 때 `ReaderChat`의 `Thread`도 별도 `ResizeObserver`를 만들어서, `reader-panel-integration.test.tsx`의 읽기 영역 크기 테스트가 엉뚱한 인스턴스를 관찰하던 문제를 발견해 대상 요소 기준으로 콜백을 찾도록 수정했다. `pnpm dev` + Playwright로 넓은 화면·좁은 화면(Sheet) 모두 실제로 확인했다. (FR-001)
 - [x] [T006] `src/features/reader/components/reader-chat.test.tsx`에 전송한 질문에 현재 페이지 번호가 함께 전달되는지 확인하는 테스트(Mock 어댑터 호출 인자 검증)를 먼저 작성해 실패를 확인했다. `mock-chat-adapter.ts`의 `MockResponder`가 `context: ModelContext`도 받도록 확장하고 `run()`이 `options.context`를 그대로 넘기게 했다. `reader-chat.tsx`에 `useAssistantInstructions({ instruction, disabled })`로 `currentPage`를 `context.system`에 싣는 `CurrentPageInstructions` 자식 컴포넌트를 추가했다(값이 바뀔 때마다 재등록되어 전송 시점의 최신 페이지가 실린다). `src/features/reader/components/reader.tsx`에서 `firstPage?.pageNumber`를 `ReaderPanel` → `ReaderChat`까지 전달한다. 페이지 탐색 기능은 이 범위 밖이라 값은 항상 1이지만 배선은 실제 이동 값을 그대로 받을 수 있는 구조다. (FR-005)
-- [ ] [T007] `src/features/reader/components/reader-panel-integration.test.tsx`에 패널을 닫았다가 다시 열면 대화 내역이 초기화되는 테스트를 먼저 작성해 실패를 확인한다. Base UI `Collapsible.Panel`/`Dialog.Popup`이 닫힐 때 콘텐츠를 언마운트하는 기존 동작으로 통과하는지 확인하고, 통과하지 않으면 `reader-chat.tsx`에 명시적 초기화를 추가한다. (FR-006)
+- [x] [T007] `src/features/reader/components/reader-panel-integration.test.tsx`에 패널을 닫았다가 다시 열면 대화 내역이 초기화되는 테스트를 작성했다. Base UI `Collapsible.Panel`/`Dialog.Popup`이 닫힐 때 콘텐츠를 언마운트하는 기존 동작만으로 통과해, `reader-chat.tsx`에 별도 초기화 로직을 추가하지 않았다. 응답을 끝까지 받은 뒤 닫도록 해 실행 중인 Mock 타이머가 테스트 밖으로 새지 않게 했다. (FR-006)
 
 ## Phase 5: 접근성과 반응형
 
