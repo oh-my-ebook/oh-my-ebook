@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PdfPageInfo } from './pdf-document'
-import { calculatePageSpread, getPageOrientation, isTwoPageViewAvailable } from './page-spread'
+import { calculatePageSpread, getPageOrientation } from './page-spread'
 
 function createPage(pageNumber: number, width = 600, height = 900): PdfPageInfo {
   return { pageNumber, width, height, rotation: 0 }
@@ -16,19 +16,6 @@ describe('getPageOrientation', () => {
     expect(getPageOrientation(createPage(2, 600, 900))).toBe('portrait')
     expect(getPageOrientation(createPage(3, 600, 600))).toBe('portrait')
   })
-})
-
-describe('isTwoPageViewAvailable', () => {
-  it.each([
-    { screenWidth: 1023, availableWidth: 1000, expected: false },
-    { screenWidth: 1024, availableWidth: 999, expected: false },
-    { screenWidth: 1024, availableWidth: 1000, expected: true },
-  ])(
-    '화면 $screenWidth px와 읽기 영역 $availableWidth px를 독립적으로 확인한다',
-    ({ screenWidth, availableWidth, expected }) => {
-      expect(isTwoPageViewAvailable(screenWidth, availableWidth)).toBe(expected)
-    },
-  )
 })
 
 describe('calculatePageSpread', () => {

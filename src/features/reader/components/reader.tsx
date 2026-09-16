@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
-import { calculatePageSpread, isTwoPageViewAvailable, type PageViewMode } from '../lib/page-spread'
+import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -80,11 +80,11 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 export function Reader({ url, title }: ReaderProps) {
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
   const documentState = usePdfDocument(url)
-  const { availableHeight, availableWidth, containerRef, isWideScreen } = useReaderLayout()
+  const { availableHeight, availableWidth, containerRef, isWideScreen, isSpreadAvailable } =
+    useReaderLayout()
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
-  const isSpreadAvailable = isTwoPageViewAvailable(window.innerWidth, availableWidth)
   const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
   const firstPage = pageSpread.pages[0]
   const pageRange = pageSpread.pages.map(({ pageNumber }) => pageNumber).join('–')

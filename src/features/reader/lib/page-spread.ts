@@ -13,10 +13,6 @@ export function getPageOrientation(page: PdfPageInfo): PageOrientation {
   return page.width > page.height ? 'landscape' : 'portrait'
 }
 
-export function isTwoPageViewAvailable(screenWidth: number, availableWidth: number) {
-  return screenWidth >= 1024 && availableWidth >= 1000
-}
-
 function groupPages(pages: readonly PdfPageInfo[]) {
   const groups: PdfPageInfo[][] = []
 

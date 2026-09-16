@@ -47,9 +47,12 @@ describe('Reader 보기 전환', () => {
       availableHeight: 1200,
       availableWidth: 1000,
       containerRef: { current: null },
+      isWideScreen: true,
+      isSpreadAvailable: true,
     })
     vi.stubGlobal('devicePixelRatio', 1)
-    vi.stubGlobal('innerWidth', 1024)
+    // Reader가 전역 너비를 다시 읽으면 훅의 판단과 어긋나는 상황을 재현한다.
+    vi.stubGlobal('innerWidth', 500)
   })
 
   afterEach(() => {

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
+const MIN_SPREAD_WIDTH = 1000
 
 export interface ReaderLayout {
   availableHeight: number
   availableWidth: number
   isWideScreen: boolean
+  isSpreadAvailable: boolean
   containerRef: RefObject<HTMLElement | null>
 }
 
@@ -74,5 +76,10 @@ export function useReaderLayout(): ReaderLayout {
     }
   }, [])
 
-  return { ...availableSize, isWideScreen, containerRef }
+  return {
+    ...availableSize,
+    isWideScreen,
+    isSpreadAvailable: isWideScreen && availableSize.availableWidth >= MIN_SPREAD_WIDTH,
+    containerRef,
+  }
 }
