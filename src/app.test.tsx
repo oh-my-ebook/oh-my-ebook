@@ -49,6 +49,7 @@ function resizeReaderTo(width: number, height: number) {
   const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
   Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
   Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
+  vi.spyOn(readerArea, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, width, height))
   readerArea.style.paddingLeft = '24px'
   readerArea.style.paddingRight = '24px'
   readerArea.style.paddingTop = '24px'
@@ -101,16 +102,18 @@ describe('App', () => {
     })
 
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
-    expect(firstPage).toHaveStyle({ width: '600px', height: '900px' })
+    expect(firstPage.parentElement?.parentElement).toHaveStyle({
+      width: '600px',
+      height: '900px',
+    })
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1 / 5')
 
     resizeReaderTo(1048, 1248)
 
     await waitFor(() => {
-      expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toHaveStyle({
-        width: '800px',
-        height: '1200px',
-      })
+      expect(
+        screen.getByRole('img', { name: 'PDF 1페이지' }).parentElement?.parentElement,
+      ).toHaveStyle({ width: '800px', height: '1200px' })
     })
   })
 

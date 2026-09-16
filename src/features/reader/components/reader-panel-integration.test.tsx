@@ -43,6 +43,9 @@ function setupResizeObserverMock() {
       const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
       Object.defineProperty(readerArea, 'clientWidth', { configurable: true, value: width })
       Object.defineProperty(readerArea, 'clientHeight', { configurable: true, value: height })
+      vi.spyOn(readerArea, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(0, 0, width, height),
+      )
 
       const notifyResize = resizeCallbacksByTarget.get(readerArea)
       if (!notifyResize) {
@@ -150,8 +153,14 @@ describe('Reader 보조 패널 연결', () => {
 
     resizeObserverMock.resizeReaderAreaTo(400, 600)
 
-    const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
-    expect(firstPage).toHaveStyle({ width: '400px', height: '600px' })
+    await screen.findByRole('img', { name: 'PDF 1페이지' })
+    const pageFrame = screen
+      .getByRole('region', { name: 'PDF 본문' })
+      .querySelector('[data-slot="pdf-page-frame"]')
+    expect(pageFrame).toHaveStyle({
+      width: '400px',
+      height: '600px',
+    })
   })
 
   it('패널을 닫았다가 다시 열면 대화 내역이 초기화된다', async () => {
