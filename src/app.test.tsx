@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
@@ -60,6 +61,14 @@ function resizeReaderTo(width: number, height: number) {
   act(notifyResize)
 }
 
+function renderApp() {
+  return render(
+    <MemoryRouter initialEntries={['/sample-reader']}>
+      <App />
+    </MemoryRouter>,
+  )
+}
+
 describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
@@ -88,7 +97,7 @@ describe('App', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     const { loadedDocument } = createLoadedDocument()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    render(<App />)
+    renderApp()
 
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
@@ -119,7 +128,7 @@ describe('App', () => {
   it('Reader를 해제하면 크기 관찰을 정리한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    const { unmount } = render(<App />)
+    const { unmount } = renderApp()
 
     unmount()
 
@@ -142,7 +151,7 @@ describe('App', () => {
     loadPdfDocumentMock
       .mockReturnValueOnce(failedLoad.promise)
       .mockReturnValueOnce(retryLoad.promise)
-    render(<App />)
+    renderApp()
     resizeReaderTo(320, 640)
 
     await act(async () => {
