@@ -43,7 +43,7 @@
 
 ## Phase 6: 통합 검증
 
-- [ ] [T010] `src/features/reader/components/reader-panel-integration.test.tsx`에 답변을 받는 중 다음 페이지로 이동한 뒤 새 질문을 보내면 이전 대화는 유지되고 새 질문은 이동한 페이지 번호를 기준으로 처리되는 시나리오를 먼저 작성해 실패를 확인한다. `T006`의 배선으로 통과하지 않으면 필요한 부분을 보강한다. (FR-005, SC-004)
+- [x] [T010] main에 병합된 PDF 페이지 탐색 기능(PR #29)을 `feat/reader-panel-chat`으로 머지해 실제 페이지 이동으로 검증할 수 있게 했다. 머지 과정에서 `reader.tsx`에 남아있던 `firstPage?.pageNumber`(더 이상 존재하지 않는 변수) 참조를 실제 `currentPage` 상태로 교체하는 타입 에러를 수정했다. `src/features/reader/components/reader-panel-integration.test.tsx`에 1페이지에서 질문 → 응답 → 다음 페이지 이동 → 새 질문을 보내는 시나리오를 작성했다. `mock-chat-adapter` 모듈을 스파이로 감싸 응답 소스 호출 인자(질문·`context.system`)를 직접 검증해, 이전 대화가 유지되고 새 질문엔 이동한 페이지 번호(2)가 실린 것을 확인했다. 이 스파이가 기존 400ms 타이머 기반 Mock을 즉시 응답으로 대체해 파일의 다른 테스트들도 함께 빨라졌다. (FR-005, SC-004)
 - [ ] [T011] `e2e/reader-panel-chat.spec.ts`를 작성해 실제 브라우저에서 질문 전송 → 스트리밍 응답 표시 → 실패 유도 후 재시도, 좁은 화면 Sheet에서의 동일 흐름, 320px 폭에서 조작부가 잘리지 않는지를 확인한다. 단위·통합 테스트의 세부 조건은 반복하지 않고 실제 사용자 흐름만 검증한다.
 - [ ] [T012] `pnpm check`, `pnpm build`, `pnpm test:e2e`를 실행한다. `specs/reader-panel-chat/spec.md`의 SC-001부터 SC-006까지 아래 대응표로 점검하고, 실행 결과와 미실행 검증이 있다면 이유를 보고한다. 검증이 통과하면 `tasks.md`에 실제 완료한 항목만 체크한다.
 

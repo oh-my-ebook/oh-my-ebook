@@ -1,15 +1,31 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
 import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
+const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
 
 vi.mock('../lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
+})
+
+// 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
+// 실제 Mock 어댑터 팩토리는 그대로 두고 응답 소스만 호출 인자를 기록하는 스파이로 바꾼다.
+vi.mock('../lib/mock-chat-adapter', async (importOriginal) => {
+  const mockChatAdapter = await importOriginal<typeof import('../lib/mock-chat-adapter')>()
+  async function* spyingRespond(question: string, context: ModelContext) {
+    respondSpy(question, context)
+    yield '답변'
+  }
+  return {
+    ...mockChatAdapter,
+    mockChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
+  }
 })
 
 const PANEL_OPEN_LABEL = '보조 패널 열기'
@@ -70,7 +86,7 @@ function setupMatchMediaMock(isWideScreen: boolean) {
   )
 }
 
-function createLoadedDocument(): LoadedPdfDocument {
+function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
   const renderPage = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }))
   const page = {
     getViewport: ({ scale }: { scale: number }) => ({
@@ -81,15 +97,23 @@ function createLoadedDocument(): LoadedPdfDocument {
     render: renderPage,
   }
   const getPage = vi.fn(async () => page)
-  const document = { numPages: 1, getPage } satisfies PdfDocumentHandle
+  const document = { numPages: pageCount, getPage } satisfies PdfDocumentHandle
 
   return {
     document,
-    pages: [{ pageNumber: 1, width: 800, height: 1200, rotation: 0 }],
+    pages: Array.from({ length: pageCount }, (_, index) => ({
+      pageNumber: index + 1,
+      width: 800,
+      height: 1200,
+      rotation: 0,
+    })),
   }
 }
 
-async function renderLoadedReader(resizeObserverMock: ReturnType<typeof setupResizeObserverMock>) {
+async function renderLoadedReader(
+  resizeObserverMock: ReturnType<typeof setupResizeObserverMock>,
+  pageCount = 1,
+) {
   vi.stubGlobal('devicePixelRatio', 1)
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
@@ -97,7 +121,7 @@ async function renderLoadedReader(resizeObserverMock: ReturnType<typeof setupRes
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
-    documentLoad.resolve(createLoadedDocument())
+    documentLoad.resolve(createLoadedDocument(pageCount))
     await documentLoad.promise
   })
   await screen.findByRole('img', { name: 'PDF 1페이지' })
@@ -106,6 +130,7 @@ async function renderLoadedReader(resizeObserverMock: ReturnType<typeof setupRes
 describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
+    respondSpy.mockReset()
     vi.unstubAllGlobals()
   })
 
@@ -205,5 +230,35 @@ describe('Reader 보조 패널 연결', () => {
 
     expect(screen.getByRole('textbox', { name: 'Message input' })).toBeVisible()
     expect(screen.getByText('세번째 질문')).toBeVisible()
+  })
+
+  it('답변을 받은 뒤 다음 페이지로 이동해 새 질문을 보내면 이전 대화는 유지되고 이동한 페이지 기준으로 처리된다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    await renderLoadedReader(resizeObserverMock, 2)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    const input = screen.getByRole('textbox', { name: 'Message input' })
+
+    await user.type(input, '첫 질문')
+    await user.keyboard('{Enter}')
+    await screen.findByText('첫 질문')
+    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+
+    await user.click(screen.getByRole('button', { name: '다음 페이지' }))
+    await screen.findByRole('img', { name: 'PDF 2페이지' })
+
+    await user.type(input, '둘째 질문')
+    await user.keyboard('{Enter}')
+    await screen.findByText('둘째 질문')
+    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+
+    expect(screen.getByText('첫 질문')).toBeInTheDocument()
+    expect(respondSpy).toHaveBeenCalledTimes(2)
+    expect(respondSpy.mock.calls[0]?.[0]).toBe('첫 질문')
+    expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('1')
+    expect(respondSpy.mock.calls[1]?.[0]).toBe('둘째 질문')
+    expect(respondSpy.mock.calls[1]?.[1]?.system).toContain('2')
   })
 })
