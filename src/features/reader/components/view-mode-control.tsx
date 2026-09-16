@@ -1,5 +1,5 @@
 import { BookOpenIcon, FileIcon } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 import { toast } from '@/components/ui/toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -18,8 +18,6 @@ export function ViewModeControl({
   isSpreadAvailable,
   onViewChange,
 }: ViewModeControlProps) {
-  // const wasSpreadAvailable = useRef(isSpreadAvailable)
-
   useEffect(() => {
     if (preferredView === 'spread' && !isSpreadAvailable) {
       toast.add({ title: '화면이 좁아 한 페이지로 표시합니다.' })
