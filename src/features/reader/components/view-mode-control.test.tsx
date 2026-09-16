@@ -74,7 +74,7 @@ describe('ViewModeControl', () => {
     )
   })
 
-  it('두 페이지 보기를 적용할 수 없으면 문구 없이 버튼을 비활성화한다', () => {
+  it('두 페이지 보기를 적용할 수 없으면 한 페이지 보기를 선택하고 버튼을 비활성화한다', () => {
     const { container } = render(
       <ViewModeControl isSpreadAvailable={false} onViewChange={vi.fn()} preferredView="spread" />,
     )
@@ -82,7 +82,11 @@ describe('ViewModeControl', () => {
     const spreadButton = screen.getByRole('button', { name: '두 페이지' })
 
     expect(spreadButton).toBeDisabled()
-    expect(spreadButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '한 페이지' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(spreadButton).toHaveAttribute('aria-pressed', 'false')
     expect(container).not.toHaveTextContent('두 페이지 보기는 화면 폭 1024px 이상')
   })
 

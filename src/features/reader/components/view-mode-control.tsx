@@ -42,7 +42,7 @@ export function ViewModeControl({
       onValueChange={handleValueChange}
       size="sm"
       spacing={0}
-      value={[preferredView]}
+      value={[isSpreadAvailable ? preferredView : 'single']}
       variant="outline"
     >
       <Tooltip>
