@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
-import { calculateSinglePageFitScale } from '../lib/reader-state'
+import { calculatePageSpread, isTwoPageViewAvailable, type PageViewMode } from '../lib/page-spread'
+import { calculatePageFitScale } from '../lib/reader-state'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderToolbar } from './reader-toolbar'
 
@@ -20,6 +22,8 @@ interface ReaderErrorProps {
 interface ReaderLoadingProps {
   label: string
 }
+
+const readerSpreadGap = 16
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -63,26 +67,30 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 }
 
 export function Reader({ url, title }: ReaderProps) {
+  const [preferredView, setPreferredView] = useState<PageViewMode>('single')
   const documentState = usePdfDocument(url)
   const { availableHeight, availableWidth, containerRef } = useReaderLayout()
-  const firstPage = documentState.pages[0]
+  const isSpreadAvailable = isTwoPageViewAvailable(window.innerWidth, availableWidth)
+  const pageSpread = calculatePageSpread(documentState.pages, 1, preferredView, isSpreadAvailable)
+  const firstPage = pageSpread.pages[0]
+  const pageRange = pageSpread.pages.map(({ pageNumber }) => pageNumber).join('–')
   const isPageReady =
     documentState.status === 'ready' &&
     firstPage !== undefined &&
     availableWidth > 0 &&
     availableHeight > 0
   const scale = isPageReady
-    ? calculateSinglePageFitScale(
-        firstPage.width,
-        firstPage.height,
-        availableWidth,
-        availableHeight,
-      )
+    ? calculatePageFitScale(pageSpread.pages, availableWidth, availableHeight, readerSpreadGap)
     : null
 
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
-      <ReaderToolbar title={getReaderTitle(url, title)} />
+      <ReaderToolbar
+        isSpreadAvailable={isSpreadAvailable}
+        onViewChange={setPreferredView}
+        preferredView={preferredView}
+        title={getReaderTitle(url, title)}
+      />
 
       <main
         aria-label="PDF 읽기 영역"
@@ -106,12 +114,16 @@ export function Reader({ url, title }: ReaderProps) {
           )}
 
         {isPageReady && scale !== null && (
-          <PdfViewport document={documentState.document} page={firstPage} scale={scale} />
+          <PdfViewport document={documentState.document} pages={pageSpread.pages} scale={scale} />
         )}
       </main>
 
       <footer className="flex min-h-12 shrink-0 items-center justify-center border-t px-4 py-2">
-        {isPageReady && <output aria-label="페이지 위치">1 / {documentState.pages.length}</output>}
+        {isPageReady && (
+          <output aria-label="페이지 위치">
+            {pageRange} / {documentState.pages.length}
+          </output>
+        )}
       </footer>
     </div>
   )
