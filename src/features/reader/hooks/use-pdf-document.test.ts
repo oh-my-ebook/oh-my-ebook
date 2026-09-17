@@ -7,6 +7,7 @@ import {
   type PdfDocumentHandle,
   type PdfDocumentLoader,
   type PdfPageHandle,
+  type PdfDocumentSource,
 } from '../lib/pdf-document'
 import { usePdfDocument } from './use-pdf-document'
 
@@ -47,15 +48,15 @@ function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
 }
 
 function createControlledLoader(loads: readonly PromiseController<LoadedPdfDocument>[]) {
-  const requestedUrls: string[] = []
+  const requestedUrls: PdfDocumentSource[] = []
   const requestSignals: AbortSignal[] = []
   const pendingLoads = [...loads]
-  const loadDocument: PdfDocumentLoader = (url, signal) => {
-    requestedUrls.push(url)
+  const loadDocument: PdfDocumentLoader = (source, signal) => {
+    requestedUrls.push(source)
     requestSignals.push(signal)
     const load = pendingLoads.shift()
     if (!load) {
-      return Promise.reject(new Error(`No document load for ${url}`))
+      return Promise.reject(new Error('No document load'))
     }
     return load.promise
   }
@@ -93,6 +94,16 @@ describe('usePdfDocument', () => {
       pages: loaded.pages,
       error: null,
     })
+  })
+
+  it('저장된 Uint8Array 원본을 로더에 그대로 전달한다', () => {
+    const documentLoad = createPromiseController<LoadedPdfDocument>()
+    const { loadDocument, requestedUrls } = createControlledLoader([documentLoad])
+    const source = new Uint8Array([1, 2, 3])
+
+    renderHook(() => usePdfDocument(source, loadDocument))
+
+    expect(requestedUrls).toEqual([source])
   })
 
   it.each([
