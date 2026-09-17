@@ -14,4 +14,29 @@ export type EbookStoreResponse =
 
 export interface AddBookInput {
   pdfData: ArrayBuffer
+  contentHash: string
+  fileName: string
+  title: string
+  author: string | null
+  publisher: string | null
+  pageCount: number
+  coverData: ArrayBuffer | null
+  coverMime: 'image/webp' | 'image/png' | null
+  coverStatus: 'ready' | 'fallback'
+}
+
+export interface StoredBook {
+  id: string
+  content_hash: string
+  file_name: string
+  title: string
+  author: string | null
+  publisher: string | null
+  page_count: number
+  cover_data: Uint8Array | null
+  cover_mime: string | null
+  cover_status: 'ready' | 'fallback'
+  last_page: number | null
+  created_at: number
+  updated_at: number
 }
