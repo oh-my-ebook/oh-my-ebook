@@ -9,6 +9,7 @@ const PANEL_TITLE = '보조 패널'
 const CLOSE_BUTTON_LABEL = '보조 패널 닫기'
 
 interface ReaderPanelProps {
+  chatSessionKey?: string
   currentPage?: number
   isWideScreen: boolean
   onOpenChange: (open: boolean) => void
@@ -31,7 +32,13 @@ function useRestoreFocusOnClose(open: boolean, openButtonRef: RefObject<HTMLButt
   }, [open, openButtonRef])
 }
 
-function WideReaderPanel({ currentPage, onOpenChange, open, openButtonRef }: PanelSectionProps) {
+function WideReaderPanel({
+  chatSessionKey,
+  currentPage,
+  onOpenChange,
+  open,
+  openButtonRef,
+}: PanelSectionProps) {
   useRestoreFocusOnClose(open, openButtonRef)
 
   // 열려 있을 때 포커스 위치와 무관하게 Escape로 닫을 수 있어야 하므로 문서 전체에서 관찰한다.
@@ -73,7 +80,7 @@ function WideReaderPanel({ currentPage, onOpenChange, open, openButtonRef }: Pan
             </Button>
           </div>
           <div className="min-h-0 flex-1">
-            <ReaderChat currentPage={currentPage} />
+            <ReaderChat currentPage={currentPage} key={chatSessionKey} />
           </div>
         </div>
       </CollapsibleContent>
@@ -81,7 +88,13 @@ function WideReaderPanel({ currentPage, onOpenChange, open, openButtonRef }: Pan
   )
 }
 
-function NarrowReaderPanel({ currentPage, onOpenChange, open, openButtonRef }: PanelSectionProps) {
+function NarrowReaderPanel({
+  chatSessionKey,
+  currentPage,
+  onOpenChange,
+  open,
+  openButtonRef,
+}: PanelSectionProps) {
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent aria-label={PANEL_TITLE} finalFocus={openButtonRef}>
@@ -89,7 +102,7 @@ function NarrowReaderPanel({ currentPage, onOpenChange, open, openButtonRef }: P
           <SheetTitle>{PANEL_TITLE}</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1">
-          <ReaderChat currentPage={currentPage} />
+          <ReaderChat currentPage={currentPage} key={chatSessionKey} />
         </div>
       </SheetContent>
     </Sheet>

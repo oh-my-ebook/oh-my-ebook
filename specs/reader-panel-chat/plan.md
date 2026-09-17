@@ -25,7 +25,7 @@
 }
 ```
 
-`{style}`은 현재 값(`base-nova`)으로 자동 치환되어 Base UI 버전 컴포넌트를 내려받는다. `pnpm dlx shadcn@latest view @assistant-ui/thread`로 확인한 결과 메시지 목록·컴포저·스트리밍만 따로 떼어낸 더 작은 프리미티브는 레지스트리에 없고, `@assistant-ui/thread` 하나가 필요한 것(메시지 목록·입력창·스트리밍)과 제외 범위에 해당하는 것(첨부파일·음성 입력·추천 질문·분기·편집·Export)을 한 파일에 같이 묶어 제공한다. 이 항목은 더 잘게 쪼갤 수 없으므로 통째로 추가하고, 제외 범위 조작부가 실제 화면에서 보이는지·동작하는지는 런타임 연결 후 개발 서버에서 직접 확인해 필요한 것만 제거한다(AGENTS.md "현재 작업에서 실제로 사용하는 컴포넌트만 추가한다" 원칙은 이 사후 정리 단계에서 지킨다).
+`{style}`은 현재 값(`base-nova`)으로 자동 치환되어 Base UI 버전 컴포넌트를 내려받는다. `pnpm dlx shadcn@latest view @assistant-ui/thread`로 확인한 결과 메시지 목록·컴포저·스트리밍만 따로 떼어낸 더 작은 프리미티브는 레지스트리에 없고, `@assistant-ui/thread` 하나가 필요한 것(메시지 목록·입력창·스트리밍)과 제외 범위에 해당하는 것(첨부파일·음성 입력·추천 질문·분기)을 한 파일에 같이 묶어 제공한다. 이 항목은 더 잘게 쪼갤 수 없으므로 통째로 추가하고, 제외 범위 조작부가 실제 화면에서 보이는지·동작하는지는 런타임 연결 후 개발 서버에서 직접 확인해 필요한 것만 제거한다(AGENTS.md "현재 작업에서 실제로 사용하는 컴포넌트만 추가한다" 원칙은 이 사후 정리 단계에서 지킨다). 질문 수정(사용자 메시지 Edit)·Export as Markdown은 spec.md가 제외한 "답변 편집"과 다른 대상이라 확인 후 남겨두기로 했다(tasks.md T004A).
 
 ## Mock ↔ 실제 연동 경계
 
@@ -65,18 +65,18 @@ assistant-ui 프리미티브가 제공하는 접근 가능한 이름·키보드 
 | `src/features/reader/components/reader-panel-integration.test.tsx` | 페이지 이동 후에도 대화 내역 유지(FR-005/SC-004) 시나리오 추가 |
 | `src/features/reader/lib/mock-chat-adapter.ts`                     | 신규. `ChatModelAdapter` Mock 구현                             |
 | `src/features/reader/lib/mock-chat-adapter.test.ts`                | 신규. 스트리밍 누적·실패·재시도 단위 테스트                    |
-| `src/components/ui/`                                               | shadcn CLI로 추가되는 assistant-ui Base UI 컴포넌트 파일       |
+| `src/components/assistant-ui/elements/`, `src/components/ui/`      | shadcn CLI로 추가되는 assistant-ui Base UI 컴포넌트 파일       |
 | `package.json`, `pnpm-lock.yaml`                                   | `@assistant-ui/react`, `zustand` 등 실제 필요한 의존성만 반영  |
-| `e2e/reader-panel-chat.spec.ts`                                    | 신규. 질문·응답·재시도·좁은 화면 흐름 E2E                      |
+| `e2e/reader-panel-chat.spec.ts`                                    | 신규. 질문·응답·좁은 화면 흐름 E2E                             |
 
 ## 테스트 전략
 
-| 검증              | 범위                                                                                                                |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Vitest 단위       | `mock-chat-adapter`의 스트리밍 누적, 실패 시 오류 형태, 재시도 시 같은 입력 재사용                                  |
-| Testing Library   | Enter 전송/Shift+Enter 줄바꿈/빈 값 무시, 로딩 중 비활성화, 실패 후 재시도, 패널 닫힘 시 대화 초기화, 키보드 접근성 |
-| 통합(Reader 연결) | 패널 열림에서만 채팅 노출(FR-001), 페이지 이동 후 대화 유지 + 새 질문은 이동한 페이지 기준(FR-005)                  |
-| Playwright        | 실제 브라우저에서 질문 전송 → 스트리밍 표시 → 재시도, 좁은 화면 Sheet에서의 동일 흐름, 320px 폭 레이아웃            |
+| 검증              | 범위                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Vitest 단위       | `mock-chat-adapter`의 스트리밍 누적, 실패 시 오류 형태, 재시도 시 같은 입력 재사용                                                                                       |
+| Testing Library   | Enter 전송/Shift+Enter 줄바꿈/빈 값 무시, 로딩 중 비활성화, 실패 후 재시도, 패널 닫힘 시 대화 초기화, 키보드 접근성                                                      |
+| 통합(Reader 연결) | 패널 열림에서만 채팅 노출(FR-001), 페이지 이동 후 대화 유지 + 새 질문은 이동한 페이지 기준(FR-005)                                                                       |
+| Playwright        | 실제 브라우저에서 질문 전송 → 스트리밍 표시, 좁은 화면 Sheet에서의 동일 흐름, 320px 폭 레이아웃(실패·재시도는 프로덕션 Mock이 항상 성공해 T004의 컴포넌트 테스트로 검증) |
 
 ## 완료 확인
 

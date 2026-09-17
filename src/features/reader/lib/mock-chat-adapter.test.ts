@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { ChatModelRunOptions, ChatModelRunResult, ThreadMessage } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
-import { createMockChatModelAdapter, type MockResponder } from './mock-chat-adapter'
+import {
+  createMockChatModelAdapter,
+  mockChatModelAdapter,
+  type MockResponder,
+} from './mock-chat-adapter'
 
 function createUserMessage(text: string): ThreadMessage {
   return {
@@ -14,11 +18,14 @@ function createUserMessage(text: string): ThreadMessage {
   }
 }
 
-function createRunOptions(messages: readonly ThreadMessage[]): ChatModelRunOptions {
+function createRunOptions(
+  messages: readonly ThreadMessage[],
+  abortSignal: AbortSignal = new AbortController().signal,
+): ChatModelRunOptions {
   return {
     messages,
     runConfig: {},
-    abortSignal: new AbortController().signal,
+    abortSignal,
     context: {},
     unstable_getMessage: () => {
       throw new Error('테스트에서 사용하지 않음')
@@ -93,5 +100,56 @@ describe('createMockChatModelAdapter', () => {
     }
 
     expect(retryTexts).toEqual(['재시도 성공'])
+  })
+
+  it('run()이 respond에 abortSignal을 그대로 전달한다', async () => {
+    const abortController = new AbortController()
+    let receivedSignal: AbortSignal | undefined
+
+    async function* respond(
+      _question: string,
+      _context: unknown,
+      abortSignal: AbortSignal,
+    ): ReturnType<MockResponder> {
+      receivedSignal = abortSignal
+      yield '응답'
+    }
+
+    const adapter = createMockChatModelAdapter(respond as MockResponder)
+    const runOptions = createRunOptions([createUserMessage('질문')], abortController.signal)
+    for await (const _result of adapter.run(runOptions)) {
+      // 어댑터가 전달한 abortSignal을 확인하는 것이 목적이라 결과 자체는 쓰지 않는다.
+    }
+
+    expect(receivedSignal).toBe(abortController.signal)
+  })
+
+  it('mockChatModelAdapter는 중단 시 지연 타이머를 정리해 이후 조각을 만들지 않는다', async () => {
+    vi.useFakeTimers()
+    try {
+      const abortController = new AbortController()
+      const runOptions = createRunOptions([createUserMessage('질문')], abortController.signal)
+      const texts: (string | undefined)[] = []
+
+      const runPromise = (async () => {
+        try {
+          for await (const result of mockChatModelAdapter.run(runOptions)) {
+            texts.push(getAccumulatedText(result))
+          }
+        } catch {
+          // 중단 시 예외가 발생하는 것은 의도한 동작이다.
+        }
+      })()
+
+      await vi.advanceTimersByTimeAsync(400)
+      abortController.abort()
+      // 남은 지연 시간을 다 흘려보내도 정리된 타이머는 다시 발화하지 않아야 한다.
+      await vi.advanceTimersByTimeAsync(10_000)
+      await runPromise
+
+      expect(texts).toEqual(['질문을 확인했어요.'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

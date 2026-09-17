@@ -9,6 +9,7 @@ import type {
 export type MockResponder = (
   question: string,
   context: ModelContext,
+  abortSignal: AbortSignal,
 ) => AsyncGenerator<string, void>
 
 function isTextPart(part: { type: string }): part is TextMessagePart {
@@ -28,10 +29,10 @@ function extractLatestUserText(messages: readonly ThreadMessage[]) {
 
 export function createMockChatModelAdapter(respond: MockResponder) {
   return {
-    async *run({ context, messages }: ChatModelRunOptions) {
+    async *run({ abortSignal, context, messages }: ChatModelRunOptions) {
       const question = extractLatestUserText(messages)
       let accumulated = ''
-      for await (const chunk of respond(question, context)) {
+      for await (const chunk of respond(question, context, abortSignal)) {
         accumulated += chunk
         yield { content: [{ type: 'text', text: accumulated }] } satisfies ChatModelRunResult
       }
@@ -46,9 +47,31 @@ const MOCK_RESPONSE_CHUNKS = [
 ]
 const MOCK_CHUNK_DELAY_MS = 400
 
-async function* defaultRespond(): AsyncGenerator<string, void> {
+function delay(ms: number, abortSignal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (abortSignal.aborted) {
+      reject(new DOMException('중단된 요청입니다.', 'AbortError'))
+      return
+    }
+    const timeoutId = setTimeout(resolve, ms)
+    abortSignal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timeoutId)
+        reject(new DOMException('중단된 요청입니다.', 'AbortError'))
+      },
+      { once: true },
+    )
+  })
+}
+
+async function* defaultRespond(
+  _question: string,
+  _context: ModelContext,
+  abortSignal: AbortSignal,
+): AsyncGenerator<string, void> {
   for (const chunk of MOCK_RESPONSE_CHUNKS) {
-    await new Promise((resolve) => setTimeout(resolve, MOCK_CHUNK_DELAY_MS))
+    await delay(MOCK_CHUNK_DELAY_MS, abortSignal)
     yield chunk
   }
 }

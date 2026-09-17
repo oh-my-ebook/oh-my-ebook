@@ -9,11 +9,12 @@ const OPEN_BUTTON_LABEL = '보조 패널 열기'
 const CHAT_INPUT_LABEL = 'Message input'
 
 interface HarnessProps {
+  chatSessionKey?: string
   initialOpen?: boolean
   isWideScreen: boolean
 }
 
-function ReaderPanelHarness({ initialOpen = false, isWideScreen }: HarnessProps) {
+function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen }: HarnessProps) {
   const openButtonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(initialOpen)
 
@@ -23,6 +24,7 @@ function ReaderPanelHarness({ initialOpen = false, isWideScreen }: HarnessProps)
         {OPEN_BUTTON_LABEL}
       </button>
       <ReaderPanel
+        chatSessionKey={chatSessionKey}
         isWideScreen={isWideScreen}
         onOpenChange={setOpen}
         open={open}
@@ -146,5 +148,21 @@ describe('ReaderPanel', () => {
     await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
 
     expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
+  })
+
+  it('chatSessionKey가 바뀌면(문서 변경) 패널을 닫지 않아도 대화가 초기화된다', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <ReaderPanelHarness chatSessionKey="doc-a" initialOpen isWideScreen />,
+    )
+
+    const input = screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText('질문')).toBeInTheDocument()
+
+    rerender(<ReaderPanelHarness chatSessionKey="doc-b" initialOpen isWideScreen />)
+
+    expect(screen.queryByText('질문')).not.toBeInTheDocument()
   })
 })
