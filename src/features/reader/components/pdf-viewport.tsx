@@ -9,6 +9,7 @@ import {
   type PdfPageInfo,
   type PdfPageViewport,
 } from '../lib/pdf-document'
+import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognition'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
@@ -57,6 +58,12 @@ interface PdfViewportOutcome {
   status: 'error' | 'ready'
 }
 
+interface OcrOutcome {
+  document: PdfDocumentHandle
+  pageNumbers: string
+  pages: ReadonlyMap<number, OcrPageResult>
+}
+
 function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
   return 'render' in page && typeof page.render === 'function'
 }
@@ -91,6 +98,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [attempt, setAttempt] = useState(0)
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
+  const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
   const status = isCurrentOutcome(outcome, request) ? outcome.status : 'loading'
 
@@ -179,6 +187,45 @@ export function PdfViewport(props: PdfViewportProps) {
     }
   }, [attempt, document, firstPageNumber, pageNumbers, scale, secondPageNumber])
 
+  useEffect(() => {
+    const requestedPageNumbers = [firstPageNumber, secondPageNumber].filter(
+      (pageNumber): pageNumber is number => pageNumber !== undefined,
+    )
+    if (requestedPageNumbers.length === 0) {
+      return
+    }
+
+    const controller = new AbortController()
+    const recognizePages = async () => {
+      const recognizedPages = await Promise.all(
+        requestedPageNumbers.map(async (pageNumber) => {
+          try {
+            const page = await document.getPage(pageNumber)
+            const result = await recognizePdfPage(page, controller.signal)
+            return [pageNumber, result] as const
+          } catch {
+            return null
+          }
+        }),
+      )
+      if (!controller.signal.aborted) {
+        setOcrOutcome({
+          document,
+          pageNumbers,
+          pages: new Map(recognizedPages.filter((page) => page !== null)),
+        })
+      }
+    }
+
+    void recognizePages()
+    return () => controller.abort()
+  }, [document, firstPageNumber, pageNumbers, secondPageNumber])
+
+  const ocrPages =
+    ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers
+      ? ocrOutcome.pages
+      : new Map<number, OcrPageResult>()
+
   return (
     <section
       aria-busy={status === 'loading'}
@@ -192,21 +239,46 @@ export function PdfViewport(props: PdfViewportProps) {
         ref={canvasContainerRef}
         role={status === 'loading' ? 'status' : undefined}
       >
-        {pages.map((page) => (
-          <div
-            className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none"
-            data-slot="pdf-page-frame"
-            key={page.pageNumber}
-            style={{ height: page.height * scale, width: page.width * scale }}
-          >
+        {pages.map((page) => {
+          const ocrPage = ocrPages.get(page.pageNumber)
+          return (
             <div
-              className="h-full w-full"
-              data-slot="pdf-page-canvas"
-              hidden={status !== 'ready'}
-            />
-            {status === 'loading' && <Skeleton className="absolute inset-0 h-full w-full" />}
-          </div>
-        ))}
+              className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none [container-type:inline-size]"
+              data-slot="pdf-page-frame"
+              key={page.pageNumber}
+              style={{ height: page.height * scale, width: page.width * scale }}
+            >
+              <div
+                className="h-full w-full"
+                data-slot="pdf-page-canvas"
+                hidden={status !== 'ready'}
+              />
+              {status === 'ready' && ocrPage && (
+                <div
+                  aria-label={`PDF ${page.pageNumber}페이지 OCR 텍스트 레이어`}
+                  className="absolute inset-0 overflow-hidden"
+                >
+                  {ocrPage.lines.map((line, index) => (
+                    <span
+                      className="absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80"
+                      key={`${line.x0}-${line.y0}-${index}`}
+                      style={{
+                        left: `${(line.x0 / ocrPage.width) * 100}%`,
+                        top: `${(line.y0 / ocrPage.height) * 100}%`,
+                        fontSize: `${(line.fontSize / ocrPage.width) * 100}cqw`,
+                        lineHeight: 1,
+                        transform: `scaleX(${line.scaleX})`,
+                      }}
+                    >
+                      {line.text}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {status === 'loading' && <Skeleton className="absolute inset-0 h-full w-full" />}
+            </div>
+          )
+        })}
       </div>
 
       {status === 'error' && (

@@ -5,6 +5,10 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
+const { recognizePdfPage } = vi.hoisted(() => ({ recognizePdfPage: vi.fn() }))
+
+vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
+
 function createRenderTask() {
   const completion = createPromiseController<void>()
   return {
@@ -61,6 +65,7 @@ function getRenderedCanvas(pageNumber = 1) {
 describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
+    recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
   afterEach(() => {
@@ -116,6 +121,51 @@ describe('PdfViewport', () => {
 
     expect(getRenderedCanvas()).toBe(canvas)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('200 DPI OCR 결과를 드래그 가능한 텍스트 레이어로 겹친다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    recognizePdfPage.mockResolvedValueOnce({
+      width: 1_200,
+      height: 1_800,
+      lines: [
+        {
+          text: '형태소로 다듬은 문장',
+          x0: 120,
+          y0: 180,
+          x1: 600,
+          y1: 216,
+          fontSize: 36,
+          scaleX: 1.25,
+        },
+      ],
+    })
+
+    const { container } = render(
+      <PdfViewport document={document} page={createPageInfo(1)} scale={1} />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+    const line = screen.getByText('형태소로 다듬은 문장')
+    expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
+    expect(layer).toBeInTheDocument()
+    expect(line).toHaveClass('cursor-text', 'select-text', 'text-transparent')
+    expect(line).toHaveStyle({
+      left: '10%',
+      top: '10%',
+      fontSize: '3cqw',
+      transform: 'scaleX(1.25)',
+    })
+    expect(container.querySelector('[data-slot="pdf-page-frame"]')).toHaveClass(
+      '[container-type:inline-size]',
+    )
   })
 
   it('표시 크기가 바뀌면 이전 작업을 취소하고 늦은 완료를 무시한다', async () => {
@@ -269,7 +319,7 @@ describe('PdfViewport', () => {
       expect(firstPage.render).toHaveBeenCalledOnce()
       expect(secondPage.render).toHaveBeenCalledOnce()
     })
-    expect(getPage.mock.calls.map(([pageNumber]) => pageNumber)).toEqual([1, 2])
+    expect(getPage.mock.calls.map(([pageNumber]) => pageNumber)).toEqual([1, 2, 1, 2])
     expect(ignoredPage.render).not.toHaveBeenCalled()
     expect(container.querySelectorAll('canvas')).toHaveLength(2)
     const frames = container.querySelectorAll('[data-slot="pdf-page-frame"]')
