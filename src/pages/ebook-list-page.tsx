@@ -1,18 +1,11 @@
+import { useNavigate } from 'react-router'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { EbookLibrary } from '@/features/ebook-list/components/ebook-library'
-import { EbookStoreClient } from '@/features/ebook-list/lib/ebook-store-client'
-import { isOpfsSupported } from '@/features/ebook-list/lib/storage-manager'
-
-const client = isOpfsSupported()
-  ? new EbookStoreClient(
-      new Worker(new URL('../features/ebook-list/lib/ebook-db.worker.ts', import.meta.url), {
-        type: 'module',
-      }),
-    )
-  : null
+import { ebookStore } from '@/features/ebook-list/lib/ebook-store'
 
 export function EbookListPage() {
-  if (!client) {
+  const navigate = useNavigate()
+  if (!ebookStore) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-8">
         <Alert variant="destructive">
@@ -22,5 +15,5 @@ export function EbookListPage() {
     )
   }
 
-  return <EbookLibrary store={client} />
+  return <EbookLibrary store={ebookStore} onOpenBook={(bookId) => navigate(`/books/${bookId}`)} />
 }
