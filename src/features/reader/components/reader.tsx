@@ -189,6 +189,8 @@ export function Reader({ url, title }: ReaderProps) {
         </main>
 
         <ReaderPanel
+          chatSessionKey={url}
+          currentPage={currentPage}
           isWideScreen={isWideScreen}
           onOpenChange={setPanelOpen}
           open={panelOpen}
