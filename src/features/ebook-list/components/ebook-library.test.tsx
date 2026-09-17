@@ -244,6 +244,64 @@ describe('EbookLibrary', () => {
     expect(screen.getByText('남은 용량 98 B')).toBeInTheDocument()
   })
 
+  it('업로드·목록·용량·새로고침·삭제를 하나의 책장 흐름으로 조합한다', async () => {
+    const user = userEvent.setup()
+    const savedBook = createStoredBook('새 책')
+    let books: ReturnType<typeof createStoredBook>[] = []
+    let usage = 0
+    const store = createStore()
+    store.request.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === 'listBooks') return books
+      if (command === 'deleteBook' && payload === savedBook.id) {
+        books = []
+        usage = 0
+      }
+      return null
+    })
+    store.addBook.mockImplementation(async () => {
+      books = [savedBook]
+      usage = 5
+      return 'saved-id'
+    })
+    vi.spyOn(storage, 'getStorageCapacity').mockImplementation(async () => ({
+      usage,
+      quota: 100,
+      remaining: 100 - usage,
+    }))
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      pdfData: new ArrayBuffer(1),
+      contentHash: 'new-book-hash',
+      fileName: 'new-book.pdf',
+      title: savedBook.title,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByText('아직 저장한 책이 없습니다.')
+    await user.upload(
+      screen.getByLabelText('PDF 파일 선택'),
+      new File(['pdf'], 'new-book.pdf', { type: 'application/pdf' }),
+    )
+    expect(await screen.findByText(savedBook.title)).toBeInTheDocument()
+    expect(screen.getByText('남은 용량 95 B')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '새로고침' }))
+    expect(screen.getByText(savedBook.title)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '새 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
+    expect(screen.getByText('남은 용량 100 B')).toBeInTheDocument()
+  })
+
   it('책 제목 수정 실패는 토스트로 알린다', async () => {
     const user = userEvent.setup()
     const store = createStore()
