@@ -17,7 +17,7 @@ describe('PdfUpload', () => {
     await user.upload(input, files)
     expect(onFilesSelected).toHaveBeenCalledWith(files)
 
-    rerender(<PdfUpload busy onFilesSelected={onFilesSelected} />)
+    rerender(<PdfUpload isUploading onFilesSelected={onFilesSelected} />)
     expect(input).toBeDisabled()
     expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeDisabled()
     expect(screen.queryByRole('list', { name: '파일별 업로드 결과' })).not.toBeInTheDocument()
