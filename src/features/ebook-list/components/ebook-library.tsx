@@ -1,8 +1,6 @@
-import { useEffect, useRef } from 'react'
 import { BookOpen } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Empty,
   EmptyContent,
@@ -11,9 +9,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
-import type { StoredBook } from '../ebook-types'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { EbookShelf } from './ebook-shelf'
+import { EbookShelfLoading } from './ebook-shelf-loading'
 import { PdfUpload } from './pdf-upload'
 import { StorageSummary } from './storage-summary'
 
@@ -30,7 +28,6 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     refreshError,
     refreshing,
     capacity,
-    items,
     busy,
     persistentStorage,
     requestPersistence,
@@ -38,104 +35,51 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     regenerateCover,
     coverErrors,
     regeneratingCover,
+    renameBook,
+    deleteBook,
   } = useEbookLibrary(store)
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-4xl flex-col gap-6 px-4 py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-3xl font-bold">내 책장</h1>
-        <div className="flex gap-2">
-          <Button
-            disabled={state.status !== 'ready' || refreshing}
-            onClick={() => {
-              void refreshLibrary()
-            }}
-            variant="outline"
-          >
-            새로고침
-          </Button>
-          <PdfUpload
-            busy={busy}
-            disabled={state.status !== 'ready'}
-            items={items}
-            onFilesSelected={(files) => {
-              void addFiles(files)
-            }}
-          />
+    <main className="library-page min-h-svh">
+      <nav aria-label="주 탐색" className="library-navigation">
+        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
+          <strong>oh-my-ebook</strong>
+          <span className="h-4 border-l" />
+          <span className="rounded bg-muted px-3 py-1 text-sm">내 서재</span>
         </div>
-      </header>
-
-      {state.status === 'loading' && (
-        <div aria-label="책장 불러오는 중" className="flex flex-col gap-3" role="status">
-          <Skeleton className="h-32 w-full" />
-        </div>
-      )}
-
-      {state.status === 'error' && (
-        <Alert variant="destructive">
-          <AlertTitle>{state.message}</AlertTitle>
-          <AlertDescription>
-            <Button className="mt-3" onClick={retry} variant="outline">
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {state.status === 'ready' && state.books.length === 0 && (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <BookOpen />
-            </EmptyMedia>
-            <EmptyTitle>아직 저장한 책이 없습니다.</EmptyTitle>
-            <EmptyDescription>
-              PDF는 이 브라우저에만 저장됩니다. 브라우저 데이터를 삭제하면 책도 사라질 수 있습니다.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>위의 PDF 추가 버튼으로 책을 선택하세요.</EmptyContent>
-        </Empty>
-      )}
-
-      {state.status === 'ready' && state.books.length > 0 && (
-        <section aria-label="저장된 책" className="flex flex-col gap-3">
-          <p>저장된 책 {state.books.length}권</p>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {state.books.map((book) => (
-              <li key={book.id}>
-                <BookPreview
-                  book={book}
-                  coverError={coverErrors[book.id]}
-                  regenerating={regeneratingCover === book.id}
-                  onRegenerate={() => {
-                    void regenerateCover(book)
-                  }}
-                  onOpen={() => onOpenBook?.(book.id)}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {refreshError && (
-        <Alert variant="destructive">
-          <AlertTitle>{refreshError}</AlertTitle>
-          <AlertDescription>
+      </nav>
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+        <header className="library-header">
+          <div className="library-intro flex min-w-0 flex-col gap-1">
+            <p className="text-xs text-muted-foreground">이 브라우저에만 보관되는 오프라인 서재</p>
+            <h1 className="font-heading text-3xl font-bold tracking-tight">내 서재</h1>
+            <p className="text-muted-foreground">
+              저장한 PDF를 다시 열고 읽던 위치에서 이어 보세요.
+            </p>
+          </div>
+          <div className="library-actions">
             <Button
-              className="mt-3"
+              disabled={state.status !== 'ready' || refreshing}
               onClick={() => {
                 void refreshLibrary()
               }}
               variant="outline"
             >
-              다시 시도
+              새로고침
             </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {state.status === 'ready' && (
-        <>
+            <PdfUpload
+              busy={busy}
+              disabled={state.status !== 'ready'}
+              onFilesSelected={(files) => {
+                void addFiles(files)
+              }}
+            />
+          </div>
+        </header>
+
+        {state.status === 'ready' && (
           <StorageSummary
+            books={state.books}
             capacity={capacity}
             persistentStorage={persistentStorage}
             onRequestPersistence={requestPersistence}
@@ -143,64 +87,79 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               void refreshLibrary()
             }}
           />
-          <p>PDF는 서버나 다른 기기에 동기화되지 않습니다.</p>
-        </>
-      )}
+        )}
+
+        {state.status === 'loading' && <EbookShelfLoading />}
+
+        {state.status === 'error' && (
+          <Alert variant="destructive">
+            <AlertTitle>{state.message}</AlertTitle>
+            <AlertDescription>
+              <Button className="mt-3" onClick={retry} variant="outline">
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {state.status === 'ready' && state.books.length === 0 && (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <BookOpen />
+              </EmptyMedia>
+              <EmptyTitle>아직 저장한 책이 없습니다.</EmptyTitle>
+              <EmptyDescription>
+                PDF는 이 브라우저에만 저장됩니다. 브라우저 데이터를 삭제하면 책도 사라질 수
+                있습니다.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>위의 PDF 추가 버튼으로 책을 선택하세요.</EmptyContent>
+          </Empty>
+        )}
+
+        {state.status === 'ready' && state.books.length > 0 && (
+          <section aria-label="저장된 책" className="flex flex-col gap-3">
+            <p>저장된 책 {state.books.length}권</p>
+            <EbookShelf
+              books={state.books}
+              coverErrors={coverErrors}
+              onOpenBook={(bookId) => onOpenBook?.(bookId)}
+              onRegenerate={(book) => {
+                void regenerateCover(book)
+              }}
+              regeneratingCover={regeneratingCover}
+              onDelete={(bookId) => {
+                void deleteBook(bookId)
+              }}
+              onRename={(bookId, title) => {
+                void renameBook(bookId, title)
+              }}
+            />
+          </section>
+        )}
+        {refreshError && (
+          <Alert variant="destructive">
+            <AlertTitle>{refreshError}</AlertTitle>
+            <AlertDescription>
+              <Button
+                className="mt-3"
+                onClick={() => {
+                  void refreshLibrary()
+                }}
+                variant="outline"
+              >
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {state.status === 'ready' && (
+          <p className="text-sm text-muted-foreground">
+            PDF는 서버나 다른 기기에 동기화되지 않습니다.
+          </p>
+        )}
+      </div>
     </main>
-  )
-}
-
-function BookPreview({
-  book,
-  coverError,
-  regenerating,
-  onRegenerate,
-  onOpen,
-}: {
-  book: StoredBook
-  coverError?: string
-  regenerating: boolean
-  onRegenerate(): void
-  onOpen(): void
-}) {
-  const imageRef = useRef<HTMLImageElement>(null)
-
-  useEffect(() => {
-    if (!book.cover_data || !book.cover_mime) return
-    const url = URL.createObjectURL(
-      new Blob([new Uint8Array(book.cover_data)], { type: book.cover_mime }),
-    )
-    if (imageRef.current) imageRef.current.src = url
-    return () => URL.revokeObjectURL(url)
-  }, [book.cover_data, book.cover_mime])
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle title={book.title}>{book.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {book.cover_data && book.cover_mime ? (
-          <img ref={imageRef} alt={`${book.title} 표지`} className="max-h-64 object-contain" />
-        ) : (
-          <p>기본 표지</p>
-        )}
-        <p>
-          {book.last_page === null
-            ? `읽지 않음 · 전체 ${book.page_count}페이지`
-            : `${book.last_page} / ${book.page_count}페이지`}
-        </p>
-        <Button onClick={onOpen}>책 열기</Button>
-        {book.cover_status === 'fallback' && (
-          <>
-            <p>표지를 만들지 못했습니다.</p>
-            <Button disabled={regenerating} onClick={onRegenerate} variant="outline">
-              표지 다시 만들기
-            </Button>
-            {coverError && <p role="alert">{coverError}</p>}
-          </>
-        )}
-      </CardContent>
-    </Card>
   )
 }
