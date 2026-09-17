@@ -286,6 +286,17 @@ workerScope.onmessage = async (event: MessageEvent<unknown>) => {
           { rowMode: 'object', returnValue: 'resultRows' },
         )
         break
+      case 'hasBook': {
+        const id = getPayload(
+          event.data,
+          command,
+          (value): value is string => typeof value === 'string' && value.length > 0,
+        )
+        if (!database.selectValue('SELECT 1 FROM books WHERE id = ?', [id])) {
+          throw new DeletedBookError()
+        }
+        break
+      }
       case 'addBook':
         result = addBook(database, getPayload(event.data, command, isAddBookInput))
         break

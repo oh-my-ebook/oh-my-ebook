@@ -12,7 +12,14 @@ import {
 
 export interface EbookLibraryStore {
   request(
-    command: 'initialize' | 'listBooks' | 'getBook' | 'updateCover' | 'updateTitle' | 'deleteBook',
+    command:
+      | 'initialize'
+      | 'listBooks'
+      | 'hasBook'
+      | 'getBook'
+      | 'updateCover'
+      | 'updateTitle'
+      | 'deleteBook',
     payload?: unknown,
   ): Promise<unknown>
   addBook(input: AddBookInput): Promise<unknown>
@@ -199,7 +206,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
       await store.request('updateTitle', { id: bookId, title })
       await Promise.all([refreshBooks(), refreshCapacity()])
     } catch {
-      setRefreshError('책 제목을 수정하지 못했습니다.')
+      toast.add({ title: '책 제목을 수정하지 못했습니다.', type: 'error' })
     }
   }
 
@@ -208,7 +215,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
       await store.request('deleteBook', bookId)
       await Promise.all([refreshBooks(), refreshCapacity()])
     } catch {
-      setRefreshError('책을 삭제하지 못했습니다.')
+      toast.add({ title: '책을 삭제하지 못했습니다.', type: 'error' })
     }
   }
 

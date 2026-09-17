@@ -10,6 +10,7 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
 export const EBOOK_STORE_COMMANDS = {
   initialize: 'initialize',
   listBooks: 'listBooks',
+  hasBook: 'hasBook',
   getBook: 'getBook',
   addBook: 'addBook',
   deleteBook: 'deleteBook',
