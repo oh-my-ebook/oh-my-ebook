@@ -70,6 +70,24 @@ describe('EbookReaderPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
   })
 
+  it('원본 로드 실패 후 다시 시도하거나 책장으로 이동할 수 있다', async () => {
+    const user = userEvent.setup()
+    let shouldFail = true
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'getBook' && shouldFail) throw new Error('read failed')
+      if (command === 'getBook') return createBook()
+      return null
+    })
+    render(<EbookReaderPage bookId="book-id" store={store} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('저장된 PDF 원본을 읽지 못했습니다.')
+    expect(screen.getByRole('link', { name: '책장으로 이동' })).toHaveAttribute('href', '/')
+    shouldFail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByRole('main', { name: '독서 화면' })).toBeInTheDocument()
+  })
+
   it('빠르게 이동해도 마지막 페이지를 순서대로 저장한다', async () => {
     const user = userEvent.setup()
     const firstWrite = createPromiseController<unknown>()
