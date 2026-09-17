@@ -6,6 +6,7 @@ import {
   DeletedBookError,
   DuplicateBookError,
   getErrorCode,
+  NotFoundBookError,
   UnsupportedCommandError,
   UnsupportedStorageError,
 } from './ebook-db.worker.error'
@@ -157,7 +158,7 @@ function getBook(database: Database, request: WorkerRequest): Record<string, unk
     'SELECT id, file_name, title, page_count, pdf_data, last_page FROM books WHERE id = ?',
     [id],
   )
-  if (!book) throw new DeletedBookError()
+  if (!book) throw new NotFoundBookError()
   return normalizeStoredProgress(database, id, book)
 }
 

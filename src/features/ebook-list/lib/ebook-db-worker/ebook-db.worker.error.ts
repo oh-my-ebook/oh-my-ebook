@@ -1,6 +1,7 @@
 import type { EbookStoreErrorCode } from '../../ebook-types'
 
 export class UnsupportedStorageError extends Error {}
+export class NotFoundBookError extends Error {}
 export class DuplicateBookError extends Error {}
 export class DeletedBookError extends Error {}
 export class InvalidPayloadError extends Error {
@@ -16,6 +17,7 @@ export class UnsupportedCommandError extends Error {
 
 export function getErrorCode(error: unknown): EbookStoreErrorCode {
   if (error instanceof UnsupportedStorageError) return 'unsupported'
+  if (error instanceof NotFoundBookError) return 'notfound'
   if (error instanceof DuplicateBookError) return 'duplicate'
   if (error instanceof DeletedBookError) return 'deleted'
   if (typeof error === 'object' && error !== null && 'resultCode' in error) {
