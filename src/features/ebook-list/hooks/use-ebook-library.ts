@@ -211,12 +211,8 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   }
 
   async function deleteBook(bookId: string) {
-    try {
-      await store.request('deleteBook', bookId)
-      await Promise.all([refreshBooks(), refreshCapacity()])
-    } catch {
-      toast.add({ title: '책을 삭제하지 못했습니다.', type: 'error' })
-    }
+    await store.request('deleteBook', bookId)
+    await Promise.all([refreshBooks(), refreshCapacity()])
   }
 
   async function requestPersistence(): Promise<boolean> {

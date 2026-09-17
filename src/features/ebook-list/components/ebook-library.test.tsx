@@ -211,12 +211,45 @@ describe('EbookLibrary', () => {
     expect(store.request).toHaveBeenCalledWith('deleteBook', '기존 책-id')
   })
 
-  it('책 제목 수정과 삭제 실패는 토스트로 알린다', async () => {
+  it('삭제를 취소하면 책을 유지하고 성공하면 다른 책과 용량을 갱신한다', async () => {
+    const user = userEvent.setup()
+    const firstBook = createStoredBook('첫 번째 책')
+    const secondBook = createStoredBook('두 번째 책')
+    let books = [firstBook, secondBook]
+    const store = createStore()
+    store.request.mockImplementation(async (command: string, payload?: unknown) => {
+      if (command === 'listBooks') return books
+      if (command === 'deleteBook' && payload === firstBook.id) {
+        books = [secondBook]
+      }
+      return null
+    })
+    vi.spyOn(storage, 'getStorageCapacity')
+      .mockResolvedValueOnce({ usage: 10, quota: 100, remaining: 90 })
+      .mockResolvedValueOnce({ usage: 2, quota: 100, remaining: 98 })
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByText('첫 번째 책')
+    await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+    expect(store.request).not.toHaveBeenCalledWith('deleteBook', firstBook.id)
+    expect(screen.getByText('첫 번째 책')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    expect(await screen.findByText('두 번째 책')).toBeInTheDocument()
+    expect(screen.queryByText('첫 번째 책')).not.toBeInTheDocument()
+    expect(screen.getByText('남은 용량 98 B')).toBeInTheDocument()
+  })
+
+  it('책 제목 수정 실패는 토스트로 알린다', async () => {
     const user = userEvent.setup()
     const store = createStore()
     store.request.mockImplementation(async (command: string) => {
       if (command === 'listBooks') return [createStoredBook('기존 책')]
-      if (command === 'updateTitle' || command === 'deleteBook') throw new Error('failed')
+      if (command === 'updateTitle') throw new Error('failed')
       return null
     })
     render(
@@ -230,12 +263,6 @@ describe('EbookLibrary', () => {
     await user.click(await screen.findByRole('menuitem', { name: '책 제목 수정' }))
     await user.click(screen.getByRole('button', { name: '저장' }))
     expect(await screen.findByText('책 제목을 수정하지 못했습니다.')).toBeVisible()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
-    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
-    await user.click(screen.getByRole('button', { name: '삭제' }))
-    expect(await screen.findByText('책을 삭제하지 못했습니다.')).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
