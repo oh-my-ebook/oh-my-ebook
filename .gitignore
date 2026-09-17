@@ -16,6 +16,8 @@ coverage
 /test-results/
 /playwright/.cache/
 .vercel
+/public/kiwi/
+/public/vendor/ocr/
 .env
 .env.*
 !.env.example
