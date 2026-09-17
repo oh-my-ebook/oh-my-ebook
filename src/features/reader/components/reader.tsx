@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
+import type { PdfDocumentSource } from '../lib/pdf-document'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -22,8 +23,11 @@ import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
 interface ReaderProps {
-  url: string
+  url?: string
+  data?: Uint8Array
   title?: string
+  initialPage?: number
+  onPageChange?(pageNumber: number): void
 }
 
 interface ReaderErrorProps {
@@ -51,9 +55,21 @@ function getPdfFilename(url: string) {
   }
 }
 
-function getReaderTitle(url: string, title?: string) {
+function getReaderTitle(source: PdfDocumentSource, title?: string) {
   const specifiedTitle = title?.trim()
-  return specifiedTitle || getPdfFilename(url)
+  return specifiedTitle || (typeof source === 'string' ? getPdfFilename(source) : 'PDF 문서')
+}
+
+function getInitialPage(initialPage: number | undefined, totalPages: number) {
+  if (
+    initialPage === undefined ||
+    !Number.isSafeInteger(initialPage) ||
+    initialPage < 1 ||
+    initialPage > totalPages
+  ) {
+    return 1
+  }
+  return initialPage
 }
 
 function ReaderLoading({ label }: ReaderLoadingProps) {
@@ -78,10 +94,11 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
   )
 }
 
-export function Reader({ url, title }: ReaderProps) {
+export function Reader({ data, initialPage, onPageChange, title, url }: ReaderProps) {
+  const source = data ?? url ?? ''
   const [currentPage, setCurrentPage] = useState(1)
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
-  const documentState = usePdfDocument(url)
+  const documentState = usePdfDocument(source)
   const { availableHeight, availableWidth, containerRef, isWideScreen, isSpreadAvailable } =
     useReaderLayout()
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
@@ -89,10 +106,11 @@ export function Reader({ url, title }: ReaderProps) {
   const panelButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    // URL 변경은 새 독서 세션이므로 첫 페이지부터 시작한다.
+    if (documentState.status !== 'ready') return
+    // 새 문서와 저장된 초기 위치는 페이지 수를 확인한 뒤 적용한다.
     // oxlint-disable-next-line react/set-state-in-effect
-    setCurrentPage(1)
-  }, [url])
+    setCurrentPage(getInitialPage(initialPage, documentState.pages.length))
+  }, [documentState.pages, documentState.status, initialPage, source])
 
   const selectedPage = documentState.pages[currentPage - 1]
   const pageSpread = calculatePageSpread(
@@ -131,6 +149,7 @@ export function Reader({ url, title }: ReaderProps) {
   }
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber)
+    onPageChange?.(pageNumber)
     containerRef.current?.scrollTo({ top: 0 })
   }
 
@@ -143,7 +162,7 @@ export function Reader({ url, title }: ReaderProps) {
         panelButtonRef={panelButtonRef}
         panelOpen={panelOpen}
         preferredView={preferredView}
-        title={getReaderTitle(url, title)}
+        title={getReaderTitle(source, title)}
       >
         <ZoomControls
           isFitHeight={zoom.mode === 'fit-height'}

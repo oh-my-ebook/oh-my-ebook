@@ -5,6 +5,7 @@ import {
   type LoadedPdfDocument,
   type PdfDocumentError,
   type PdfDocumentLoader,
+  type PdfDocumentSource,
   type PdfPageInfo,
 } from '../lib/pdf-document'
 
@@ -47,7 +48,7 @@ function createLoadingState(): LoadingState {
 }
 
 export function usePdfDocument(
-  url: string,
+  source: PdfDocumentSource,
   loadDocument: PdfDocumentLoader = loadPdfDocument,
 ): UsePdfDocumentResult {
   const [state, setState] = useState<PdfDocumentState>(createLoadingState)
@@ -66,7 +67,7 @@ export function usePdfDocument(
 
     const settleLoadingTask = async () => {
       try {
-        const loaded = await loadDocument(url, controller.signal)
+        const loaded = await loadDocument(source, controller.signal)
         // 이전 요청이 뒤늦게 끝나도 현재 상태를 덮어쓰지 않는다.
         if (controller.signal.aborted) {
           return
@@ -95,7 +96,7 @@ export function usePdfDocument(
     return () => {
       controller.abort()
     }
-  }, [attempt, loadDocument, url])
+  }, [attempt, loadDocument, source])
 
   return { ...state, retry }
 }
