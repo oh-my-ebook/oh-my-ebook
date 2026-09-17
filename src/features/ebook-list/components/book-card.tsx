@@ -1,14 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -31,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Ellipsis, Pencil, RefreshCw, Trash2 } from 'lucide-react'
 import type { StoredBook } from '../ebook-types'
+import { DeleteBookDialog } from './delete-book-dialog'
 
 interface BookCardProps {
   book: StoredBook
@@ -39,7 +30,7 @@ interface BookCardProps {
   onOpen(): void
   onRegenerate?(): void
   onRename?(title: string): void
-  onDelete?(): void
+  onDelete?(): Promise<void>
 }
 
 export function BookCard({
@@ -167,28 +158,14 @@ export function BookCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog onOpenChange={setDeleting} open={deleting}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>정말 이 책을 삭제할까요?</AlertDialogTitle>
-            <AlertDialogDescription>
-              삭제한 PDF와 읽기 위치는 복구할 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                onDelete?.()
-                setDeleting(false)
-              }}
-              variant="destructive"
-            >
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {onDelete && (
+        <DeleteBookDialog
+          bookTitle={book.title}
+          onDelete={onDelete}
+          onOpenChange={setDeleting}
+          open={deleting}
+        />
+      )}
     </article>
   )
 }

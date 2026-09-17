@@ -149,7 +149,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               }}
               regeneratingCover={regeneratingCover}
               onDelete={(bookId) => {
-                void deleteBook(bookId)
+                return deleteBook(bookId)
               }}
               onRename={(bookId, title) => {
                 void renameBook(bookId, title)

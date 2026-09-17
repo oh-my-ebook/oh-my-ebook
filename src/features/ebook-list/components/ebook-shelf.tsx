@@ -8,7 +8,7 @@ interface EbookShelfProps {
   onRegenerate(book: StoredBook): void
   regeneratingCover: string | null
   onRename(bookId: string, title: string): void
-  onDelete(bookId: string): void
+  onDelete(bookId: string): Promise<void>
 }
 
 export function EbookShelf({

@@ -65,7 +65,7 @@ describe('BookCard', () => {
   it('메뉴에서 제목을 수정하고 삭제 확인을 요청한다', async () => {
     const user = userEvent.setup()
     const onRename = vi.fn()
-    const onDelete = vi.fn()
+    const onDelete = vi.fn(async () => undefined)
     render(<BookCard book={book} onDelete={onDelete} onOpen={vi.fn()} onRename={onRename} />)
 
     await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
@@ -78,7 +78,7 @@ describe('BookCard', () => {
 
     await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('정말 이 책을 삭제할까요?')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`“${book.title}”을 삭제할까요?`)
     await user.click(screen.getByRole('button', { name: '삭제' }))
     expect(onDelete).toHaveBeenCalledOnce()
   })
