@@ -15,6 +15,22 @@ function createStore() {
   }
 }
 
+function createStoredBook(title: string) {
+  return {
+    id: `${title}-id`,
+    content_hash: `${title}-hash`,
+    file_name: `${title}.pdf`,
+    title,
+    page_count: 1,
+    cover_data: null,
+    cover_mime: null,
+    cover_status: 'fallback' as const,
+    last_page: null,
+    created_at: 0,
+    updated_at: 0,
+  }
+}
+
 describe('EbookLibrary', () => {
   afterEach(() => vi.restoreAllMocks())
   it('초기화 중 책장 조작을 비활성화하고 완료 후 빈 상태를 알린다', async () => {
@@ -58,8 +74,6 @@ describe('EbookLibrary', () => {
       contentHash: 'hash',
       fileName: 'first.pdf',
       title: '첫 번째 책',
-      author: null,
-      publisher: null,
       pageCount: 1,
       coverData: null,
       coverMime: null,
@@ -92,8 +106,6 @@ describe('EbookLibrary', () => {
       contentHash: 'hash',
       fileName: 'a.pdf',
       title: 'A',
-      author: null,
-      publisher: null,
       pageCount: 1,
       coverData: null,
       coverMime: null,
@@ -112,5 +124,55 @@ describe('EbookLibrary', () => {
     expect(await screen.findByText(/저장 공간이 부족/)).toBeVisible()
     expect(store.addBook).toHaveBeenCalledTimes(1)
     expect(capacity).toHaveBeenCalled()
+  })
+
+  it('수동 새로고침이 목록과 용량을 함께 교체한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command !== 'listBooks') return null
+      return store.request.mock.calls.filter(
+        ([requestedCommand]) => requestedCommand === 'listBooks',
+      ).length === 1
+        ? [createStoredBook('기존 책')]
+        : [createStoredBook('새 책')]
+    })
+    const capacity = vi.spyOn(storage, 'getStorageCapacity')
+    capacity
+      .mockResolvedValueOnce({ usage: 1, quota: 10, remaining: 9 })
+      .mockResolvedValueOnce({ usage: 2, quota: 20, remaining: 18 })
+    render(<EbookLibrary store={store} />)
+
+    expect(await screen.findByText('기존 책')).toBeInTheDocument()
+    expect(screen.getByText('읽지 않음 · 전체 1페이지')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '새로고침' }))
+
+    expect(await screen.findByText('새 책')).toBeInTheDocument()
+    expect(screen.queryByText('기존 책')).not.toBeInTheDocument()
+    expect(screen.getByText('예상 잔여량 18 B')).toBeInTheDocument()
+  })
+
+  it('수동 새로고침 실패 시 기존 목록을 유지하고 재시도한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command !== 'listBooks') return null
+      const listRequestCount = store.request.mock.calls.filter(
+        ([requestedCommand]) => requestedCommand === 'listBooks',
+      ).length
+      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      if (listRequestCount === 2) throw new Error('failed')
+      return [createStoredBook('새 책')]
+    })
+    render(<EbookLibrary store={store} />)
+
+    expect(await screen.findByText('기존 책')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '새로고침' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('책장을 새로고침하지 못했습니다.')
+    expect(screen.getByText('기존 책')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    expect(await screen.findByText('새 책')).toBeInTheDocument()
   })
 })
