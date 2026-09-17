@@ -51,8 +51,12 @@ test.describe('보조 패널 채팅', () => {
 
       expect(inputBox.x).toBeGreaterThanOrEqual(0)
       expect(inputBox.x + inputBox.width).toBeLessThanOrEqual(viewportSize.width)
+      expect(inputBox.y).toBeGreaterThanOrEqual(0)
+      expect(inputBox.y + inputBox.height).toBeLessThanOrEqual(viewportSize.height)
       expect(sendButtonBox.x).toBeGreaterThanOrEqual(0)
       expect(sendButtonBox.x + sendButtonBox.width).toBeLessThanOrEqual(viewportSize.width)
+      expect(sendButtonBox.y).toBeGreaterThanOrEqual(0)
+      expect(sendButtonBox.y + sendButtonBox.height).toBeLessThanOrEqual(viewportSize.height)
       expect(await hasHorizontalOverflow(page)).toBe(false)
     })
   })
