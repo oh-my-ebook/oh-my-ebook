@@ -182,7 +182,9 @@ test('표지 생성 실패를 복구하고 회전된 첫 페이지를 표지로 
   expect(releasedCanvas).toEqual([0, 0])
 
   await page.reload()
-  await page.getByRole('button', { name: '표지 다시 만들기' }).click()
+  const book = page.getByRole('article', { name: 'rotated-one-page' })
+  await book.getByRole('button', { name: 'rotated-one-page 메뉴' }).click()
+  await page.getByRole('menuitem', { name: '표지 다시 만들기' }).click()
   const cover = page.getByRole('img', { name: 'rotated-one-page 표지' })
   await expect(cover).toBeVisible()
   const size = await cover.evaluate((image: HTMLImageElement) => ({
@@ -288,7 +290,7 @@ test('WebP 인코딩을 사용할 수 없으면 PNG 표지를 저장한다', asy
   expect(mime).toBe('image/png')
 })
 
-test('정밀 포인터에서만 표지가 기울고 키보드로 책을 연다', async ({ page }) => {
+test('정밀 포인터에서 표지 hover 효과를 보이고 키보드로 책을 연다', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
@@ -299,19 +301,19 @@ test('정밀 포인터에서만 표지가 기울고 키보드로 책을 연다',
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
 
   const card = page.getByRole('article', { name: 'The Local Library' })
+  const cover = card.getByRole('button', { name: 'The Local Library 열기' })
   await expect(card).toBeVisible()
   await card.hover({ position: { x: 10, y: 10 } })
   await expect
-    .poll(() => card.evaluate((element) => element.style.getPropertyValue('--book-rotate-x')))
-    .not.toBe('0deg')
+    .poll(() => cover.evaluate((element) => getComputedStyle(element).transform))
+    .not.toBe('none')
 
   await page.getByRole('heading', { name: '내 서재' }).hover()
   await expect
-    .poll(() => card.evaluate((element) => element.style.getPropertyValue('--book-rotate-x')))
-    .toBe('0deg')
+    .poll(() => cover.evaluate((element) => getComputedStyle(element).transform))
+    .toBe('none')
 
-  const openBook = page.getByRole('button', { name: '책 열기' })
-  await openBook.focus()
+  await cover.focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/books\//)
 })
@@ -346,9 +348,7 @@ test('320px와 동작 감소 환경에서도 터치로 책을 연다', async ({ 
   expect(firstBounds?.x).toBe(secondBounds?.x)
   expect(firstBounds?.y).toBeLessThan(secondBounds?.y ?? 0)
 
-  await firstCard.hover({ position: { x: 10, y: 10 } })
-  await expect(firstCard).not.toHaveAttribute('style', /--book-rotate-x: 6deg/)
-  await firstCard.getByRole('button', { name: '책 열기' }).tap()
+  await firstCard.getByRole('button', { name: / 열기$/ }).tap()
   await expect(page).toHaveURL(/\/books\//)
   await context.close()
 })

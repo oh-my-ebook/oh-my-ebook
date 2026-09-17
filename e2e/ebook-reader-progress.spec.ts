@@ -17,7 +17,7 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
   const pageCount = Number(progress?.match(/(\d+)페이지/)?.[1])
   expect(pageCount).toBeGreaterThan(0)
 
-  await page.getByRole('button', { name: '책 열기' }).click()
+  await page.getByRole('button', { name: 'The Local Library 열기' }).click()
   await expect(page).toHaveURL(/\/books\//)
   await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`1 / ${pageCount}`)
 
@@ -27,7 +27,7 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
     await page.goBack()
     await expect(page).toHaveURL('/')
     await expect(page.getByText(`2 / ${pageCount}페이지`)).toBeVisible()
-    await page.getByRole('button', { name: '책 열기' }).click()
+    await page.getByRole('button', { name: 'The Local Library 열기' }).click()
     await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
   }
 })
