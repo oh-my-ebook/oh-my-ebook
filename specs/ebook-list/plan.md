@@ -143,8 +143,6 @@ CREATE TABLE books (
   content_hash TEXT NOT NULL UNIQUE,
   file_name TEXT NOT NULL,
   title TEXT NOT NULL,
-  author TEXT,
-  publisher TEXT,
   page_count INTEGER NOT NULL CHECK (page_count > 0),
   pdf_data BLOB NOT NULL,
   cover_data BLOB,

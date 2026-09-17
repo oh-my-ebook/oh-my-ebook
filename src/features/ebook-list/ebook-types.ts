@@ -17,8 +17,6 @@ export interface AddBookInput {
   contentHash: string
   fileName: string
   title: string
-  author: string | null
-  publisher: string | null
   pageCount: number
   coverData: ArrayBuffer | null
   coverMime: 'image/webp' | 'image/png' | null
@@ -30,8 +28,6 @@ export interface StoredBook {
   content_hash: string
   file_name: string
   title: string
-  author: string | null
-  publisher: string | null
   page_count: number
   cover_data: Uint8Array | null
   cover_mime: string | null
