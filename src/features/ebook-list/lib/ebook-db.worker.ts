@@ -1,12 +1,141 @@
 /// <reference lib="webworker" />
 
 import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
-import type { EbookStoreErrorCode, EbookStoreResponse } from '../ebook-types'
+import type { AddBookInput, EbookStoreErrorCode, EbookStoreResponse } from '../ebook-types'
 
 const workerScope = self as DedicatedWorkerGlobalScope
 let databasePromise: Promise<Database> | undefined
 
 class UnsupportedStorageError extends Error {}
+class DuplicateBookError extends Error {}
+class DeletedBookError extends Error {}
+class InvalidPayloadError extends Error {
+  constructor(command: string) {
+    super(`Invalid payload for ${command}`)
+  }
+}
+class UnsupportedCommandError extends Error {
+  constructor(command: string) {
+    super(`Unsupported command: ${command}`)
+  }
+}
+
+interface UpdateCoverInput {
+  id: string
+  coverData: ArrayBuffer
+  coverMime: 'image/webp' | 'image/png'
+}
+
+interface WorkerRequest {
+  requestId: number
+  command: string
+  payload?: unknown
+}
+
+function isWorkerRequest(value: unknown): value is WorkerRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'requestId' in value &&
+    typeof value.requestId === 'number' &&
+    Number.isSafeInteger(value.requestId) &&
+    value.requestId > 0 &&
+    'command' in value &&
+    typeof value.command === 'string'
+  )
+}
+
+function isAddBookInput(value: unknown): value is AddBookInput {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'pdfData' in value &&
+    value.pdfData instanceof ArrayBuffer &&
+    'contentHash' in value &&
+    typeof value.contentHash === 'string' &&
+    'fileName' in value &&
+    typeof value.fileName === 'string' &&
+    'title' in value &&
+    typeof value.title === 'string' &&
+    'pageCount' in value &&
+    Number.isSafeInteger(value.pageCount) &&
+    Number(value.pageCount) > 0 &&
+    'coverData' in value &&
+    (value.coverData === null || value.coverData instanceof ArrayBuffer) &&
+    'coverMime' in value &&
+    (value.coverMime === null ||
+      value.coverMime === 'image/webp' ||
+      value.coverMime === 'image/png') &&
+    'coverStatus' in value &&
+    (value.coverStatus === 'ready' || value.coverStatus === 'fallback') &&
+    'author' in value &&
+    (value.author === null || typeof value.author === 'string') &&
+    'publisher' in value &&
+    (value.publisher === null || typeof value.publisher === 'string')
+  )
+}
+
+function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'coverData' in value &&
+    value.coverData instanceof ArrayBuffer &&
+    'coverMime' in value &&
+    (value.coverMime === 'image/webp' || value.coverMime === 'image/png')
+  )
+}
+
+function getPayload<T>(
+  request: WorkerRequest,
+  command: string,
+  isValid: (value: unknown) => value is T,
+): T {
+  if (!isValid(request.payload)) throw new InvalidPayloadError(command)
+  return request.payload
+}
+
+function addBook(database: Database, input: AddBookInput): string {
+  if (database.selectValue('SELECT id FROM books WHERE content_hash = ?', [input.contentHash])) {
+    throw new DuplicateBookError()
+  }
+
+  const id = crypto.randomUUID()
+  const now = Date.now()
+  database.exec('BEGIN IMMEDIATE')
+  try {
+    database.exec(
+      `INSERT INTO books (
+        id, content_hash, file_name, title, author, publisher, page_count,
+        pdf_data, cover_data, cover_mime, cover_status, last_page, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+      {
+        bind: [
+          id,
+          input.contentHash,
+          input.fileName,
+          input.title,
+          input.author,
+          input.publisher,
+          input.pageCount,
+          new Uint8Array(input.pdfData),
+          input.coverData ? new Uint8Array(input.coverData) : null,
+          input.coverMime,
+          input.coverStatus,
+          now,
+          now,
+        ],
+      },
+    )
+    database.exec('COMMIT')
+  } catch (error) {
+    database.exec('ROLLBACK')
+    throw error
+  }
+  return id
+}
 
 async function openDatabase(): Promise<Database> {
   const sqlite3 = await sqlite3InitModule()
@@ -68,48 +197,78 @@ function getDatabase(): Promise<Database> {
 
 function getErrorCode(error: unknown): EbookStoreErrorCode {
   if (error instanceof UnsupportedStorageError) return 'unsupported'
+  if (error instanceof DuplicateBookError) return 'duplicate'
+  if (error instanceof DeletedBookError) return 'deleted'
   if (typeof error === 'object' && error !== null && 'resultCode' in error) {
     if (error.resultCode === 5 || error.resultCode === 6) return 'locked'
     if (error.resultCode === 13) return 'quota'
+  }
+  if (
+    error instanceof Error &&
+    error.message.includes('UNIQUE constraint failed: books.content_hash')
+  ) {
+    return 'duplicate'
   }
   return 'storage-failed'
 }
 
 workerScope.onmessage = async (event: MessageEvent<unknown>) => {
-  const request = event.data
-  if (
-    typeof request !== 'object' ||
-    request === null ||
-    !('requestId' in request) ||
-    typeof request.requestId !== 'number' ||
-    !('command' in request) ||
-    typeof request.command !== 'string'
-  ) {
-    return
-  }
+  if (!isWorkerRequest(event.data)) return
 
-  const { requestId, command } = request
+  const { requestId, command } = event.data
   try {
     const database = await getDatabase()
-    let result: unknown
-    if (command === 'initialize') {
-      result = null
-    } else if (command === 'listBooks') {
-      result = database.exec(
-        `SELECT id, content_hash, file_name, title, author, publisher,
-                page_count, cover_data, cover_mime, cover_status,
-                last_page, created_at, updated_at
-         FROM books ORDER BY created_at DESC, id DESC`,
-        { rowMode: 'object', returnValue: 'resultRows' },
-      )
-    } else {
-      throw new Error('Unsupported command')
+    let result: unknown = null
+    switch (command) {
+      case 'initialize':
+        break
+      case 'listBooks':
+        result = database.exec(
+          `SELECT id, content_hash, file_name, title, author, publisher,
+                  page_count, cover_data, cover_mime, cover_status,
+                  last_page, created_at, updated_at
+           FROM books ORDER BY created_at DESC, id DESC`,
+          { rowMode: 'object', returnValue: 'resultRows' },
+        )
+        break
+      case 'addBook':
+        result = addBook(database, getPayload(event.data, command, isAddBookInput))
+        break
+      case 'getBook': {
+        const id = getPayload(
+          event.data,
+          command,
+          (value): value is string => typeof value === 'string' && value.length > 0,
+        )
+        result = database.selectObject('SELECT id, file_name, pdf_data FROM books WHERE id = ?', [
+          id,
+        ])
+        if (!result) throw new DeletedBookError()
+        break
+      }
+      case 'updateCover': {
+        const input = getPayload(event.data, command, isUpdateCoverInput)
+        database.exec(
+          `UPDATE books SET cover_data = ?, cover_mime = ?, cover_status = 'ready', updated_at = ? WHERE id = ?`,
+          {
+            bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
+          },
+        )
+        if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+        break
+      }
+      default:
+        throw new UnsupportedCommandError(command)
     }
     workerScope.postMessage({ requestId, result } satisfies EbookStoreResponse)
   } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'storage-failed') {
+      console.error('ebook-db.worker command failed', { command, error })
+    }
     workerScope.postMessage({
       requestId,
-      error: { code: getErrorCode(error) },
+      error: { code },
     } satisfies EbookStoreResponse)
   }
 }
