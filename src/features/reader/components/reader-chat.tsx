@@ -13,7 +13,7 @@ interface ReaderChatProps {
 }
 
 interface CurrentPageInstructionsProps {
-  currentPage: number | undefined
+  currentPage?: number
 }
 
 // 전송 시점의 현재 페이지 번호를 모델 컨텍스트(system)에 실어, 어댑터가 매 요청마다 최신 값을 읽게 한다.
