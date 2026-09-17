@@ -16,8 +16,11 @@ KIWI_MODEL_URL="https://github.com/bab2min/Kiwi/releases/download/v0.24.0/kiwi_m
 download() {
   local url="$1"
   local output="$2"
+  local temporary_output="${output}.part"
   if [[ ! -s "$output" ]]; then
-    curl --fail --location --retry 3 "$url" --output "$output"
+    rm -f "$temporary_output"
+    curl --fail --location --retry 3 "$url" --output "$temporary_output"
+    mv "$temporary_output" "$output"
   fi
 }
 
