@@ -5,6 +5,8 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KIWI_DIR="$PROJECT_DIR/public/kiwi"
 OCR_DIR="$PROJECT_DIR/public/vendor/ocr"
+PADDLE_RUNTIME_DIR="$OCR_DIR/runtime"
+DEV_PADDLE_RUNTIME_DIR="$PROJECT_DIR/src/assets/vendor/ocr/runtime"
 TEMP_DIR=""
 
 DETECTION_URL="https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv5_mobile_det_onnx_infer.tar"
@@ -26,7 +28,7 @@ cleanup() {
 }
 
 trap cleanup EXIT
-mkdir -p "$KIWI_DIR/model" "$OCR_DIR/onnxruntime" "$OCR_DIR/paddleocr"
+mkdir -p "$KIWI_DIR/model" "$PADDLE_RUNTIME_DIR" "$OCR_DIR/paddleocr" "$DEV_PADDLE_RUNTIME_DIR"
 
 cp "$PROJECT_DIR/node_modules/kiwi-nlp/dist/kiwi-wasm.wasm" "$KIWI_DIR/kiwi-wasm.wasm"
 ORT_DIR="$(find "$PROJECT_DIR/node_modules/.pnpm" -path '*/onnxruntime-web/dist' -type d -print -quit)"
@@ -34,8 +36,10 @@ if [[ -z "$ORT_DIR" ]]; then
   echo 'ONNX Runtime 자산을 찾지 못했습니다. pnpm install을 먼저 실행해 주세요.' >&2
   exit 1
 fi
-cp "$ORT_DIR/ort-wasm-simd-threaded.jsep.mjs" "$OCR_DIR/onnxruntime/"
-cp "$ORT_DIR/ort-wasm-simd-threaded.jsep.wasm" "$OCR_DIR/onnxruntime/"
+for asset in ort-wasm-simd-threaded.jsep.mjs ort-wasm-simd-threaded.jsep.wasm; do
+  cp "$ORT_DIR/$asset" "$PADDLE_RUNTIME_DIR/"
+  cp "$ORT_DIR/$asset" "$DEV_PADDLE_RUNTIME_DIR/"
+done
 
 download "$DETECTION_URL" "$OCR_DIR/paddleocr/PP-OCRv5_mobile_det_onnx_infer.tar"
 

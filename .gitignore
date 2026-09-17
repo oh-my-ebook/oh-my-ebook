@@ -18,6 +18,7 @@ coverage
 .vercel
 /public/kiwi/
 /public/vendor/ocr/
+/src/assets/vendor/ocr/
 .env
 .env.*
 !.env.example

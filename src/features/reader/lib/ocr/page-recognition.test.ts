@@ -77,7 +77,9 @@ describe('recognizePdfPage', () => {
     )
     expect(createPaddle).toHaveBeenCalledWith(
       expect.objectContaining({
-        ortOptions: expect.objectContaining({ wasmPaths: '/vendor/ocr/onnxruntime/' }),
+        ortOptions: expect.objectContaining({
+          wasmPaths: '/src/assets/vendor/ocr/runtime/',
+        }),
       }),
     )
     expect(postprocessWithKiwi).toHaveBeenCalledWith('OCR 문장', signal)

@@ -4,7 +4,9 @@ import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-la
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 200 DPI 픽셀 좌표로 변환한다.
 const OCR_SCALE = 200 / 72
-const PADDLE_WASM_PATH = '/vendor/ocr/onnxruntime/'
+const PADDLE_WASM_PATH = import.meta.env.DEV
+  ? '/src/assets/vendor/ocr/runtime/'
+  : '/vendor/ocr/runtime/'
 
 interface OcrRenderTask {
   promise: Promise<void>
