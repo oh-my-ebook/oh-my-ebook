@@ -19,14 +19,17 @@ import { StorageSummary } from './storage-summary'
 
 interface EbookLibraryProps {
   store: EbookLibraryStore
+  onOpenBook?(bookId: string): void
 }
 
-export function EbookLibrary({ store }: EbookLibraryProps) {
+export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   const {
     state,
     retry,
+    refreshLibrary,
+    refreshError,
+    refreshing,
     capacity,
-    refreshCapacity,
     items,
     busy,
     persistentStorage,
@@ -42,7 +45,13 @@ export function EbookLibrary({ store }: EbookLibraryProps) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-3xl font-bold">내 책장</h1>
         <div className="flex gap-2">
-          <Button disabled={state.status !== 'ready'} onClick={retry} variant="outline">
+          <Button
+            disabled={state.status !== 'ready' || refreshing}
+            onClick={() => {
+              void refreshLibrary()
+            }}
+            variant="outline"
+          >
             새로고침
           </Button>
           <PdfUpload
@@ -101,11 +110,28 @@ export function EbookLibrary({ store }: EbookLibraryProps) {
                   onRegenerate={() => {
                     void regenerateCover(book)
                   }}
+                  onOpen={() => onOpenBook?.(book.id)}
                 />
               </li>
             ))}
           </ul>
         </section>
+      )}
+      {refreshError && (
+        <Alert variant="destructive">
+          <AlertTitle>{refreshError}</AlertTitle>
+          <AlertDescription>
+            <Button
+              className="mt-3"
+              onClick={() => {
+                void refreshLibrary()
+              }}
+              variant="outline"
+            >
+              다시 시도
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
       {state.status === 'ready' && (
         <>
@@ -114,7 +140,7 @@ export function EbookLibrary({ store }: EbookLibraryProps) {
             persistentStorage={persistentStorage}
             onRequestPersistence={requestPersistence}
             onRetry={() => {
-              void refreshCapacity()
+              void refreshLibrary()
             }}
           />
           <p>PDF는 서버나 다른 기기에 동기화되지 않습니다.</p>
@@ -129,11 +155,13 @@ function BookPreview({
   coverError,
   regenerating,
   onRegenerate,
+  onOpen,
 }: {
   book: StoredBook
   coverError?: string
   regenerating: boolean
   onRegenerate(): void
+  onOpen(): void
 }) {
   const imageRef = useRef<HTMLImageElement>(null)
 
@@ -157,9 +185,12 @@ function BookPreview({
         ) : (
           <p>기본 표지</p>
         )}
-        <p>지은이: {book.author ?? '정보 없음'}</p>
-        <p>출판사: {book.publisher ?? '정보 없음'}</p>
-        <p>전체 {book.page_count}페이지</p>
+        <p>
+          {book.last_page === null
+            ? `읽지 않음 · 전체 ${book.page_count}페이지`
+            : `${book.last_page} / ${book.page_count}페이지`}
+        </p>
+        <Button onClick={onOpen}>책 열기</Button>
         {book.cover_status === 'fallback' && (
           <>
             <p>표지를 만들지 못했습니다.</p>

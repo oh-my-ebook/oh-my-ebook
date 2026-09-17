@@ -49,6 +49,8 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [items, setItems] = useState<UploadItem[]>([])
   const [busy, setBusy] = useState(false)
   const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const [coverErrors, setCoverErrors] = useState<Record<string, string>>({})
   const [regeneratingCover, setRegeneratingCover] = useState<string | null>(null)
   const busyRef = useRef(false)
@@ -61,6 +63,26 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     const result = await store.request('listBooks')
     if (!Array.isArray(result) || !result.every(isStoredBook)) throw new Error('Invalid book list')
     setState({ status: 'ready', books: result })
+  }
+
+  async function refreshLibrary() {
+    if (refreshing || state.status !== 'ready') return
+    setRefreshing(true)
+    setRefreshError(null)
+    try {
+      const [result, nextCapacity] = await Promise.all([
+        store.request('listBooks'),
+        getStorageCapacity(),
+      ])
+      if (!Array.isArray(result) || !result.every(isStoredBook))
+        throw new Error('Invalid book list')
+      setState({ status: 'ready', books: result })
+      setCapacity(nextCapacity)
+    } catch {
+      setRefreshError('책장을 새로고침하지 못했습니다.')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   useEffect(() => {
@@ -200,6 +222,9 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   return {
     state,
     retry,
+    refreshLibrary,
+    refreshError,
+    refreshing,
     capacity,
     refreshCapacity,
     items,
