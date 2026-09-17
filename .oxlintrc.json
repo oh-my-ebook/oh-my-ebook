@@ -24,8 +24,7 @@
     {
       "files": ["src/components/assistant-ui/**/*.tsx"],
       "rules": {
-        "react/only-export-components": "off",
-        "react/refs": "off"
+        "react/only-export-components": "off"
       }
     }
   ]
