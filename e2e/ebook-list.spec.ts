@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장을 표시한다', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: '내 책장' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '내 서재' })).toBeVisible()
   await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
   await expect
     .poll(async () => {
@@ -127,7 +127,7 @@ test('저장 공간이 1GB 이하이면 영구 저장을 요청하고 거부를 
     .getByLabel('PDF 파일 선택')
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
 
-  await expect(page.getByRole('button', { name: 'PDF 추가' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
   await expect(page.getByText('The Local Library')).toBeVisible()
   await page.getByRole('button', { name: '영구 저장 요청' }).click()
   await expect(page.getByText('영구 저장 전환에 실패했습니다.')).toBeVisible()
@@ -194,4 +194,69 @@ test('WebP 인코딩을 사용할 수 없으면 PNG 표지를 저장한다', asy
     (await fetch(image.src)).blob().then((blob) => blob.type),
   )
   expect(mime).toBe('image/png')
+})
+
+test('정밀 포인터에서만 표지가 기울고 키보드로 책을 연다', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => true
+  })
+  await page.goto('/')
+  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await page
+    .getByLabel('PDF 파일 선택')
+    .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
+
+  const card = page.getByRole('article', { name: 'The Local Library' })
+  await expect(card).toBeVisible()
+  await card.hover({ position: { x: 10, y: 10 } })
+  await expect
+    .poll(() => card.evaluate((element) => element.style.getPropertyValue('--book-rotate-x')))
+    .not.toBe('0deg')
+
+  await page.getByRole('heading', { name: '내 서재' }).hover()
+  await expect
+    .poll(() => card.evaluate((element) => element.style.getPropertyValue('--book-rotate-x')))
+    .toBe('0deg')
+
+  const openBook = page.getByRole('button', { name: '책 열기' })
+  await openBook.focus()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/books\//)
+})
+
+test('320px와 동작 감소 환경에서도 터치로 책을 연다', async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 320, height: 720 },
+  })
+  const page = await context.newPage()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => true
+  })
+  await page.goto('/')
+  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await page
+    .getByLabel('PDF 파일 선택')
+    .setInputFiles([
+      resolve('e2e/fixtures/ebook/with-metadata.pdf'),
+      resolve('e2e/fixtures/ebook/without-metadata.pdf'),
+    ])
+
+  const shelf = page.locator('.ebook-shelf')
+  const cards = page.getByRole('article')
+  await expect(shelf).toBeVisible()
+  await expect(cards).toHaveCount(2)
+  const firstCard = cards.nth(0)
+  const secondCard = cards.nth(1)
+  const firstBounds = await firstCard.boundingBox()
+  const secondBounds = await secondCard.boundingBox()
+  expect(firstBounds?.x).toBe(secondBounds?.x)
+  expect(firstBounds?.y).toBeLessThan(secondBounds?.y ?? 0)
+
+  await firstCard.hover({ position: { x: 10, y: 10 } })
+  await expect(firstCard).not.toHaveAttribute('style', /--book-rotate-x: 6deg/)
+  await firstCard.getByRole('button', { name: '책 열기' }).tap()
+  await expect(page).toHaveURL(/\/books\//)
+  await context.close()
 })

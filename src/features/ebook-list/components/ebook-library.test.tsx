@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
 import { createPromiseController } from '@/test/promise-controller'
+import { Toaster } from '@/components/ui/toast'
 import { EbookLibrary } from './ebook-library'
 
 function createStore() {
@@ -40,7 +41,9 @@ describe('EbookLibrary', () => {
     render(<EbookLibrary store={store} />)
 
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'PDF 추가' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('서재를 불러오고 있습니다.')
+    expect(screen.getByText('책 표지를 준비하고 있어요.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
     initialization.resolve(null)
@@ -79,7 +82,11 @@ describe('EbookLibrary', () => {
       coverMime: null,
       coverStatus: 'fallback',
     })
-    render(<EbookLibrary store={store} />)
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
 
     await screen.findByText('아직 저장한 책이 없습니다.')
     await user.upload(
@@ -88,7 +95,8 @@ describe('EbookLibrary', () => {
     )
 
     expect(store.addBook).toHaveBeenCalledOnce()
-    expect(screen.getByRole('button', { name: 'PDF 추가' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
+    expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
     expect(storage.requestPersistentStorage).not.toHaveBeenCalled()
   })
 
@@ -120,8 +128,8 @@ describe('EbookLibrary', () => {
       new File(['two'.repeat(10)], 'two.pdf', { type: 'application/pdf' }),
     ])
 
-    expect(await screen.findByText(/저장에 실패/)).toBeVisible()
-    expect(await screen.findByText(/저장 공간이 부족/)).toBeVisible()
+    expect(screen.queryByText(/저장에 실패/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/저장 공간이 부족/)).not.toBeInTheDocument()
     expect(store.addBook).toHaveBeenCalledTimes(1)
     expect(capacity).toHaveBeenCalled()
   })
@@ -149,7 +157,7 @@ describe('EbookLibrary', () => {
 
     expect(await screen.findByText('새 책')).toBeInTheDocument()
     expect(screen.queryByText('기존 책')).not.toBeInTheDocument()
-    expect(screen.getByText('예상 잔여량 18 B')).toBeInTheDocument()
+    expect(screen.getByText('남은 용량 18 B')).toBeInTheDocument()
   })
 
   it('수동 새로고침 실패 시 기존 목록을 유지하고 재시도한다', async () => {
@@ -174,5 +182,31 @@ describe('EbookLibrary', () => {
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
     expect(await screen.findByText('새 책')).toBeInTheDocument()
+  })
+
+  it('책 제목 수정과 삭제 후 목록과 용량을 새로고침한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [createStoredBook('기존 책')]
+      return null
+    })
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByText('기존 책')
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 제목 수정' }))
+    await user.clear(screen.getByLabelText('책 제목'))
+    await user.type(screen.getByLabelText('책 제목'), '새 제목')
+    await user.click(screen.getByRole('button', { name: '저장' }))
+    expect(store.request).toHaveBeenCalledWith('updateTitle', {
+      id: '기존 책-id',
+      title: '새 제목',
+    })
+
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    expect(store.request).toHaveBeenCalledWith('deleteBook', '기존 책-id')
   })
 })
