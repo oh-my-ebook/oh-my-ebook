@@ -18,6 +18,12 @@ beforeEach(() => {
         dispatchEvent: () => false,
       }) as MediaQueryList
   }
+
+  // jsdom은 Element.scrollTo도 구현하지 않는다. 자동 스크롤처럼 테스트 종료 후
+  // requestAnimationFrame으로 늦게 실행되는 효과가 호출해도 예외가 나지 않게 no-op을 채운다.
+  if (typeof Element.prototype.scrollTo !== 'function') {
+    Element.prototype.scrollTo = () => {}
+  }
 })
 
 afterEach(cleanup)
