@@ -21,6 +21,14 @@ const book: StoredBook = {
 afterEach(() => vi.unstubAllGlobals())
 beforeEach(() => {
   vi.stubGlobal('URL', { createObjectURL: () => 'blob:cover', revokeObjectURL: vi.fn() })
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: query === '(pointer: fine)',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  )
 })
 
 describe('BookCard', () => {
@@ -31,7 +39,7 @@ describe('BookCard', () => {
       'src',
       'blob:cover',
     )
-    expect(screen.getByText(book.title)).toBeVisible()
+    expect(screen.getByText(book.title)).toHaveClass('book-title-button')
     expect(screen.getByText('읽지 않음 · 전체 100페이지')).toBeVisible()
   })
 
@@ -52,5 +60,26 @@ describe('BookCard', () => {
     await user.keyboard('{Enter}')
 
     expect(onOpen).toHaveBeenCalledOnce()
+  })
+
+  it('메뉴에서 제목을 수정하고 삭제 확인을 요청한다', async () => {
+    const user = userEvent.setup()
+    const onRename = vi.fn()
+    const onDelete = vi.fn()
+    render(<BookCard book={book} onDelete={onDelete} onOpen={vi.fn()} onRename={onRename} />)
+
+    await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 제목 수정' }))
+    const input = screen.getByLabelText('책 제목')
+    await user.clear(input)
+    await user.type(input, '바꾼 제목')
+    await user.click(screen.getByRole('button', { name: '저장' }))
+    expect(onRename).toHaveBeenCalledWith('바꾼 제목')
+
+    await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('정말 이 책을 삭제할까요?')
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    expect(onDelete).toHaveBeenCalledOnce()
   })
 })

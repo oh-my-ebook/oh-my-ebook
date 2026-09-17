@@ -181,6 +181,52 @@ describe('ebook-db.worker', () => {
     expect(statements.some((statement) => statement.includes('? <= page_count'))).toBe(true)
   })
 
+  it('책 제목을 수정하고 삭제한다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectValue() {
+        return 1
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: {
+          requestId: 13,
+          command: 'updateTitle',
+          payload: { id: 'book-1', title: ' 새 제목 ' },
+        },
+      }),
+    )
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 14, command: 'deleteBook', payload: 'book-1' },
+      }),
+    )
+
+    expect(statements).toContain('UPDATE books SET title = ?, updated_at = ? WHERE id = ?')
+    expect(statements).toContain('DELETE FROM books WHERE id = ?')
+    expect(responses).toHaveBeenNthCalledWith(1, { requestId: 13, result: null })
+    expect(responses).toHaveBeenNthCalledWith(2, { requestId: 14, result: null })
+  })
+
   it('안전한 양의 정수가 아닌 requestId 메시지는 무시한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
