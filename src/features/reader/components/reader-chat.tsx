@@ -12,17 +12,20 @@ interface ReaderChatProps {
   currentPage?: number
 }
 
-interface CurrentPageInstructionsProps {
+interface ReaderChatContentProps {
   currentPage?: number
 }
 
-// 전송 시점의 현재 페이지 번호를 모델 컨텍스트(system)에 실어, 어댑터가 매 요청마다 최신 값을 읽게 한다.
-function CurrentPageInstructions({ currentPage }: CurrentPageInstructionsProps) {
+// AssistantRuntimeProvider의 자식이어야 useAssistantInstructions가 런타임 컨텍스트를 읽을 수 있어
+// Thread 렌더링과 함께 이 컴포넌트에 둔다. 전송 시점의 현재 페이지 번호를 모델 컨텍스트(system)에
+// 실어, 어댑터가 매 요청마다 최신 값을 읽게 한다.
+function ReaderChatContent({ currentPage }: ReaderChatContentProps) {
   useAssistantInstructions({
     instruction: `사용자가 현재 PDF ${currentPage}페이지를 읽고 있습니다.`,
     disabled: currentPage === undefined,
   })
-  return null
+
+  return <Thread />
 }
 
 export function ReaderChat({ chatModel = mockChatModelAdapter, currentPage }: ReaderChatProps) {
@@ -30,8 +33,7 @@ export function ReaderChat({ chatModel = mockChatModelAdapter, currentPage }: Re
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <CurrentPageInstructions currentPage={currentPage} />
-      <Thread />
+      <ReaderChatContent currentPage={currentPage} />
     </AssistantRuntimeProvider>
   )
 }
