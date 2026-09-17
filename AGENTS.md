@@ -92,7 +92,7 @@ E2E는 Playwright Test를 사용하고 `e2e/*.spec.ts`에 둔다. 최초 실행 
 
 ## Git 작업
 
-- 에이전트는 Git index나 `.git` 내부 상태를 변경하지 않는다. `git add`, `git commit`, `git push`뿐 아니라 `git restore --staged`, `git reset`, `git apply --cached`, `git update-index`도 실행하지 않는다. staged·unstaged 조정은 명령만 안내하고 사용자가 직접 실행한다.
+- 에이전트는 Git index를 변경할 때는 사용자의 허락을 반드시 구하고 진행한다. `.git` 내부 상태를 변경하지 않는다. `git commit`, `git push`는 절대 실행하지 않는다. 허락을 받지 않고는 `git add`, `git restore --staged`, `git reset`, `git apply --cached`, `git update-index`도 실행하지 않는다. staged·unstaged 조정은 명령만 안내하고 사용자가 직접 실행한다.
 
 ### 브랜치 전략
 
