@@ -31,7 +31,6 @@ test('브라우저 프로필을 닫고 같은 프로필로 다시 열어 책과 
     page = context.pages()[0] ?? (await context.newPage())
     await page.goto('/')
     await expect(page.getByText('The Local Library')).toBeVisible()
-    await expect(page.getByText('Sample Press')).toBeVisible()
     await expect(page.getByRole('img', { name: 'The Local Library 표지' })).toBeVisible()
   } finally {
     await context.close()

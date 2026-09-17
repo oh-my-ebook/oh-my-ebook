@@ -45,8 +45,6 @@ describe('ebook-db.worker', () => {
             contentHash: 'hash',
             fileName: 'a.pdf',
             title: 'A',
-            author: null,
-            publisher: null,
             pageCount: 1,
             coverData: null,
             coverMime: null,

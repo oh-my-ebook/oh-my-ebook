@@ -34,8 +34,6 @@ test('PDF를 추가하고 내용 중복을 막으며 새로고침 후 표지와 
   await input.setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
 
   await expect(page.getByText('The Local Library')).toBeVisible()
-  await expect(page.getByText('Sample Author')).toBeVisible()
-  await expect(page.getByText('Sample Press')).toBeVisible()
   await expect(page.getByRole('img', { name: 'The Local Library 표지' })).toBeVisible()
   await expect(page.getByText('저장된 책 1권')).toBeVisible()
 
@@ -64,8 +62,6 @@ test('메타데이터가 없는 책과 손상·암호 PDF를 파일별로 처리
 
   await expect(page.getByText('저장된 책 1권')).toBeVisible()
   await expect(page.getByText('without-metadata', { exact: true })).toBeVisible()
-  await expect(page.getByText('지은이: 정보 없음')).toBeVisible()
-  await expect(page.getByText('출판사: 정보 없음')).toBeVisible()
   await expect(page.getByText(/손상되었거나 페이지가 없는 PDF/)).toBeVisible()
   await expect(page.getByText(/암호가 필요한 PDF/)).toBeVisible()
 })

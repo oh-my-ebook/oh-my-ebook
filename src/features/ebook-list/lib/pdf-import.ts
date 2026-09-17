@@ -26,8 +26,6 @@ export interface AnalyzedPdf {
   contentHash: string
   fileName: string
   title: string
-  author: string | null
-  publisher: string | null
   pageCount: number
   coverData: ArrayBuffer | null
   coverMime: 'image/webp' | 'image/png' | null
@@ -93,7 +91,6 @@ export async function analyzePdf(file: File): Promise<AnalyzedPdf> {
     if (document.numPages < 1) throw new PdfImportError('invalid-document')
     const firstPage = await document.getPage(1)
     const { info, metadata } = await document.getMetadata()
-    const custom = property(info, 'Custom')
     const fileName = file.name.trim()
     const title =
       clean(property(info, 'Title')) ||
@@ -111,11 +108,6 @@ export async function analyzePdf(file: File): Promise<AnalyzedPdf> {
       contentHash,
       fileName,
       title,
-      author: clean(property(info, 'Author')) || clean(metadata?.get('dc:creator')),
-      publisher:
-        clean(property(info, 'Publisher')) ||
-        clean(custom instanceof Map ? custom.get('Publisher') : null) ||
-        clean(metadata?.get('dc:publisher')),
       pageCount: document.numPages,
       ...cover,
     }

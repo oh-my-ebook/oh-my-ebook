@@ -66,11 +66,7 @@ function isAddBookInput(value: unknown): value is AddBookInput {
       value.coverMime === 'image/webp' ||
       value.coverMime === 'image/png') &&
     'coverStatus' in value &&
-    (value.coverStatus === 'ready' || value.coverStatus === 'fallback') &&
-    'author' in value &&
-    (value.author === null || typeof value.author === 'string') &&
-    'publisher' in value &&
-    (value.publisher === null || typeof value.publisher === 'string')
+    (value.coverStatus === 'ready' || value.coverStatus === 'fallback')
   )
 }
 
@@ -108,17 +104,15 @@ function addBook(database: Database, input: AddBookInput): string {
   try {
     database.exec(
       `INSERT INTO books (
-        id, content_hash, file_name, title, author, publisher, page_count,
+        id, content_hash, file_name, title, page_count,
         pdf_data, cover_data, cover_mime, cover_status, last_page, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
       {
         bind: [
           id,
           input.contentHash,
           input.fileName,
           input.title,
-          input.author,
-          input.publisher,
           input.pageCount,
           new Uint8Array(input.pdfData),
           input.coverData ? new Uint8Array(input.coverData) : null,
@@ -156,8 +150,6 @@ async function openDatabase(): Promise<Database> {
             content_hash TEXT NOT NULL UNIQUE,
             file_name TEXT NOT NULL,
             title TEXT NOT NULL,
-            author TEXT,
-            publisher TEXT,
             page_count INTEGER NOT NULL CHECK (page_count > 0),
             pdf_data BLOB NOT NULL,
             cover_data BLOB,
@@ -224,7 +216,7 @@ workerScope.onmessage = async (event: MessageEvent<unknown>) => {
         break
       case 'listBooks':
         result = database.exec(
-          `SELECT id, content_hash, file_name, title, author, publisher,
+          `SELECT id, content_hash, file_name, title,
                   page_count, cover_data, cover_mime, cover_status,
                   last_page, created_at, updated_at
            FROM books ORDER BY created_at DESC, id DESC`,

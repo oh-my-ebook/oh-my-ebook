@@ -31,7 +31,7 @@ if (!('getOrInsertComputed' in Map.prototype)) {
 }
 
 describe('analyzePdf', () => {
-  it('원본 내용의 SHA-256으로 식별하고 PDF 메타데이터를 정리한다', async () => {
+  it('원본 내용의 SHA-256으로 식별하고 제목을 읽는다', async () => {
     const bytes = await fixture('with-metadata.pdf')
     const analyzed = await analyzePdf(new File([bytes], 'different-name.pdf'))
     const same = await analyzePdf(new File([bytes], 'same-content-different-name.pdf'))
@@ -39,20 +39,16 @@ describe('analyzePdf', () => {
     expect(analyzed.contentHash).toMatch(/^[a-f0-9]{64}$/)
     expect(same.contentHash).toBe(analyzed.contentHash)
     expect(analyzed.title).toBe('The Local Library')
-    expect(analyzed.author).toBe('Sample Author')
-    expect(analyzed.publisher).toBe('Sample Press')
     expect(analyzed.pageCount).toBeGreaterThan(0)
     expect(analyzed.pdfData.byteLength).toBe(bytes.byteLength)
   })
 
-  it('메타데이터가 없으면 파일명을 제목으로 사용하고 Producer는 출판사로 쓰지 않는다', async () => {
+  it('메타데이터가 없으면 파일명을 제목으로 사용한다', async () => {
     const analyzed = await analyzePdf(
       new File([await fixture('without-metadata.pdf')], '  내 책.pdf  '),
     )
 
     expect(analyzed.title).toBe('내 책')
-    expect(analyzed.author).toBeNull()
-    expect(analyzed.publisher).toBeNull()
   })
 
   it('손상되거나 암호가 필요한 PDF를 구분한다', async () => {
