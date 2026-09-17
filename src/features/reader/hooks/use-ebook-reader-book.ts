@@ -36,22 +36,25 @@ function isReaderBook(value: unknown): value is {
 
 export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
   const [state, setState] = useState<EbookReaderBookState>({ status: 'loading' })
+  const [attempt, setAttempt] = useState(0)
   const pendingPageRef = useRef<number | null>(null)
-  const savingRef = useRef(false)
+  const dbSavingRef = useRef(false)
 
   async function flushProgress() {
-    if (savingRef.current || pendingPageRef.current === null) return
+    if (dbSavingRef.current || pendingPageRef.current === null) return
     const page = pendingPageRef.current
     pendingPageRef.current = null
-    savingRef.current = true
+    dbSavingRef.current = true
+    let saved = false
 
     try {
       await store.request('updateProgress', { id: bookId, page })
+      saved = true
     } catch {
-      // 저장 실패는 현재 Reader를 닫거나 페이지 이동을 되돌리지 않는다.
+      pendingPageRef.current ??= page
     } finally {
-      savingRef.current = false
-      if (pendingPageRef.current !== null) void flushProgress()
+      dbSavingRef.current = false
+      if (saved && pendingPageRef.current !== null) void flushProgress()
     }
   }
 
@@ -92,7 +95,7 @@ export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
     return () => {
       active = false
     }
-  }, [bookId, store])
+  }, [attempt, bookId, store])
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -103,5 +106,10 @@ export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 
-  return { saveProgress, state }
+  function retry() {
+    setState({ status: 'loading' })
+    setAttempt((current) => current + 1)
+  }
+
+  return { retry, saveProgress, state }
 }
