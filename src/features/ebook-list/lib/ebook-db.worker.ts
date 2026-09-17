@@ -26,6 +26,11 @@ interface UpdateCoverInput {
   coverMime: 'image/webp' | 'image/png'
 }
 
+interface UpdateProgressInput {
+  id: string
+  page: number
+}
+
 interface WorkerRequest {
   requestId: number
   command: string
@@ -84,6 +89,20 @@ function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
   )
 }
 
+function isUpdateProgressInput(value: unknown): value is UpdateProgressInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'page' in value &&
+    typeof value.page === 'number' &&
+    Number.isSafeInteger(value.page) &&
+    value.page > 0
+  )
+}
+
 function getPayload<T>(
   request: WorkerRequest,
   command: string,
@@ -91,6 +110,32 @@ function getPayload<T>(
 ): T {
   if (!isValid(request.payload)) throw new InvalidPayloadError(command)
   return request.payload
+}
+
+function normalizeStoredProgress(
+  database: Database,
+  id: string,
+  book: Record<string, unknown>,
+): Record<string, unknown> {
+  const pageCount = book.page_count
+  const lastPage = book.last_page
+  if (
+    lastPage === null ||
+    (typeof pageCount === 'number' &&
+      Number.isSafeInteger(pageCount) &&
+      pageCount > 0 &&
+      typeof lastPage === 'number' &&
+      Number.isSafeInteger(lastPage) &&
+      lastPage >= 1 &&
+      lastPage <= pageCount)
+  ) {
+    return book
+  }
+
+  database.exec('UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?', {
+    bind: [Date.now(), id],
+  })
+  return { ...book, last_page: 1 }
 }
 
 function addBook(database: Database, input: AddBookInput): string {
@@ -232,10 +277,22 @@ workerScope.onmessage = async (event: MessageEvent<unknown>) => {
           command,
           (value): value is string => typeof value === 'string' && value.length > 0,
         )
-        result = database.selectObject('SELECT id, file_name, pdf_data FROM books WHERE id = ?', [
-          id,
-        ])
-        if (!result) throw new DeletedBookError()
+        const book = database.selectObject(
+          'SELECT id, file_name, title, page_count, pdf_data, last_page FROM books WHERE id = ?',
+          [id],
+        )
+        if (!book) throw new DeletedBookError()
+        result = normalizeStoredProgress(database, id, book)
+        break
+      }
+      case 'updateProgress': {
+        const input = getPayload(event.data, command, isUpdateProgressInput)
+        database.exec(
+          `UPDATE books SET last_page = ?, updated_at = ?
+           WHERE id = ? AND ? <= page_count`,
+          { bind: [input.page, Date.now(), input.id, input.page] },
+        )
+        if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
         break
       }
       case 'updateCover': {

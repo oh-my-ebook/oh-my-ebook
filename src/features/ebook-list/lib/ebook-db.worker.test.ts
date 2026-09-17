@@ -127,6 +127,60 @@ describe('ebook-db.worker', () => {
     ])
   })
 
+  it('범위 밖 읽기 위치를 1페이지로 정정하고 진행률 갱신을 페이지 수로 제한한다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectObject() {
+        return {
+          id: 'book-1',
+          file_name: 'book.pdf',
+          title: '책',
+          page_count: 3,
+          pdf_data: new Uint8Array([1]),
+          last_page: 10,
+        }
+      }
+      selectValue() {
+        return 1
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 11, command: 'getBook', payload: 'book-1' },
+      }),
+    )
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 12, command: 'updateProgress', payload: { id: 'book-1', page: 3 } },
+      }),
+    )
+
+    expect(responses).toHaveBeenNthCalledWith(1, {
+      requestId: 11,
+      result: expect.objectContaining({ last_page: 1 }),
+    })
+    expect(statements).toContain('UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?')
+    expect(statements.some((statement) => statement.includes('? <= page_count'))).toBe(true)
+  })
+
   it('안전한 양의 정수가 아닌 requestId 메시지는 무시한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
