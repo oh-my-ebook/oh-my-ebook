@@ -13,6 +13,7 @@ export const EBOOK_STORE_COMMANDS = {
   getBook: 'getBook',
   addBook: 'addBook',
   deleteBook: 'deleteBook',
+  updateTitle: 'updateTitle',
   updateProgress: 'updateProgress',
   updateCover: 'updateCover',
 } as const

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { UploadItem } from '../components/pdf-upload'
 import type { AddBookInput, StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
+import { toast } from '@/components/ui/toast'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
 import {
   getStorageCapacity,
@@ -12,7 +12,7 @@ import {
 
 export interface EbookLibraryStore {
   request(
-    command: 'initialize' | 'listBooks' | 'getBook' | 'updateCover',
+    command: 'initialize' | 'listBooks' | 'getBook' | 'updateCover' | 'updateTitle' | 'deleteBook',
     payload?: unknown,
   ): Promise<unknown>
   addBook(input: AddBookInput): Promise<unknown>
@@ -46,7 +46,6 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [state, setState] = useState<LibraryState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [capacity, setCapacity] = useState<StorageCapacity | null>(null)
-  const [items, setItems] = useState<UploadItem[]>([])
   const [busy, setBusy] = useState(false)
   const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null)
   const [refreshError, setRefreshError] = useState<string | null>(null)
@@ -127,27 +126,12 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     setAttempt((current) => current + 1)
   }
 
-  function updateItem(id: string, status: UploadItem['status'], message?: string) {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, status, message } : item)),
-    )
-  }
-
   async function addFiles(files: File[]) {
     if (busyRef.current || state.status !== 'ready') return
     busyRef.current = true
     setBusy(true)
-    const queued = files.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      status: 'pending' as const,
-    }))
-    setItems(queued)
-
     try {
-      for (const [index, file] of files.entries()) {
-        const id = queued[index].id
-        updateItem(id, 'processing')
+      for (const file of files) {
         try {
           const currentCapacity = await getStorageCapacity()
           if (currentCapacity && file.size > currentCapacity.remaining) {
@@ -155,9 +139,14 @@ export function useEbookLibrary(store: EbookLibraryStore) {
           }
           const analyzed = await analyzePdf(file)
           await store.addBook(analyzed)
-          updateItem(id, 'success')
+          toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
         } catch (error) {
-          updateItem(id, 'error', failureMessage(error))
+          const message = failureMessage(error)
+          toast.add({
+            title: `${file.name}을 추가하지 못했습니다.`,
+            description: message,
+            type: 'error',
+          })
         } finally {
           await refreshCapacity()
           try {
@@ -167,14 +156,6 @@ export function useEbookLibrary(store: EbookLibraryStore) {
           }
         }
       }
-    } catch (error) {
-      setItems((current) =>
-        current.map((item) =>
-          item.status === 'pending' || item.status === 'processing'
-            ? { ...item, status: 'error', message: failureMessage(error) }
-            : item,
-        ),
-      )
     } finally {
       busyRef.current = false
       setBusy(false)
@@ -213,6 +194,24 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     }
   }
 
+  async function renameBook(bookId: string, title: string) {
+    try {
+      await store.request('updateTitle', { id: bookId, title })
+      await Promise.all([refreshBooks(), refreshCapacity()])
+    } catch {
+      setRefreshError('책 제목을 수정하지 못했습니다.')
+    }
+  }
+
+  async function deleteBook(bookId: string) {
+    try {
+      await store.request('deleteBook', bookId)
+      await Promise.all([refreshBooks(), refreshCapacity()])
+    } catch {
+      setRefreshError('책을 삭제하지 못했습니다.')
+    }
+  }
+
   async function requestPersistence(): Promise<boolean> {
     const isPersistent = await requestPersistentStorage()
     setPersistentStorage(isPersistent)
@@ -227,7 +226,6 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     refreshing,
     capacity,
     refreshCapacity,
-    items,
     busy,
     persistentStorage,
     requestPersistence,
@@ -235,5 +233,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     regenerateCover,
     coverErrors,
     regeneratingCover,
+    renameBook,
+    deleteBook,
   }
 }

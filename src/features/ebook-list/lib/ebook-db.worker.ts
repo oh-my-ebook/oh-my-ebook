@@ -31,6 +31,11 @@ interface UpdateProgressInput {
   page: number
 }
 
+interface UpdateTitleInput {
+  id: string
+  title: string
+}
+
 interface WorkerRequest {
   requestId: number
   command: string
@@ -100,6 +105,19 @@ function isUpdateProgressInput(value: unknown): value is UpdateProgressInput {
     typeof value.page === 'number' &&
     Number.isSafeInteger(value.page) &&
     value.page > 0
+  )
+}
+
+function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'title' in value &&
+    typeof value.title === 'string' &&
+    value.title.trim().length > 0
   )
 }
 
@@ -292,6 +310,24 @@ workerScope.onmessage = async (event: MessageEvent<unknown>) => {
            WHERE id = ? AND ? <= page_count`,
           { bind: [input.page, Date.now(), input.id, input.page] },
         )
+        if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+        break
+      }
+      case 'updateTitle': {
+        const input = getPayload(event.data, command, isUpdateTitleInput)
+        database.exec('UPDATE books SET title = ?, updated_at = ? WHERE id = ?', {
+          bind: [input.title.trim(), Date.now(), input.id],
+        })
+        if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+        break
+      }
+      case 'deleteBook': {
+        const id = getPayload(
+          event.data,
+          command,
+          (value): value is string => typeof value === 'string' && value.length > 0,
+        )
+        database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
         if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
         break
       }
