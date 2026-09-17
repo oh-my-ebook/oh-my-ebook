@@ -9,7 +9,6 @@ const { createPaddle, postprocessWithKiwi, predict } = vi.hoisted(() => ({
 
 vi.mock('@paddleocr/paddleocr-js', () => ({ PaddleOCR: { create: createPaddle } }))
 vi.mock('../kiwi/client', () => ({ postprocessWithKiwi }))
-vi.mock('./paddle-ort', () => ({ getPaddleWasmPaths: () => '/ocr-runtime/' }))
 
 import { recognizePdfPage } from './page-recognition'
 
@@ -74,6 +73,11 @@ describe('recognizePdfPage', () => {
     expect(getViewport).toHaveBeenCalledWith({ scale: 200 / 72 })
     expect(render).toHaveBeenCalledWith(
       expect.objectContaining({ background: '#ffffff', canvas: expect.any(HTMLCanvasElement) }),
+    )
+    expect(createPaddle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ortOptions: expect.objectContaining({ wasmPaths: '/vendor/ocr/onnxruntime/' }),
+      }),
     )
     expect(postprocessWithKiwi).toHaveBeenCalledWith('OCR 문장')
     expect(result).toEqual({

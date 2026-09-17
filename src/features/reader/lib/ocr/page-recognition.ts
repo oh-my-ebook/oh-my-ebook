@@ -1,10 +1,10 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
 import { postprocessWithKiwi } from '../kiwi/client'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
-import { getPaddleWasmPaths } from './paddle-ort'
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 200 DPI 픽셀 좌표로 변환한다.
 const OCR_SCALE = 200 / 72
+const PADDLE_WASM_PATH = '/vendor/ocr/onnxruntime/'
 
 interface OcrRenderTask {
   promise: Promise<void>
@@ -76,8 +76,8 @@ async function renderPdfPageForOcr(page: PdfPageHandle, signal: AbortSignal) {
 
 async function getPaddle() {
   // 큰 모델을 페이지마다 다시 불러오지 않도록 초기화 Promise를 재사용한다.
-  paddle ??= Promise.all([import('@paddleocr/paddleocr-js'), getPaddleWasmPaths()])
-    .then(([{ PaddleOCR }, wasmPaths]) =>
+  paddle ??= import('@paddleocr/paddleocr-js')
+    .then(({ PaddleOCR }) =>
       PaddleOCR.create({
         worker: true,
         textDetectionModelName: 'PP-OCRv5_mobile_det',
@@ -89,7 +89,12 @@ async function getPaddle() {
           url: '/vendor/ocr/paddleocr/korean_PP-OCRv5_mobile_rec_onnx_infer.tar',
         },
         textRecognitionBatchSize: 8,
-        ortOptions: { backend: 'wasm', wasmPaths, numThreads: 1, simd: true },
+        ortOptions: {
+          backend: 'wasm',
+          wasmPaths: PADDLE_WASM_PATH,
+          numThreads: 1,
+          simd: true,
+        },
       }),
     )
     .catch((error: unknown) => {
