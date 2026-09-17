@@ -38,7 +38,7 @@ function isOcrPdfPage(page: PdfPageHandle): page is OcrPdfPage {
 
 async function renderPdfPageForOcr(page: PdfPageHandle, signal: AbortSignal) {
   if (!isOcrPdfPage(page)) {
-    throw new Error('OCR을 위해 PDF 페이지를 그릴 수 없습니다.')
+    throw new Error('PDF 페이지를 읽어올 수 없어 OCR을 수행할 수 없습니다.')
   }
 
   signal.throwIfAborted()
