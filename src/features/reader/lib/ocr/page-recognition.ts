@@ -41,7 +41,7 @@ async function getPaddle() {
   paddle ??= Promise.all([import('@paddleocr/paddleocr-js'), getPaddleWasmPaths()])
     .then(([{ PaddleOCR }, wasmPaths]) =>
       PaddleOCR.create({
-        worker: false,
+        worker: true,
         textDetectionModelName: 'PP-OCRv5_mobile_det',
         textDetectionModelAsset: {
           url: '/vendor/ocr/paddleocr/PP-OCRv5_mobile_det_onnx_infer.tar',
