@@ -140,8 +140,10 @@ async function postprocessOcrLines(
   signal: AbortSignal,
 ) {
   // 줄 순서를 유지해 Kiwi 결과를 원래 OCR 좌표와 다시 연결한다.
-  const processed = await postprocessWithKiwi(sourceLines.map(({ text }) => text).join('\n'))
-  signal.throwIfAborted()
+  const processed = await postprocessWithKiwi(
+    sourceLines.map(({ text }) => text).join('\n'),
+    signal,
+  )
   const processedLines = processed.split('\n')
 
   return fitOcrLines(

@@ -68,7 +68,8 @@ describe('recognizePdfPage', () => {
     const getViewport = vi.fn(() => ({ width: 1_000, height: 1_500, rotation: 0 }))
     const page = { getViewport, render }
 
-    const result = await recognizePdfPage(page, new AbortController().signal)
+    const signal = new AbortController().signal
+    const result = await recognizePdfPage(page, signal)
 
     expect(getViewport).toHaveBeenCalledWith({ scale: 200 / 72 })
     expect(render).toHaveBeenCalledWith(
@@ -79,7 +80,7 @@ describe('recognizePdfPage', () => {
         ortOptions: expect.objectContaining({ wasmPaths: '/vendor/ocr/onnxruntime/' }),
       }),
     )
-    expect(postprocessWithKiwi).toHaveBeenCalledWith('OCR 문장')
+    expect(postprocessWithKiwi).toHaveBeenCalledWith('OCR 문장', signal)
     expect(result).toEqual({
       width: 1_000,
       height: 1_500,
