@@ -9,7 +9,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { toast } from '@/components/ui/toast'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
 import { PdfUpload } from './pdf-upload'
@@ -38,6 +40,21 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     renameBook,
     deleteBook,
   } = useEbookLibrary(store)
+
+  async function openBook(bookId: string) {
+    try {
+      await store.request('hasBook', bookId)
+      onOpenBook?.(bookId)
+    } catch (error) {
+      toast.add({
+        title: error instanceof EbookStoreError ? error.message : '책을 열지 못했습니다.',
+        type: 'error',
+      })
+      if (error instanceof EbookStoreError && error.code === 'deleted') {
+        void refreshLibrary()
+      }
+    }
+  }
 
   return (
     <main className="library-page min-h-svh">
@@ -124,7 +141,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             <EbookShelf
               books={state.books}
               coverErrors={coverErrors}
-              onOpenBook={(bookId) => onOpenBook?.(bookId)}
+              onOpenBook={(bookId) => {
+                void openBook(bookId)
+              }}
               onRegenerate={(book) => {
                 void regenerateCover(book)
               }}

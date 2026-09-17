@@ -227,6 +227,38 @@ describe('ebook-db.worker', () => {
     expect(responses).toHaveBeenNthCalledWith(2, { requestId: 14, result: null })
   })
 
+  it('삭제된 책 확인 요청은 deleted 오류로 응답한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string) {
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectValue() {
+        return undefined
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 15, command: 'hasBook', payload: 'deleted-book' },
+      }),
+    )
+
+    expect(responses).toHaveBeenCalledWith({ requestId: 15, error: { code: 'deleted' } })
+  })
+
   it('안전한 양의 정수가 아닌 requestId 메시지는 무시한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }

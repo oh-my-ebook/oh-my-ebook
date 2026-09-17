@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
+import { EbookStoreError } from '../lib/ebook-store-client'
 import { createPromiseController } from '@/test/promise-controller'
 import { Toaster } from '@/components/ui/toast'
 import { EbookLibrary } from './ebook-library'
@@ -208,5 +209,55 @@ describe('EbookLibrary', () => {
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '삭제' }))
     expect(store.request).toHaveBeenCalledWith('deleteBook', '기존 책-id')
+  })
+
+  it('책 제목 수정과 삭제 실패는 토스트로 알린다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [createStoredBook('기존 책')]
+      if (command === 'updateTitle' || command === 'deleteBook') throw new Error('failed')
+      return null
+    })
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByText('기존 책')
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 제목 수정' }))
+    await user.click(screen.getByRole('button', { name: '저장' }))
+    expect(await screen.findByText('책 제목을 수정하지 못했습니다.')).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    expect(await screen.findByText('책을 삭제하지 못했습니다.')).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('다른 탭에서 삭제된 책은 리더로 이동하지 않고 토스트로 알린다', async () => {
+    const user = userEvent.setup()
+    const onOpenBook = vi.fn()
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [createStoredBook('기존 책')]
+      if (command === 'hasBook') throw new EbookStoreError('deleted')
+      return null
+    })
+    render(
+      <Toaster>
+        <EbookLibrary onOpenBook={onOpenBook} store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByText('기존 책')
+    await user.click(screen.getByRole('button', { name: '기존 책 열기' }))
+
+    expect(await screen.findByText('이미 삭제된 PDF입니다.')).toBeVisible()
+    expect(onOpenBook).not.toHaveBeenCalled()
   })
 })
