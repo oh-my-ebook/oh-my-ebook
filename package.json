@@ -17,6 +17,7 @@
   },
   "scripts": {
     "ocr:prepare": "bash scripts/prepare-ocr-assets.sh",
+    "kiwi:clean": "bash scripts/clean-kiwi-assets.sh",
     "prebuild": "pnpm ocr:prepare",
     "predev": "pnpm ocr:prepare",
     "dev": "vite",
@@ -44,7 +45,7 @@
     "@paddleocr/paddleocr-js": "0.4.2",
     "class-variance-authority": "0.7.1",
     "cn": "0.2.6",
-    "kiwi-nlp": "0.23.0",
+    "kiwi-nlp": "0.24.0",
     "lucide-react": "1.46.0",
     "pdfjs-dist": "6.3.289",
     "react": "^19.2.8",
