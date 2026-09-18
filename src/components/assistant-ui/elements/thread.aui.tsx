@@ -176,7 +176,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       style={{
         ["--thread-max-width" as string]: "44rem",
         ["--composer-bg" as string]: "var(--color-background)",
-        ["--composer-radius" as string]: "1.5rem",
+        ["--composer-radius" as string]: "1rem",
         ["--composer-padding" as string]: "8px",
       }}
     >
@@ -205,7 +205,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           </div>
 
           <ThreadPrimitive.ViewportFooter
-            className="aui-thread-viewport-footer bg-card sticky bottom-0 mt-auto flex flex-col gap-4 overflow-visible rounded-t-(--composer-radius) pb-4 md:pb-6"
+            className="aui-thread-viewport-footer bg-card sticky bottom-0 mt-auto flex flex-col gap-4 overflow-visible rounded-t-(--composer-radius) pb-3"
           >
             <ThreadScrollToBottom />
             <Composer autoFocus={autoFocus} />
@@ -351,7 +351,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         <ComposerPrimitive.Input
           render={<textarea />}
           placeholder="질문을 입력하세요"
-          className="aui-composer-input field-sizing-content caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 leading-6 outline-none"
+          className="aui-composer-input field-sizing-content caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2 py-0.5 leading-6 outline-none"
           rows={1}
           autoFocus={autoFocus}
           enterKeyHint="send"
