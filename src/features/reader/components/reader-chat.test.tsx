@@ -233,9 +233,7 @@ describe('ReaderChat', () => {
     controller.resolve()
     const retryButton = await screen.findByRole('button', { name: RETRY_BUTTON_NAME })
 
-    // 재시도 조작부는 대화 내역 쪽(입력창보다 앞, 더 보기 버튼보다도 앞)에 있어
-    // Shift+Tab으로 두 번 거슬러 올라가야 닿는다.
-    await user.tab({ shift: true })
+    // 재시도 조작부는 대화 내역 쪽(입력창보다 앞)에 있어 Shift+Tab으로 거슬러 올라가야 닿는다.
     await user.tab({ shift: true })
     expect(retryButton).toHaveFocus()
   })
