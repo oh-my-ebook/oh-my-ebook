@@ -55,7 +55,7 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장�
     const original = Worker.prototype.postMessage
     Worker.prototype.postMessage = function (message, ...transfer) {
       if (typeof message === 'object' && message !== null && 'command' in message) {
-        if (message.command === 'addBook') usage = 2_000
+        if (message.command === 'saveBook') usage = 2_000
         if (message.command === 'deleteBook') usage = 0
       }
       return Reflect.apply(original, this, [message, ...transfer])
@@ -203,7 +203,7 @@ test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않�
         typeof message === 'object' &&
         message !== null &&
         'command' in message &&
-        message.command === 'addBook' &&
+        message.command === 'saveBook' &&
         'requestId' in message
       ) {
         setTimeout(() => {
