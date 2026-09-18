@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReaderToolbar } from './reader-toolbar'
 
@@ -57,5 +58,29 @@ describe('ReaderToolbar', () => {
 
     await user.click(screen.getByRole('button', { name: '밝은 테마' }))
     expect(document.documentElement).not.toHaveClass('dark')
+  })
+
+  it('두 페이지 보기를 적용할 수 없으면 보기 방식 조작과 옆 구분선을 숨긴다', () => {
+    const toolbar = (isSpreadAvailable: boolean) => (
+      <MemoryRouter>
+        <ReaderToolbar
+          isSpreadAvailable={isSpreadAvailable}
+          onTogglePanel={vi.fn()}
+          onViewChange={vi.fn()}
+          panelButtonRef={{ current: null }}
+          panelOpen={false}
+          preferredView="single"
+          title="리더 UI 테스트"
+        />
+      </MemoryRouter>
+    )
+    const { rerender } = render(toolbar(true))
+    const banner = screen.getByRole('banner', { name: '독서 도구' })
+    const separatorCount = within(banner).getAllByRole('separator').length
+
+    rerender(toolbar(false))
+
+    expect(within(banner).queryByRole('group', { name: '보기 방식' })).not.toBeInTheDocument()
+    expect(within(banner).getAllByRole('separator')).toHaveLength(separatorCount - 1)
   })
 })

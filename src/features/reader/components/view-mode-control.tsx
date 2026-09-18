@@ -28,6 +28,11 @@ export function ViewModeControl({
     }
   }, [isSpreadAvailable, preferredView])
 
+  // 공간 부족 toast는 위 effect가 계속 담당해야 하므로 컴포넌트는 마운트한 채 조작만 숨긴다.
+  if (!isSpreadAvailable) {
+    return null
+  }
+
   const handleValueChange = (value: string[]) => {
     const nextView = value[0]
 
@@ -43,7 +48,7 @@ export function ViewModeControl({
       onValueChange={handleValueChange}
       size="sm"
       spacing={0.5}
-      value={[isSpreadAvailable ? preferredView : 'single']}
+      value={[preferredView]}
     >
       <Tooltip>
         <TooltipTrigger
@@ -65,7 +70,6 @@ export function ViewModeControl({
             <ToggleGroupItem
               aria-label="두 페이지"
               className={SEGMENT_ITEM_CLASS_NAME}
-              disabled={!isSpreadAvailable}
               value="spread"
             />
           }
