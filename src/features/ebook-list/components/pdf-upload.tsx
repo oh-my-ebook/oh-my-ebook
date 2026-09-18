@@ -63,11 +63,7 @@ export function PdfUpload({
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault()
-              selectFiles(
-                Array.from(event.dataTransfer.files).filter(
-                  (file) => file.type === 'application/pdf',
-                ),
-              )
+              selectFiles(Array.from(event.dataTransfer.files))
             }}
           >
             <FileUp className="text-primary" />
