@@ -9,7 +9,12 @@ import {
 
 export type { EbookReaderStore }
 
-export function EbookReaderPage({ bookId, store }: { bookId: string; store: EbookReaderStore }) {
+interface EbookReaderPageProps {
+  bookId: string
+  store: EbookReaderStore
+}
+
+export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   const { retry, saveReadingPosition, state } = useEbookReadingSession(bookId, store)
 
   if (state.status === 'loading') {
