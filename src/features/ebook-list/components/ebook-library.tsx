@@ -131,7 +131,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
                 있습니다.
               </EmptyDescription>
             </EmptyHeader>
-            <EmptyContent>위의 PDF 추가 버튼으로 책을 선택하세요.</EmptyContent>
+            <EmptyContent>위의 PDF 업로드 버튼으로 책을 선택하세요.</EmptyContent>
           </Empty>
         )}
 
