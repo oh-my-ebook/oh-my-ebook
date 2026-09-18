@@ -1,11 +1,18 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { executeOpfsCommand, isOpfsCommand, readPdf, writePdf } from './ebook-db.worker.opfs'
+import {
+  deletePdf,
+  executeOpfsCommand,
+  isOpfsCommand,
+  readPdf,
+  writePdf,
+} from './ebook-db.worker.opfs'
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
 vi.mock('./ebook-db.worker.opfs', () => ({
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
+  deletePdf: vi.fn(),
   readPdf: vi.fn(),
   writePdf: vi.fn(),
 }))
@@ -151,8 +158,8 @@ describe('ebook-db.worker', () => {
         if (sql.includes('INSERT INTO books')) throw new Error('disk failure')
         return this
       }
-      selectValue() {
-        return undefined
+      selectValue(sql: string) {
+        return sql === 'SELECT changes()' ? 1 : undefined
       }
     }
 
@@ -267,8 +274,8 @@ describe('ebook-db.worker', () => {
         if (sql === 'PRAGMA user_version') return [1]
         return this
       }
-      selectValue() {
-        return undefined
+      selectValue(sql: string) {
+        return sql === 'SELECT changes()' ? 1 : undefined
       }
     }
 
@@ -518,7 +525,7 @@ describe('ebook-db.worker', () => {
     expect(statements.some((statement) => statement.includes('? <= page_count'))).toBe(true)
   })
 
-  it('책 제목을 수정하고 삭제한다', async () => {
+  it('책 제목을 수정하고 OPFS 원본과 메타데이터를 함께 삭제한다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
@@ -532,6 +539,9 @@ describe('ebook-db.worker', () => {
       }
       selectValue() {
         return 1
+      }
+      selectObject() {
+        return { id: 'book-1', content_hash: 'a'.repeat(64), page_count: 1, last_page: null }
       }
     }
 
@@ -560,8 +570,45 @@ describe('ebook-db.worker', () => {
 
     expect(statements).toContain('UPDATE books SET title = ?, updated_at = ? WHERE id = ?')
     expect(statements).toContain('DELETE FROM books WHERE id = ?')
+    expect(deletePdf).toHaveBeenCalledWith('a'.repeat(64))
     expect(responses).toHaveBeenNthCalledWith(1, { requestId: 13, result: null })
     expect(responses).toHaveBeenNthCalledWith(2, { requestId: 14, result: null })
+  })
+
+  it('OPFS 삭제가 실패하면 SQLite 메타데이터는 유지한다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+    vi.mocked(deletePdf).mockRejectedValueOnce(new Error('delete failed'))
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectObject() {
+        return { id: 'book-1', content_hash: 'a'.repeat(64), page_count: 1, last_page: null }
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 22, command: 'deleteBook', payload: 'book-1' },
+      }),
+    )
+
+    expect(statements).not.toContain('DELETE FROM books WHERE id = ?')
+    expect(responses).toHaveBeenCalledWith({ requestId: 22, error: { code: 'storage-failed' } })
   })
 
   it('삭제된 책 확인 요청은 deleted 오류로 응답한다', async () => {

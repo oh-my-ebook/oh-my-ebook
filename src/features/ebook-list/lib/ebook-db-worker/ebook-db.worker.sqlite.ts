@@ -73,6 +73,8 @@ export function addBook(database: Database, input: AddBookInput): string {
 
 export function deleteBookById(database: Database, id: string): void {
   database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
+
+  if (!isRowAffected(database)) throw new DeletedBookError()
 }
 
 async function openDatabase(): Promise<Database> {
@@ -136,7 +138,7 @@ export function getDatabase(): Promise<Database> {
   return databasePromise
 }
 
-function getBookId(request: WorkerRequest): string {
+export function getBookId(request: WorkerRequest): string {
   return getPayload(
     request,
     request.command,
@@ -195,13 +197,6 @@ function updateTitle(database: Database, request: WorkerRequest): undefined {
   return undefined
 }
 
-function deleteBook(database: Database, request: WorkerRequest): undefined {
-  const id = getBookId(request)
-  database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
-  if (!isRowAffected(database)) throw new DeletedBookError()
-  return undefined
-}
-
 function updateCover(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isUpdateCoverInput)
   database.exec(
@@ -226,8 +221,6 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return updateProgress(database, request)
     case SQLITE_COMMAND.UPDATE_TITLE:
       return updateTitle(database, request)
-    case SQLITE_COMMAND.DELETE_BOOK:
-      return deleteBook(database, request)
     case SQLITE_COMMAND.UPDATE_COVER:
       return updateCover(database, request)
     default:
