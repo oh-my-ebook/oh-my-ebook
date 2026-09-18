@@ -1,0 +1,70 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+type GpuStub = { requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null> }
+
+function stubGpu(gpu: GpuStub) {
+  Object.defineProperty(navigator, 'gpu', { configurable: true, value: gpu })
+  return () => Reflect.deleteProperty(navigator, 'gpu')
+}
+
+class FakeWorker extends EventTarget {
+  terminate = vi.fn()
+}
+
+function setupResizeObserverMock() {
+  class ResizeObserverMock {
+    observe = vi.fn()
+    unobserve = vi.fn()
+    disconnect = vi.fn()
+  }
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+}
+
+// ReaderChat이 실제로 렌더링될 때 useLocalRuntime + Thread가 만드는 ThreadMessage가
+// webLlmChatModelAdapter의 toWebLlmMessages를 거쳐 엔진에 전달하는 실제 요청 형태를 확인한다.
+// 다른 테스트는 전부 webLlmChatModelAdapter 자체를 Mock으로 치환해서, 이 경로는 지금까지
+// 한 번도 검증된 적이 없다.
+describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
+  let restoreGpu: () => void
+
+  beforeEach(() => {
+    vi.resetModules()
+    setupResizeObserverMock()
+    vi.stubGlobal('Worker', FakeWorker)
+    restoreGpu = stubGpu({ requestAdapter: async () => ({ features: new Set(['shader-f16']) }) })
+  })
+
+  afterEach(() => {
+    restoreGpu()
+    vi.unstubAllGlobals()
+    vi.doUnmock('@mlc-ai/web-llm')
+  })
+
+  it('입력한 질문 텍스트가 그대로 엔진 요청에 실린다', async () => {
+    const create = vi.fn(async (_request: { messages: { role: string; content: string }[] }) => ({
+      async *[Symbol.asyncIterator]() {
+        yield { choices: [{ delta: { content: '답변' } }] }
+      },
+    }))
+    const engine = { chat: { completions: { create } }, interruptGenerate: vi.fn() }
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: vi.fn(async () => engine),
+    }))
+
+    const { ReaderChat } = await import('./reader-chat')
+    const user = userEvent.setup()
+    render(<ReaderChat />)
+
+    const input = screen.getByRole('textbox', { name: 'Message input' })
+    await user.type(input, '실제 질문 내용')
+    await user.keyboard('{Enter}')
+
+    await vi.waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0]?.[0].messages.at(-1)).toEqual({
+      role: 'user',
+      content: '실제 질문 내용',
+    })
+  })
+})

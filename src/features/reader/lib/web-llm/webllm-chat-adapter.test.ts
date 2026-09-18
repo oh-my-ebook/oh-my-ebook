@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelRunOptions, ChatModelRunResult, ThreadMessage } from '@assistant-ui/react'
+import { createPromiseController } from '../../../../test/promise-controller'
 import {
   createWebLlmChatModelAdapter,
   WEBLLM_MODEL_ID,
   type WebLlmEngine,
 } from './webllm-chat-adapter'
+import type * as WebLlmModule from './webllm-chat-adapter'
 
 function createMessage(role: 'user' | 'assistant', text: string): ThreadMessage {
   const common = {
@@ -147,5 +149,197 @@ describe('createWebLlmChatModelAdapter', () => {
 
     expect(texts).toEqual(['답변'])
     expect(loadEngine).toHaveBeenCalledTimes(2)
+  })
+})
+
+type GpuStub = { requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null> }
+
+function stubGpu(gpu: GpuStub | undefined) {
+  const original = Object.getOwnPropertyDescriptor(navigator, 'gpu')
+  Object.defineProperty(navigator, 'gpu', { configurable: true, value: gpu })
+  return () => {
+    if (original) {
+      Object.defineProperty(navigator, 'gpu', original)
+    } else {
+      Reflect.deleteProperty(navigator, 'gpu')
+    }
+  }
+}
+
+function stubSupportedGpu() {
+  return stubGpu({
+    requestAdapter: async () => ({ features: new Set(['shader-f16']) }),
+  })
+}
+
+class FakeWorker extends EventTarget {
+  terminate = vi.fn()
+}
+
+function stubWorker() {
+  const instances: FakeWorker[] = []
+  vi.stubGlobal(
+    'Worker',
+    class extends FakeWorker {
+      constructor(..._args: unknown[]) {
+        super()
+        instances.push(this)
+      }
+    },
+  )
+  return instances
+}
+
+function mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine: unknown) {
+  vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
+}
+
+async function importFreshModule() {
+  return import('./webllm-chat-adapter') as Promise<typeof WebLlmModule>
+}
+
+describe('WebLLM 모델 로딩과 상태', () => {
+  const restoreGpu: (() => void)[] = []
+
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    restoreGpu.splice(0).forEach((restore) => restore())
+    vi.unstubAllGlobals()
+    vi.doUnmock('@mlc-ai/web-llm')
+  })
+
+  it('WebGPU를 지원하지 않으면 에러 상태와 브라우저 안내 메시지를 남긴다', async () => {
+    restoreGpu.push(stubGpu(undefined))
+    stubWorker()
+    const { prepareWebLlmModel, getWebLlmModelStatus, getWebLlmModelError } =
+      await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getWebLlmModelStatus()).toBe('error')
+    expect(getWebLlmModelError()).toBe(
+      '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.',
+    )
+  })
+
+  it('shader-f16을 지원하지 않으면 에러 상태와 브라우저 안내 메시지를 남긴다', async () => {
+    restoreGpu.push(stubGpu({ requestAdapter: async () => ({ features: new Set() }) }))
+    stubWorker()
+    const { prepareWebLlmModel, getWebLlmModelStatus, getWebLlmModelError } =
+      await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getWebLlmModelStatus()).toBe('error')
+    expect(getWebLlmModelError()).toContain('WebGPU 기능을 사용할 수 없습니다')
+  })
+
+  it('모델 로딩 중 진행률을 갱신하고 완료되면 준비 완료 상태가 된다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const engineController = createPromiseController<WebLlmEngine>()
+    const createWebWorkerMLCEngine = vi.fn(
+      async (
+        _worker: unknown,
+        _modelId: string,
+        config: { initProgressCallback: (report: { progress: number }) => void },
+      ) => {
+        config.initProgressCallback({ progress: 0.5 })
+        return engineController.promise
+      },
+    )
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel, getWebLlmModelStatus, getWebLlmModelProgress } =
+      await importFreshModule()
+
+    const preparePromise = prepareWebLlmModel()
+    await vi.waitFor(() => expect(getWebLlmModelProgress()).toBe(50))
+    expect(getWebLlmModelStatus()).toBe('loading')
+
+    engineController.resolve({
+      chat: { completions: { create: vi.fn() } },
+      interruptGenerate: vi.fn(),
+    })
+    await preparePromise
+
+    expect(getWebLlmModelStatus()).toBe('ready')
+    expect(getWebLlmModelProgress()).toBe(100)
+  })
+
+  it('이미 준비됐거나 로딩 중이면 모델을 다시 불러오지 않는다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const createWebWorkerMLCEngine = vi.fn(async () => ({
+      chat: { completions: { create: vi.fn() } },
+      interruptGenerate: vi.fn(),
+    }))
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel } = await importFreshModule()
+
+    await prepareWebLlmModel()
+    await prepareWebLlmModel()
+
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(1)
+  })
+
+  it('네트워크 오류로 로딩에 실패하면 재시도 안내를 남기고, 재시도하면 다시 불러온다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    const workerInstances = stubWorker()
+    const readyEngine = { chat: { completions: { create: vi.fn() } }, interruptGenerate: vi.fn() }
+    const createWebWorkerMLCEngine = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('failed to fetch model shard'))
+      .mockResolvedValueOnce(readyEngine)
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel, getWebLlmModelStatus, getWebLlmModelError } =
+      await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+    expect(getWebLlmModelStatus()).toBe('error')
+    expect(getWebLlmModelError()).toBe(
+      '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
+    )
+    expect(workerInstances[0]?.terminate).toHaveBeenCalledOnce()
+
+    await prepareWebLlmModel()
+
+    expect(getWebLlmModelStatus()).toBe('ready')
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+  })
+
+  it('GPU 메모리 부족으로 실패하면 원인에 맞는 안내를 남긴다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    mockCreateWebWorkerMLCEngine(
+      vi.fn().mockRejectedValue(new Error('GPU device lost during allocation')),
+    )
+    const { prepareWebLlmModel, getWebLlmModelError } = await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getWebLlmModelError()).toBe(
+      'GPU에서 모델을 시작하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.',
+    )
+  })
+
+  it('워커 로딩 중 오류가 발생하면 안내 메시지를 남긴다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    const workerInstances = stubWorker()
+    mockCreateWebWorkerMLCEngine(vi.fn(() => new Promise(() => undefined)))
+    const { prepareWebLlmModel, getWebLlmModelStatus, getWebLlmModelError } =
+      await importFreshModule()
+
+    const preparePromise = prepareWebLlmModel()
+    await vi.waitFor(() => expect(workerInstances).toHaveLength(1))
+    workerInstances[0]?.dispatchEvent(new Event('error'))
+
+    await expect(preparePromise).rejects.toThrow()
+    expect(getWebLlmModelStatus()).toBe('error')
+    expect(getWebLlmModelError()).toBe(
+      'AI를 시작하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.',
+    )
   })
 })
