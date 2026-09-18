@@ -1,5 +1,7 @@
 import { MinusIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Toggle } from '@/components/ui/toggle'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ZoomControlsProps {
   isFitHeight: boolean
@@ -34,19 +36,25 @@ export function ZoomControls({
       >
         <MinusIcon />
       </Button>
-      <Button
-        type="button"
-        variant={isFitHeight ? 'secondary' : 'ghost'}
-        size="sm"
-        aria-label="높이 맞춤"
-        aria-pressed={isFitHeight}
-        disabled={disabled}
-        onClick={onFitHeight}
-      >
-        <output role="status" aria-label="현재 확대율">
-          {Math.round(scale * 100)}%
-        </output>
-      </Button>
+      {/* 켜짐 상태를 나타내는 버튼이라 Toggle을 쓴다. 이미 맞춤 상태에서 눌러도 맞춤을 유지한다. */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              aria-label="화면에 맞춤"
+              disabled={disabled}
+              onPressedChange={onFitHeight}
+              pressed={isFitHeight}
+              size="sm"
+            />
+          }
+        >
+          <output role="status" aria-label="현재 확대율">
+            {Math.round(scale * 100)}%
+          </output>
+        </TooltipTrigger>
+        <TooltipContent>화면에 맞춤</TooltipContent>
+      </Tooltip>
       <Button
         aria-label="확대"
         type="button"

@@ -93,7 +93,8 @@ YAML은 토큰 값, 본문은 적용 규칙을 정의한다.
   `accent-foreground/ring/sidebar-accent-foreground/sidebar-ring`은 `reader-link`와 같은 값이다.
   `sidebar-primary-foreground/sidebar-accent/sidebar-border`는 대응하는 일반 토큰과 같은 값이다.
 - Figma Make의 HEX 값을 보존한다. `muted`는 배경과 구분되는 면 색으로 기본 hover를 표현한다.
-- `secondary`는 눌린 버튼(목차·함께 읽기 패널·높이 맞춤)의 면 색으로, `card` 위에서 hover(`muted`)보다 한 단계 진하게 보이도록 둔다.
+- `secondary`는 눌린 버튼(목차·함께 읽기 패널)의 면 색으로, `card` 위에서 hover(`muted`)보다 한 단계 진하게 보이도록 둔다.
+  기본으로 켜져 있는 "화면에 맞춤"은 항상 진하게 보이지 않도록 Toggle 기본값인 `muted`를 쓴다.
 
 ## Typography
 

@@ -70,7 +70,7 @@ describe('ReaderToolbar', () => {
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
-  it('두 페이지 보기를 적용할 수 없으면 보기 방식 조작과 옆 구분선을 숨긴다', () => {
+  it('두 페이지 보기를 적용할 수 없으면 보기 방식 조작만 숨기고 구분선은 유지한다', () => {
     const toolbar = (isSpreadAvailable: boolean) => (
       <MemoryRouter>
         <ReaderToolbar
@@ -94,6 +94,6 @@ describe('ReaderToolbar', () => {
     rerender(toolbar(false))
 
     expect(within(banner).queryByRole('group', { name: '보기 방식' })).not.toBeInTheDocument()
-    expect(within(banner).getAllByRole('separator')).toHaveLength(separatorCount - 1)
+    expect(within(banner).getAllByRole('separator')).toHaveLength(separatorCount)
   })
 })
