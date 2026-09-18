@@ -82,7 +82,13 @@ function ModelDownloadAlert() {
                   : '모델 다운로드'
           }
           disabled={isLoading || isReady}
-          onClick={() => prepareWebLlmModel().catch(() => undefined)}
+          onClick={() =>
+            prepareWebLlmModel().catch((error: unknown) => {
+              // 화면에는 defaultModelError의 사용자용 안내 문구만 보이므로, 원인 파악을 위해
+              // 실제 에러는 콘솔에 남긴다.
+              console.error('모델을 준비하는 중 오류가 발생했습니다.', error)
+            })
+          }
           size="xs"
           type="button"
           variant="outline"

@@ -122,6 +122,23 @@ describe('ReaderChat', () => {
     expect(webLlmModelMock.prepare).toHaveBeenCalledOnce()
   })
 
+  it('다운로드 버튼 클릭이 예상치 못하게 실패하면 콘솔에 원인을 남긴다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    const unexpectedError = new Error('예상치 못한 오류')
+    webLlmModelMock.prepare.mockRejectedValue(unexpectedError)
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { respond } = createControllableRespond(0)
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    await user.click(screen.getByRole('button', { name: '모델 다운로드' }))
+
+    await waitFor(() =>
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(String), unexpectedError),
+    )
+    consoleErrorSpy.mockRestore()
+  })
+
   it('모델 다운로드 진행률을 표시한다', () => {
     setupResizeObserverMock()
     webLlmModelMock.setStatus('loading')
