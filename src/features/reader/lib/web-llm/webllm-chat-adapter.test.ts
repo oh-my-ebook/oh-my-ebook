@@ -150,6 +150,42 @@ describe('createWebLlmChatModelAdapter', () => {
     expect(texts).toEqual(['답변'])
     expect(loadEngine).toHaveBeenCalledTimes(2)
   })
+
+  it('생성 중 실패하면 캐시된 엔진을 버리고 다음 요청에서 엔진을 다시 불러온다', async () => {
+    const failingEngine: WebLlmEngine = {
+      chat: {
+        completions: {
+          create: vi.fn(async () => {
+            throw new Error('생성 실패')
+          }),
+        },
+      },
+      interruptGenerate: vi.fn(),
+    }
+    const { engine: workingEngine } = createEngine(['답변'])
+    const loadEngine = vi
+      .fn<(modelId: string) => Promise<WebLlmEngine>>()
+      .mockResolvedValueOnce(failingEngine)
+      .mockResolvedValueOnce(workingEngine)
+    const adapter = createWebLlmChatModelAdapter(loadEngine)
+    const options = createRunOptions([createMessage('user', '질문')])
+
+    await expect(
+      (async () => {
+        for await (const _result of adapter.run(options)) {
+          // 첫 실행은 생성 단계에서 실패해야 한다.
+        }
+      })(),
+    ).rejects.toThrow('생성 실패')
+
+    const texts = []
+    for await (const result of adapter.run(options)) {
+      texts.push(getText(result))
+    }
+
+    expect(texts).toEqual(['답변'])
+    expect(loadEngine).toHaveBeenCalledTimes(2)
+  })
 })
 
 type GpuStub = { requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null> }
@@ -321,7 +357,7 @@ describe('WebLLM 모델 로딩과 상태', () => {
     await expect(prepareWebLlmModel()).rejects.toThrow()
 
     expect(getWebLlmModelError()).toBe(
-      'GPU에서 모델을 시작하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.',
+      'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.',
     )
   })
 
@@ -339,7 +375,46 @@ describe('WebLLM 모델 로딩과 상태', () => {
     await expect(preparePromise).rejects.toThrow()
     expect(getWebLlmModelStatus()).toBe('error')
     expect(getWebLlmModelError()).toBe(
-      'AI를 시작하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.',
+      'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.',
     )
+  })
+
+  it('생성 중 엔진이 죽으면 상태가 초기화돼 재시도 시 모델을 다시 불러온다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const failingEngine: WebLlmEngine = {
+      chat: {
+        completions: {
+          create: vi.fn(async () => {
+            throw new Error('device lost during generation')
+          }),
+        },
+      },
+      interruptGenerate: vi.fn(),
+    }
+    const { engine: workingEngine } = createEngine(['답변'])
+    const createWebWorkerMLCEngine = vi
+      .fn()
+      .mockResolvedValueOnce(failingEngine)
+      .mockResolvedValueOnce(workingEngine)
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { webLlmChatModelAdapter, getWebLlmModelStatus, prepareWebLlmModel } =
+      await importFreshModule()
+    const options = createRunOptions([createMessage('user', '질문')])
+
+    await expect(
+      (async () => {
+        for await (const _result of webLlmChatModelAdapter.run(options)) {
+          // 생성 단계에서 실패해야 한다.
+        }
+      })(),
+    ).rejects.toThrow('device lost during generation')
+
+    expect(getWebLlmModelStatus()).toBe('error')
+
+    await prepareWebLlmModel()
+
+    expect(getWebLlmModelStatus()).toBe('ready')
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
   })
 })

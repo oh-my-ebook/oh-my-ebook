@@ -119,6 +119,8 @@ function setDefaultModelProgress(progress: number) {
   statusListeners.forEach((listener) => listener())
 }
 
+// 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
+// "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
 function getModelErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
 
@@ -129,10 +131,18 @@ function getModelErrorMessage(error: unknown) {
     return '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.'
   }
   if (/memory|allocation|device lost|GPU/i.test(message)) {
-    return 'GPU에서 모델을 시작하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
+    return 'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
   }
 
-  return 'AI를 시작하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
+  return 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
+}
+
+function invalidateDefaultEngine(error: unknown) {
+  defaultWorker?.terminate()
+  defaultWorker = undefined
+  defaultEnginePromise = undefined
+  defaultModelError = getModelErrorMessage(error)
+  setDefaultModelStatus('error')
 }
 
 function loadDefaultEngine(modelId: string) {
@@ -147,11 +157,7 @@ function loadDefaultEngine(modelId: string) {
         return engine
       },
       (error: unknown) => {
-        defaultWorker?.terminate()
-        defaultWorker = undefined
-        defaultEnginePromise = undefined
-        defaultModelError = getModelErrorMessage(error)
-        setDefaultModelStatus('error')
+        invalidateDefaultEngine(error)
         throw error
       },
     )
@@ -181,7 +187,10 @@ export async function prepareWebLlmModel() {
   await loadDefaultEngine(WEBLLM_MODEL_ID)
 }
 
-export function createWebLlmChatModelAdapter(loadEngine: LoadEngine): WebLlmChatModelAdapter {
+export function createWebLlmChatModelAdapter(
+  loadEngine: LoadEngine,
+  onEngineFailure?: (error: unknown) => void,
+): WebLlmChatModelAdapter {
   let enginePromise: Promise<WebLlmEngine> | undefined
 
   return {
@@ -215,6 +224,13 @@ export function createWebLlmChatModelAdapter(loadEngine: LoadEngine): WebLlmChat
             yield { content: [{ type: 'text', text }] }
           }
         }
+      } catch (error) {
+        // 로딩 이후(생성 도중) 엔진이 죽으면(워커 크래시, GPU device lost 등) 캐시된 엔진을 계속
+        // 재사용하면 이후 모든 요청이 같은 이유로 영구히 실패한다. 다음 요청이 엔진을 다시
+        // 불러오도록 캐시를 버리고, 프로덕션 싱글턴 상태도 함께 무효화한다.
+        enginePromise = undefined
+        onEngineFailure?.(error)
+        throw error
       } finally {
         options.abortSignal.removeEventListener('abort', interrupt)
       }
@@ -222,4 +238,7 @@ export function createWebLlmChatModelAdapter(loadEngine: LoadEngine): WebLlmChat
   }
 }
 
-export const webLlmChatModelAdapter = createWebLlmChatModelAdapter(loadDefaultEngine)
+export const webLlmChatModelAdapter = createWebLlmChatModelAdapter(
+  loadDefaultEngine,
+  invalidateDefaultEngine,
+)
