@@ -8,12 +8,15 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
   'storage-failed': '로컬 저장소에 접근하지 못했습니다.',
 } as const
 
+export const COMMAND = {
+  SAVE_BOOK: 'saveBook',
+} as const
+
 export const SQLITE_COMMAND = {
   INITIALIZE: 'initialize',
   LIST_BOOKS: 'listBooks',
   HAS_BOOK: 'hasBook',
   GET_BOOK: 'getBook',
-  ADD_BOOK: 'addBook',
   DELETE_BOOK: 'deleteBook',
   UPDATE_TITLE: 'updateTitle',
   UPDATE_PROGRESS: 'updateProgress',

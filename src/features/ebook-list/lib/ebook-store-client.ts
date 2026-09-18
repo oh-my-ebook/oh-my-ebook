@@ -1,16 +1,17 @@
 import { EBOOK_STORE_ERROR_MESSAGES } from '../ebook-consts'
 import {
   type AddBookInput,
+  type EbookClientCommand,
   type EbookStoreCommand,
   type EbookStoreErrorCode,
-  type EbookStoreRequest,
+  type EbookWorkerRequest,
 } from '../ebook-types'
 import { isEbookStoreErrorCode } from '../ebook-utils'
 
 interface EbookWorker {
   onmessage: ((event: MessageEvent<unknown>) => void) | null
   onerror: ((event: ErrorEvent) => void) | null
-  postMessage(message: EbookStoreRequest, transfer?: Transferable[]): void
+  postMessage(message: EbookWorkerRequest, transfer?: Transferable[]): void
   terminate(): void
 }
 
@@ -41,13 +42,12 @@ export class EbookStoreClient {
     worker.onerror = (event) => this.close(event)
   }
 
-  request(command: Exclude<EbookStoreCommand, 'addBook'>, payload?: unknown): Promise<unknown> {
+  request(command: EbookClientCommand, payload?: unknown): Promise<unknown> {
     return this.sendWithRetry(command, payload, 1)
   }
 
-  addBook(input: AddBookInput): Promise<unknown> {
-    // 전송 후 분리된 원본 버퍼는 재전송할 수 없다. 삽입 재시도는 Worker가 처리한다.
-    return this.send('addBook', input, [input.pdfData])
+  saveBook(input: AddBookInput): Promise<unknown> {
+    return this.send('saveBook', input, [input.pdfData])
   }
 
   close(cause?: unknown): void {
@@ -87,7 +87,7 @@ export class EbookStoreClient {
 
     return await new Promise<unknown>((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject })
-      const message: EbookStoreRequest = { requestId, command }
+      const message: EbookWorkerRequest = { requestId, command }
       if (payload !== undefined) message.payload = payload
 
       try {
