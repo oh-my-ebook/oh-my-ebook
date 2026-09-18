@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -18,6 +19,11 @@ vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: () => <div role="separator" />,
+}))
 
 const resizeNotifications: Array<() => void> = []
 

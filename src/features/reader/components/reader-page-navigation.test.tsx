@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +10,11 @@ const useReaderLayoutMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../hooks/use-pdf-document', () => ({ usePdfDocument: usePdfDocumentMock }))
 vi.mock('../hooks/use-reader-layout', () => ({ useReaderLayout: useReaderLayoutMock }))
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: () => <div role="separator" />,
+}))
 vi.mock('./pdf-viewport', () => ({
   PdfViewport: ({ pages }: { pages: readonly PdfPageInfo[] }) =>
     pages.map((page) => (

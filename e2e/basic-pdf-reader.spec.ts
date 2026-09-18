@@ -55,6 +55,21 @@ async function expectFirstPageToFitReader(page: Page) {
 }
 
 test.describe('기본 PDF 리더', () => {
+  test('상단 독서 도구에서 테마와 빈 목차 패널을 전환한다', async ({ page }) => {
+    await openPdf(page, textPdfPath)
+
+    await page.getByRole('button', { name: '어두운 테마' }).click()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await page.getByRole('button', { name: '목차 열기' }).click()
+    const toc = page.getByRole('dialog', { name: '목차' })
+    await expect(toc).toBeVisible()
+    await expect(toc.getByRole('link')).toHaveCount(0)
+    await toc.getByRole('button', { name: '목차 닫기' }).click()
+
+    await expect(page.getByRole('button', { name: '목차 열기' })).toBeFocused()
+  })
+
   test('텍스트 PDF 첫 페이지 전체를 화면에 맞춰 표시한다', async ({ page }) => {
     await openPdf(page, textPdfPath)
 

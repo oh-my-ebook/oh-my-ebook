@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +15,17 @@ vi.mock('../lib/pdf-document', async (importOriginal) => {
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
 
+// jsdom에는 Resizable이 패널 크기를 계산할 실제 레이아웃이 없어 구분선이 입력 포커스를
+// 되가져간다. 실제 primitive 동작은 ReaderPanel 테스트와 E2E에서 확인하고, 이 통합 테스트는
+// Reader 상태와 채팅 연결만 검증한다.
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: ({ 'aria-label': ariaLabel }: { 'aria-label': string }) => (
+    <div aria-label={ariaLabel} role="separator" />
+  ),
+}))
+
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 Mock 어댑터 팩토리는 그대로 두고 응답 소스만 호출 인자를 기록하는 스파이로 바꾼다.
 vi.mock('../lib/mock-chat-adapter', async (importOriginal) => {
@@ -28,8 +40,8 @@ vi.mock('../lib/mock-chat-adapter', async (importOriginal) => {
   }
 })
 
-const PANEL_OPEN_LABEL = '보조 패널 열기'
-const PANEL_TITLE = '보조 패널'
+const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
+const PANEL_TITLE = '함께 읽기'
 
 // mock 상태를 모듈 전역 let 대신 각 테스트가 직접 만드는 팩토리로 캡슐화해, beforeEach 초기화
 // 누락으로 테스트 간 상태가 새는 걸 원천적으로 막는다.
@@ -144,6 +156,7 @@ describe('Reader 보조 패널 연결', () => {
     await user.click(panelButton)
 
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.getByRole('separator', { name: '함께 읽기 패널 너비 조절' })).toBeInTheDocument()
 
     await user.keyboard('{Escape}')
 
@@ -197,7 +210,7 @@ describe('Reader 보조 패널 연결', () => {
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
     const input = screen.getByRole('textbox', { name: 'Message input' })
     await user.type(input, '질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(await screen.findByText('질문')).toBeInTheDocument()
     // 다음 상호작용 전에 응답을 끝까지 받아, 패널을 닫아도 실행 중인 타이머가 남지 않게 한다.
@@ -242,7 +255,7 @@ describe('Reader 보조 패널 연결', () => {
     const input = screen.getByRole('textbox', { name: 'Message input' })
 
     await user.type(input, '첫 질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('첫 질문')
     await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
 
@@ -250,7 +263,7 @@ describe('Reader 보조 패널 연결', () => {
     await screen.findByRole('img', { name: 'PDF 2페이지' })
 
     await user.type(input, '둘째 질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('둘째 질문')
     await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
 

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
@@ -153,6 +155,49 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
     containerRef.current?.scrollTo({ top: 0 })
   }
 
+  const readerMain = (
+    <main
+      aria-label="PDF 읽기 영역"
+      className="h-full min-h-0 min-w-0 flex-1 p-reader-page-mobile"
+      ref={containerRef}
+    >
+      {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}
+
+      {documentState.status === 'error' && (
+        <ReaderError message={documentState.error.message} onRetry={documentState.retry} />
+      )}
+
+      {documentState.status === 'ready' && selectedPage === undefined && (
+        <ReaderError message="표시할 PDF 페이지가 없습니다." onRetry={documentState.retry} />
+      )}
+
+      {documentState.status === 'ready' &&
+        selectedPage !== undefined &&
+        (availableWidth === 0 || availableHeight === 0) && (
+          <ReaderLoading label="읽기 영역 계산 중" />
+        )}
+
+      {isPageReady && fitHeightScale !== null && (
+        <PdfViewport
+          document={documentState.document}
+          pages={pageSpread.pages}
+          scale={displayScale}
+        />
+      )}
+    </main>
+  )
+
+  const readerPanel = (
+    <ReaderPanel
+      chatSessionKey={url}
+      currentPage={currentPage}
+      isWideScreen={isWideScreen}
+      onOpenChange={setPanelOpen}
+      open={panelOpen}
+      openButtonRef={panelButtonRef}
+    />
+  )
+
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden">
       <ReaderToolbar
@@ -163,67 +208,40 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
         panelOpen={panelOpen}
         preferredView={preferredView}
         title={getReaderTitle(source, title)}
-      >
-        <ZoomControls
-          isFitHeight={zoom.mode === 'fit-height'}
-          scale={displayScale}
-          canZoomIn={canIncreaseZoom(displayScale)}
-          canZoomOut={canDecreaseZoom(displayScale)}
-          disabled={!isPageReady}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onFitHeight={() => setZoom(FIT_HEIGHT_ZOOM)}
-        />
-      </ReaderToolbar>
+      />
 
       <div className="flex min-h-0 flex-1">
-        <main
-          aria-label="PDF 읽기 영역"
-          className="min-h-0 min-w-0 flex-1 p-reader-page-mobile"
-          ref={containerRef}
-        >
-          {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}
-
-          {documentState.status === 'error' && (
-            <ReaderError message={documentState.error.message} onRetry={documentState.retry} />
-          )}
-
-          {documentState.status === 'ready' && selectedPage === undefined && (
-            <ReaderError message="표시할 PDF 페이지가 없습니다." onRetry={documentState.retry} />
-          )}
-
-          {documentState.status === 'ready' &&
-            selectedPage !== undefined &&
-            (availableWidth === 0 || availableHeight === 0) && (
-              <ReaderLoading label="읽기 영역 계산 중" />
-            )}
-
-          {isPageReady && fitHeightScale !== null && (
-            <PdfViewport
-              document={documentState.document}
-              pages={pageSpread.pages}
-              scale={displayScale}
-            />
-          )}
-        </main>
-
-        <ReaderPanel
-          chatSessionKey={url}
-          currentPage={currentPage}
-          isWideScreen={isWideScreen}
-          onOpenChange={setPanelOpen}
-          open={panelOpen}
-          openButtonRef={panelButtonRef}
-        />
+        <ResizablePanelGroup orientation="horizontal">
+          <ResizablePanel defaultSize="75%" id="reader" minSize="45%">
+            {readerMain}
+          </ResizablePanel>
+          {isWideScreen && readerPanel}
+        </ResizablePanelGroup>
+        {!isWideScreen && readerPanel}
       </div>
 
-      <footer className="flex min-h-12 shrink-0 items-center justify-center border-t px-4 py-2">
+      <footer className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t bg-card px-4 py-2">
         {isPageReady && (
-          <PageNavigator
-            currentPage={currentPage}
-            onPageChange={handlePageChange}
-            totalPages={documentState.pages.length}
-          />
+          <>
+            <div className="min-w-64 flex-1">
+              <PageNavigator
+                currentPage={currentPage}
+                onPageChange={handlePageChange}
+                totalPages={documentState.pages.length}
+              />
+            </div>
+            <Separator className="h-5" orientation="vertical" />
+            <ZoomControls
+              isFitHeight={zoom.mode === 'fit-height'}
+              scale={displayScale}
+              canZoomIn={canIncreaseZoom(displayScale)}
+              canZoomOut={canDecreaseZoom(displayScale)}
+              disabled={!isPageReady}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onFitHeight={() => setZoom(FIT_HEIGHT_ZOOM)}
+            />
+          </>
         )}
       </footer>
     </div>

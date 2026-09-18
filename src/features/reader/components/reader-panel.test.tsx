@@ -2,10 +2,12 @@ import { useRef, useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ReaderPanel } from './reader-panel'
 
-const PANEL_TITLE = '보조 패널'
-const OPEN_BUTTON_LABEL = '보조 패널 열기'
+const PANEL_TITLE = '함께 읽기'
+const OPEN_BUTTON_LABEL = '함께 읽기 패널 열기'
+const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
 const CHAT_INPUT_LABEL = 'Message input'
 
 interface HarnessProps {
@@ -18,7 +20,7 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
   const openButtonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(initialOpen)
 
-  return (
+  const content = (
     <div>
       <button onClick={() => setOpen(true)} ref={openButtonRef} type="button">
         {OPEN_BUTTON_LABEL}
@@ -31,6 +33,16 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
         openButtonRef={openButtonRef}
       />
     </div>
+  )
+
+  if (!isWideScreen) {
+    return content
+  }
+
+  return (
+    <ResizablePanelGroup orientation="horizontal">
+      <ResizablePanel defaultSize="70%">{content}</ResizablePanel>
+    </ResizablePanelGroup>
   )
 }
 
@@ -54,6 +66,7 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.getByRole('separator', { name: RESIZE_HANDLE_LABEL })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: PANEL_TITLE })).not.toBeInTheDocument()
   })
 
@@ -89,7 +102,7 @@ describe('ReaderPanel', () => {
     const user = userEvent.setup()
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
-    await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
+    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기' }))
 
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
@@ -110,7 +123,7 @@ describe('ReaderPanel', () => {
   it('넓은 화면에서 패널 안에 포커스가 있을 때 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     render(<ReaderPanelHarness initialOpen isWideScreen />)
-    screen.getByRole('button', { name: '보조 패널 닫기' }).focus()
+    screen.getByRole('button', { name: '함께 읽기 패널 닫기' }).focus()
 
     await user.keyboard('{Escape}')
 
@@ -145,7 +158,7 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
     expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
+    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기' }))
 
     expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
   })
