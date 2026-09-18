@@ -8,14 +8,20 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
   'storage-failed': '로컬 저장소에 접근하지 못했습니다.',
 } as const
 
-export const EBOOK_STORE_COMMANDS = {
-  initialize: 'initialize',
-  listBooks: 'listBooks',
-  hasBook: 'hasBook',
-  getBook: 'getBook',
-  addBook: 'addBook',
-  deleteBook: 'deleteBook',
-  updateTitle: 'updateTitle',
-  updateProgress: 'updateProgress',
-  updateCover: 'updateCover',
+export const SQLITE_COMMAND = {
+  INITIALIZE: 'initialize',
+  LIST_BOOKS: 'listBooks',
+  HAS_BOOK: 'hasBook',
+  GET_BOOK: 'getBook',
+  ADD_BOOK: 'addBook',
+  DELETE_BOOK: 'deleteBook',
+  UPDATE_TITLE: 'updateTitle',
+  UPDATE_PROGRESS: 'updateProgress',
+  UPDATE_COVER: 'updateCover',
+} as const
+
+export const OPFS_COMMAND = {
+  WRITE_PDF: 'writePdf',
+  READ_PDF: 'readPdf',
+  DELETE_PDF: 'deletePdf',
 } as const

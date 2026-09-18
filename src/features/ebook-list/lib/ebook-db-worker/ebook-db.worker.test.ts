@@ -1,14 +1,105 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { executeOpfsCommand, isOpfsCommand } from './ebook-db.worker.opfs'
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
+vi.mock('./ebook-db.worker.opfs', () => ({
+  executeOpfsCommand: vi.fn(),
+  isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
+}))
 
 afterEach(() => {
+  vi.clearAllMocks()
   vi.unstubAllGlobals()
   vi.resetModules()
 })
 
 describe('ebook-db.worker', () => {
+  it('OPFS PDF 저장·조회·삭제 명령을 처리한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+    const contentHash = 'a'.repeat(64)
+    const pdfData = new Uint8Array([1, 2, 3]).buffer
+    vi.mocked(executeOpfsCommand)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(new Uint8Array([1, 2, 3]))
+      .mockResolvedValueOnce(undefined)
+
+    class Database {
+      exec(sql: string) {
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 1, command: 'writePdf', payload: { contentHash, pdfData } },
+      }),
+    )
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 2, command: 'readPdf', payload: contentHash },
+      }),
+    )
+    await handler(
+      new MessageEvent('message', {
+        data: { requestId: 3, command: 'deletePdf', payload: contentHash },
+      }),
+    )
+
+    expect(isOpfsCommand).toHaveBeenCalledWith('writePdf')
+    expect(executeOpfsCommand).toHaveBeenNthCalledWith(1, {
+      requestId: 1,
+      command: 'writePdf',
+      payload: { contentHash, pdfData },
+    })
+    expect(executeOpfsCommand).toHaveBeenNthCalledWith(2, {
+      requestId: 2,
+      command: 'readPdf',
+      payload: contentHash,
+    })
+    expect(executeOpfsCommand).toHaveBeenNthCalledWith(3, {
+      requestId: 3,
+      command: 'deletePdf',
+      payload: contentHash,
+    })
+    expect(responses).toHaveBeenNthCalledWith(1, { requestId: 1, result: null })
+    expect(responses).toHaveBeenNthCalledWith(2, {
+      requestId: 2,
+      result: new Uint8Array([1, 2, 3]),
+    })
+    expect(responses).toHaveBeenNthCalledWith(3, { requestId: 3, result: null })
+  })
+
+  it('알 수 없는 명령은 SQLite를 열지 않고 실패로 응답한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.stubGlobal('self', workerScope)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(new MessageEvent('message', { data: { requestId: 4, command: 'unknown' } }))
+
+    expect(sqlite3InitModule).not.toHaveBeenCalled()
+    expect(responses).toHaveBeenCalledWith({ requestId: 4, error: { code: 'storage-failed' } })
+    expect(consoleError).toHaveBeenCalledWith(
+      'ebook-db.worker command failed',
+      expect.objectContaining({ command: 'unknown', error: expect.any(Error) }),
+    )
+  })
+
   it('삽입 중 오류가 나면 트랜잭션을 롤백하고 실패를 응답한다', async () => {
     const statements: string[] = []
     const responses = vi.fn()

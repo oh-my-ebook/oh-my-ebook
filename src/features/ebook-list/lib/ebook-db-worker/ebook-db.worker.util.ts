@@ -18,6 +18,11 @@ export interface UpdateTitleInput {
   title: string
 }
 
+export interface PdfWriteInput {
+  contentHash: string
+  pdfData: ArrayBuffer
+}
+
 export interface WorkerRequest {
   requestId: number
   command: string
@@ -61,6 +66,22 @@ export function isAddBookInput(value: unknown): value is AddBookInput {
       value.coverMime === 'image/png') &&
     'coverStatus' in value &&
     (value.coverStatus === 'ready' || value.coverStatus === 'fallback')
+  )
+}
+
+export function isContentHash(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
+}
+
+export function isPdfWriteInput(value: unknown): value is PdfWriteInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'contentHash' in value &&
+    isContentHash(value.contentHash) &&
+    'pdfData' in value &&
+    value.pdfData instanceof ArrayBuffer &&
+    value.pdfData.byteLength > 0
   )
 }
 

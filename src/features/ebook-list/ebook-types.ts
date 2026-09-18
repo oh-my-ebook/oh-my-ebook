@@ -1,6 +1,8 @@
-import type { EBOOK_STORE_COMMANDS, EBOOK_STORE_ERROR_MESSAGES } from './ebook-consts'
+import type { EBOOK_STORE_ERROR_MESSAGES, OPFS_COMMAND, SQLITE_COMMAND } from './ebook-consts'
 
-export type EbookStoreCommand = (typeof EBOOK_STORE_COMMANDS)[keyof typeof EBOOK_STORE_COMMANDS]
+export type EbookStoreCommand =
+  | (typeof SQLITE_COMMAND)[keyof typeof SQLITE_COMMAND]
+  | (typeof OPFS_COMMAND)[keyof typeof OPFS_COMMAND]
 export type EbookStoreErrorCode = keyof typeof EBOOK_STORE_ERROR_MESSAGES
 
 export interface EbookStoreRequest {
