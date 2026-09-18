@@ -1,17 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +12,7 @@ import {
 import { Ellipsis, Pencil, RefreshCw, Trash2 } from 'lucide-react'
 import type { StoredBook } from '../ebook-types'
 import { DeleteBookDialog } from './delete-book-dialog'
+import { EditBookDialog } from './edit-book-dialog'
 
 interface BookCardProps {
   book: StoredBook
@@ -45,7 +36,6 @@ export function BookCard({
   const imageRef = useRef<HTMLImageElement>(null)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [title, setTitle] = useState(book.title)
   const progress =
     book.last_page === null
       ? `읽지 않음 · 전체 ${book.page_count}페이지`
@@ -91,12 +81,7 @@ export function BookCard({
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
                     {onRename && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setTitle(book.title)
-                          setEditing(true)
-                        }}
-                      >
+                      <DropdownMenuItem onClick={() => setEditing(true)}>
                         <Pencil />책 제목 수정
                       </DropdownMenuItem>
                     )}
@@ -131,38 +116,15 @@ export function BookCard({
           )}
         </CardContent>
       </Card>
-      <Dialog onOpenChange={setEditing} open={editing}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>책 제목 수정</DialogTitle>
-            <DialogDescription>책장에 표시할 제목을 변경합니다.</DialogDescription>
-          </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor={`book-title-${book.id}`}>책 제목</FieldLabel>
-              <Input
-                id={`book-title-${book.id}`}
-                onChange={(event) => setTitle(event.currentTarget.value)}
-                value={title}
-              />
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button onClick={() => setEditing(false)} variant="outline">
-              취소
-            </Button>
-            <Button
-              disabled={title.trim().length === 0}
-              onClick={() => {
-                onRename?.(title.trim())
-                setEditing(false)
-              }}
-            >
-              저장
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {editing && onRename && (
+        <EditBookDialog
+          bookId={book.id}
+          bookTitle={book.title}
+          onOpenChange={setEditing}
+          onRename={onRename}
+          open={editing}
+        />
+      )}
       {onDelete && (
         <DeleteBookDialog
           bookTitle={book.title}
