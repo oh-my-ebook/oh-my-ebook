@@ -1,8 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { XIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { ReaderChat } from './reader-chat'
 
 const PANEL_TITLE = '보조 패널'
