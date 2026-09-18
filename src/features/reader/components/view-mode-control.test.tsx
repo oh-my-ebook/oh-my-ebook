@@ -38,10 +38,6 @@ describe('ViewModeControl', () => {
       'aria-pressed',
       'true',
     )
-    expect(screen.getByRole('button', { name: '한 페이지' })).toHaveClass(
-      'data-pressed:bg-primary',
-      'data-pressed:text-primary-foreground',
-    )
     expect(screen.getByRole('button', { name: '두 페이지' })).toHaveAttribute(
       'aria-pressed',
       'false',

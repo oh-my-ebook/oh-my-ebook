@@ -106,8 +106,9 @@ export function ReaderToolbar({
           onViewChange={onViewChange}
           preferredView={preferredView}
         />
+        {/* 보기 방식 트랙은 배경이 칠해져 있어 아이콘 버튼 옆 구분선과 보이는 간격을 맞추려고 왼쪽을 더 띄운다. */}
         <Separator
-          className="h-5 data-vertical:w-[1.5px] data-vertical:self-center"
+          className="ml-1.5 h-5 data-vertical:w-[1.5px] data-vertical:self-center"
           orientation="vertical"
         />
         <Button
