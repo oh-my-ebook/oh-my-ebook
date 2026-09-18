@@ -44,7 +44,7 @@ test.describe('보조 패널 채팅', () => {
   })
 
   test('넓은 화면에서 키보드로 패널 너비를 조절한다', async ({ page }) => {
-    await page.goto('/')
+    await openReader(page)
     await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
 
     const panel = page.getByRole('region', { name: PANEL_TITLE })
