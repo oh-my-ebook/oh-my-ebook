@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel } from '@/components/ui/resizable'
@@ -20,7 +20,23 @@ interface ReaderPanelProps {
 
 type PanelSectionProps = Omit<ReaderPanelProps, 'isWideScreen'>
 
-function WideReaderPanel({ chatSessionKey, currentPage, onOpenChange, open }: PanelSectionProps) {
+function WideReaderPanel({
+  chatSessionKey,
+  currentPage,
+  onOpenChange,
+  open,
+  openButtonRef,
+}: PanelSectionProps) {
+  // 패널을 열면 채팅 입력창이 포커스를 가져가므로, 닫을 때 열기 버튼으로 되돌리지 않으면
+  // 포커스가 사라진다.
+  const wasOpenRef = useRef(open)
+  useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      openButtonRef.current?.focus()
+    }
+    wasOpenRef.current = open
+  }, [open, openButtonRef])
+
   // 열려 있을 때 포커스 위치와 무관하게 Escape로 닫을 수 있어야 하므로 문서 전체에서 관찰한다.
   // Resizable은 Dialog와 달리 포커스를 가두지 않아 패널 밖(예: 열기 버튼)에 포커스가 있을 수 있다.
   useEffect(() => {

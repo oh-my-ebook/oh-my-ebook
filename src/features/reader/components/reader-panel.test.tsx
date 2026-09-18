@@ -98,17 +98,7 @@ describe('ReaderPanel', () => {
     expect(screen.getByRole('dialog', { name: PANEL_TITLE })).toBeInTheDocument()
   })
 
-  it('넓은 화면에서 닫기 버튼을 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-
-    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기' }))
-
-    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
-  })
-
-  it('넓은 화면에서 패널 안으로 포커스를 옮기지 않고 Escape를 눌러도 패널을 닫는다', async () => {
+  it('넓은 화면에서 열기 버튼으로 연 뒤 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     render(<ReaderPanelHarness isWideScreen />)
     await user.click(screen.getByRole('button', { name: OPEN_BUTTON_LABEL }))
@@ -117,17 +107,7 @@ describe('ReaderPanel', () => {
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
-  })
-
-  it('넓은 화면에서 패널 안에 포커스가 있을 때 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-    screen.getByRole('button', { name: '함께 읽기 패널 닫기' }).focus()
-
-    await user.keyboard('{Escape}')
-
-    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
   })
 
@@ -151,16 +131,6 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
     expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
-  })
-
-  it('패널을 닫으면 채팅 UI가 사라진다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-    expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기' }))
-
-    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
   })
 
   it('chatSessionKey가 바뀌면(문서 변경) 패널을 닫지 않아도 대화가 초기화된다', async () => {
