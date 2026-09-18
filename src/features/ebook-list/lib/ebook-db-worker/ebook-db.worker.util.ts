@@ -13,6 +13,11 @@ export interface UpdateProgressInput {
   page: number
 }
 
+export interface UpdateTitleInput {
+  id: string
+  title: string
+}
+
 export interface WorkerRequest {
   requestId: number
   command: string
@@ -87,6 +92,19 @@ export function isUpdateProgressInput(value: unknown): value is UpdateProgressIn
   )
 }
 
+export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'title' in value &&
+    typeof value.title === 'string' &&
+    value.title.trim().length > 0
+  )
+}
+
 export function getPayload<T>(
   request: WorkerRequest,
   command: string,
@@ -120,4 +138,8 @@ export function normalizeStoredProgress(
     bind: [Date.now(), id],
   })
   return { ...book, last_page: 1 }
+}
+
+export function isRowAffected(database: Database): boolean {
+  return database.selectValue('SELECT changes()') === 1
 }

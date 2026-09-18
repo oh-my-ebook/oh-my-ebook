@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { UploadItem } from '../components/pdf-upload'
+import { toast } from '@/components/ui/toast'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
@@ -26,30 +26,14 @@ export function useEbookUpload({
   refreshBooks,
   refreshCapacity,
 }: UseEbookUploadOptions) {
-  const [items, setItems] = useState<UploadItem[]>([])
   const [isUploading, setIsUploading] = useState(false)
-
-  function updateItem(id: string, status: UploadItem['status'], message?: string) {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, status, message } : item)),
-    )
-  }
 
   async function addFiles(files: File[]) {
     if (isUploading || !isLibraryReady) return
 
     setIsUploading(true)
-    const queued = files.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      status: 'pending' as const,
-    }))
-    setItems(queued)
-
     try {
-      for (const [index, file] of files.entries()) {
-        const id = queued[index].id
-        updateItem(id, 'processing')
+      for (const file of files) {
         try {
           const currentCapacity = await getStorageCapacity()
           if (currentCapacity && file.size > currentCapacity.remaining) {
@@ -57,30 +41,26 @@ export function useEbookUpload({
           }
           const analyzed = await analyzePdf(file)
           await store.addBook(analyzed)
-          updateItem(id, 'success')
+          toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
         } catch (error) {
-          updateItem(id, 'error', failureMessage(error))
+          toast.add({
+            title: `${file.name}을 추가하지 못했습니다.`,
+            description: failureMessage(error),
+            type: 'error',
+          })
         } finally {
-          await refreshCapacity()
           try {
+            await refreshCapacity()
             await refreshBooks()
           } catch {
             /* 다음 파일은 계속 처리한다. */
           }
         }
       }
-    } catch (error) {
-      setItems((current) =>
-        current.map((item) =>
-          item.status === 'pending' || item.status === 'processing'
-            ? { ...item, status: 'error', message: failureMessage(error) }
-            : item,
-        ),
-      )
     } finally {
       setIsUploading(false)
     }
   }
 
-  return { addFiles, isUploading, items }
+  return { addFiles, isUploading }
 }

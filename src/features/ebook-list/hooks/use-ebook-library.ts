@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
@@ -103,6 +104,21 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     refreshCapacity: storage.refreshCapacity,
   })
 
+  async function renameBook(bookId: string, title: string) {
+    try {
+      await store.request('updateTitle', { id: bookId, title })
+    } catch {
+      toast.add({ title: '책 제목을 수정하지 못했습니다.', type: 'error' })
+      return
+    }
+    void refreshLibrary()
+  }
+
+  async function deleteBook(bookId: string) {
+    await store.request('deleteBook', bookId)
+    void refreshLibrary()
+  }
+
   return {
     state,
     retry,
@@ -111,7 +127,6 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     refreshing,
     capacity: storage.capacity,
     refreshCapacity: storage.refreshCapacity,
-    items: upload.items,
     isUploading: upload.isUploading,
     persistentStorage: storage.persistentStorage,
     requestPersistence: storage.requestPersistence,
@@ -119,5 +134,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     regenerateCover: coverRegeneration.regenerateCover,
     coverErrors: coverRegeneration.coverErrors,
     regeneratingCover: coverRegeneration.regeneratingCover,
+    renameBook,
+    deleteBook,
   }
 }

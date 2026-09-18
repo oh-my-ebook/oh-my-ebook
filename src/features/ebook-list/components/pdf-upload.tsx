@@ -1,35 +1,34 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { FileUp, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-
-export interface UploadItem {
-  id: string
-  name: string
-  status: 'pending' | 'processing' | 'success' | 'error'
-  message?: string
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 interface PdfUploadProps {
-  items: UploadItem[]
   isUploading?: boolean
   disabled?: boolean
   onFilesSelected(files: File[]): void
 }
 
-const labels = {
-  pending: '대기 중',
-  processing: '처리 중',
-  success: '완료',
-  error: '실패',
-}
-
 export function PdfUpload({
-  items,
   isUploading = false,
   disabled = false,
   onFilesSelected,
 }: PdfUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const unavailable = disabled || isUploading
+  function selectFiles(files: File[]) {
+    if (files.length === 0 || unavailable) return
+    onFilesSelected(files)
+    setOpen(false)
+  }
 
   return (
     <section aria-label="PDF 업로드">
@@ -40,29 +39,53 @@ export function PdfUpload({
         type="file"
         accept=".pdf,application/pdf"
         multiple
-        disabled={disabled || isUploading}
+        disabled={unavailable}
         onChange={(event) => {
-          const files = Array.from(event.currentTarget.files ?? [])
+          selectFiles(Array.from(event.currentTarget.files ?? []))
           event.currentTarget.value = ''
-          if (files.length > 0 && !isUploading && !disabled) onFilesSelected(files)
         }}
       />
-      <Button disabled={disabled || isUploading} onClick={() => inputRef.current?.click()}>
-        PDF 추가
-      </Button>
-      {items.length > 0 && (
-        <ul aria-label="파일별 업로드 결과" className="mt-3 flex flex-col gap-2">
-          {items.map((item) => (
-            <li key={item.id} className="flex flex-col gap-1">
-              <span>{item.name}</span>
-              <span role="status">{item.message ?? labels[item.status]}</span>
-              {item.status === 'processing' && (
-                <Progress aria-label={`${item.name} 처리 중`} value={null} />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <Dialog onOpenChange={setOpen} open={open}>
+        <DialogTrigger render={<Button disabled={unavailable} />}>
+          <Upload data-icon="inline-start" />
+          PDF 업로드
+        </DialogTrigger>
+        <DialogContent className="max-w-lg p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>도서 추가</DialogTitle>
+            <DialogDescription>
+              내 기기에 있는 PDF를 이 브라우저 서재에 등록합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            aria-label="PDF 파일 놓기 영역"
+            className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-muted/40 p-6 text-center"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault()
+              selectFiles(Array.from(event.dataTransfer.files))
+            }}
+          >
+            <FileUp className="text-primary" />
+            <div className="flex flex-col gap-1">
+              <p className="font-medium">PDF 파일을 이곳으로 끌어다 놓으세요</p>
+              <p className="text-sm text-muted-foreground">
+                또는 컴퓨터에서 직접 선택할 수 있습니다.
+              </p>
+            </div>
+            <Button
+              disabled={unavailable}
+              onClick={() => inputRef.current?.click()}
+              variant="outline"
+            >
+              컴퓨터에서 파일 선택
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            서버 전송 없이 이 브라우저에만 보관됩니다.
+          </p>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

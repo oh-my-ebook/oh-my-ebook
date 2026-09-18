@@ -13,8 +13,10 @@ import {
 import {
   getPayload,
   isAddBookInput,
+  isRowAffected,
   isUpdateCoverInput,
   isUpdateProgressInput,
+  isUpdateTitleInput,
   isWorkerRequest,
   normalizeStoredProgress,
   type WorkerRequest,
@@ -139,6 +141,14 @@ function listBooks(database: Database): unknown {
   )
 }
 
+function hasBook(database: Database, request: WorkerRequest): undefined {
+  const id = getBookId(request)
+  if (!database.selectValue('SELECT 1 FROM books WHERE id = ?', [id])) {
+    throw new DeletedBookError()
+  }
+  return undefined
+}
+
 function handleAddBook(database: Database, request: WorkerRequest): string {
   return addBook(database, getPayload(request, request.command, isAddBookInput))
 }
@@ -160,7 +170,23 @@ function updateProgress(database: Database, request: WorkerRequest): undefined {
      WHERE id = ? AND ? <= page_count`,
     { bind: [input.page, Date.now(), input.id, input.page] },
   )
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (!isRowAffected(database)) throw new DeletedBookError()
+  return undefined
+}
+
+function updateTitle(database: Database, request: WorkerRequest): undefined {
+  const input = getPayload(request, request.command, isUpdateTitleInput)
+  database.exec('UPDATE books SET title = ?, updated_at = ? WHERE id = ?', {
+    bind: [input.title.trim(), Date.now(), input.id],
+  })
+  if (!isRowAffected(database)) throw new DeletedBookError()
+  return undefined
+}
+
+function deleteBook(database: Database, request: WorkerRequest): undefined {
+  const id = getBookId(request)
+  database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
+  if (!isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
@@ -172,7 +198,7 @@ function updateCover(database: Database, request: WorkerRequest): undefined {
       bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
     },
   )
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (!isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
@@ -182,12 +208,18 @@ function executeCommand(database: Database, request: WorkerRequest): unknown {
       return initializeDatabase()
     case 'listBooks':
       return listBooks(database)
+    case 'hasBook':
+      return hasBook(database, request)
     case 'addBook':
       return handleAddBook(database, request)
     case 'getBook':
       return getBook(database, request)
     case 'updateProgress':
       return updateProgress(database, request)
+    case 'updateTitle':
+      return updateTitle(database, request)
+    case 'deleteBook':
+      return deleteBook(database, request)
     case 'updateCover':
       return updateCover(database, request)
     default:
