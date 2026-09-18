@@ -91,7 +91,12 @@ export function BookCard({
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
                     {onRename && (
-                      <DropdownMenuItem onClick={() => setEditing(true)}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setTitle(book.title)
+                          setEditing(true)
+                        }}
+                      >
                         <Pencil />책 제목 수정
                       </DropdownMenuItem>
                     )}
