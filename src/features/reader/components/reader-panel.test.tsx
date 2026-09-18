@@ -20,28 +20,36 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
   const openButtonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(initialOpen)
 
-  const content = (
-    <div>
-      <button onClick={() => setOpen(true)} ref={openButtonRef} type="button">
-        {OPEN_BUTTON_LABEL}
-      </button>
-      <ReaderPanel
-        chatSessionKey={chatSessionKey}
-        isWideScreen={isWideScreen}
-        onOpenChange={setOpen}
-        open={open}
-        openButtonRef={openButtonRef}
-      />
-    </div>
+  const openButton = (
+    <button onClick={() => setOpen(true)} ref={openButtonRef} type="button">
+      {OPEN_BUTTON_LABEL}
+    </button>
+  )
+  const readerPanel = (
+    <ReaderPanel
+      chatSessionKey={chatSessionKey}
+      isWideScreen={isWideScreen}
+      onOpenChange={setOpen}
+      open={open}
+      openButtonRef={openButtonRef}
+    />
   )
 
   if (!isWideScreen) {
-    return content
+    return (
+      <>
+        {openButton}
+        {readerPanel}
+      </>
+    )
   }
 
+  // react-resizable-panels는 Panel과 Separator가 Group의 직접 DOM 자식이어야 하므로
+  // reader.tsx처럼 ReaderPanel을 본문 Panel의 형제로 둔다.
   return (
     <ResizablePanelGroup orientation="horizontal">
-      <ResizablePanel defaultSize="70%">{content}</ResizablePanel>
+      <ResizablePanel defaultSize="70%">{openButton}</ResizablePanel>
+      {readerPanel}
     </ResizablePanelGroup>
   )
 }
@@ -139,9 +147,10 @@ describe('ReaderPanel', () => {
       <ReaderPanelHarness chatSessionKey="doc-a" initialOpen isWideScreen />,
     )
 
-    const input = screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })
-    await user.type(input, '질문')
-    await user.keyboard('{Enter}')
+    // jsdom에서는 요소 크기가 모두 0이라 react-resizable-panels가 모든 클릭을 구분선 드래그로
+    // 판정해 포커스 이동을 막는다. 클릭 없이 입력하도록 포커스만 옮긴다.
+    screen.getByRole('textbox', { name: CHAT_INPUT_LABEL }).focus()
+    await user.keyboard('질문{Enter}')
     expect(await screen.findByText('질문')).toBeInTheDocument()
 
     rerender(<ReaderPanelHarness chatSessionKey="doc-b" initialOpen isWideScreen />)
