@@ -234,7 +234,7 @@ export function PdfViewport(props: PdfViewportProps) {
     >
       <div
         aria-label={status === 'loading' ? `PDF ${pageRange}페이지 표시 중` : undefined}
-        className="flex min-h-full w-max min-w-full items-start justify-center gap-reader-spread-gap"
+        className="flex min-h-full w-max min-w-full items-center justify-center gap-reader-spread-gap"
         hidden={status === 'error'}
         ref={canvasContainerRef}
         role={status === 'loading' ? 'status' : undefined}
