@@ -24,7 +24,7 @@ colors:
   dark-card: '#201F1A'
   dark-muted: '#2F2D26'
   dark-muted-foreground: '#948F80'
-  dark-border: '#2F2D26'
+  dark-border: '#3D3A33'
   dark-input: '#948F80'
   dark-accent: '#26322B'
   dark-destructive: '#D98A63'

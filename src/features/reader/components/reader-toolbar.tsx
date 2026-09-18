@@ -65,7 +65,10 @@ export function ReaderToolbar({
         >
           <ArrowLeftIcon />
         </Button>
-        <Separator className="h-5 data-vertical:self-center" orientation="vertical" />
+        <Separator
+          className="h-5 data-vertical:w-[1.5px] data-vertical:self-center"
+          orientation="vertical"
+        />
         <Sheet onOpenChange={setTocOpen} open={tocOpen}>
           <SheetTrigger
             render={
@@ -103,7 +106,10 @@ export function ReaderToolbar({
           onViewChange={onViewChange}
           preferredView={preferredView}
         />
-        <Separator className="h-5 data-vertical:self-center" orientation="vertical" />
+        <Separator
+          className="h-5 data-vertical:w-[1.5px] data-vertical:self-center"
+          orientation="vertical"
+        />
         <Button
           aria-label={dark ? '밝은 테마' : '어두운 테마'}
           onClick={toggleTheme}
