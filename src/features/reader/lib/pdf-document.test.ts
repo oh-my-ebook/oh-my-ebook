@@ -79,7 +79,10 @@ describe('loadPdfDocument', () => {
 
     await loadPdfDocument(data, controller.signal)
 
-    expect(getDocumentMock).toHaveBeenCalledWith({ data })
+    const documentData = getDocumentMock.mock.calls[0][0]
+
+    expect(documentData.data).not.toBe(data)
+    expect(documentData.data).toEqual(data)
   })
 
   it('페이지 크기 조회가 실패하면 페이지 정보 오류로 변환한다', async () => {

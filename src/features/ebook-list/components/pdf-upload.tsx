@@ -11,15 +11,19 @@ import {
 } from '@/components/ui/dialog'
 
 interface PdfUploadProps {
-  busy?: boolean
+  isUploading?: boolean
   disabled?: boolean
   onFilesSelected(files: File[]): void
 }
 
-export function PdfUpload({ busy = false, disabled = false, onFilesSelected }: PdfUploadProps) {
+export function PdfUpload({
+  isUploading = false,
+  disabled = false,
+  onFilesSelected,
+}: PdfUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
-  const unavailable = disabled || busy
+  const unavailable = disabled || isUploading
   function selectFiles(files: File[]) {
     if (files.length === 0 || unavailable) return
     onFilesSelected(files)

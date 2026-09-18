@@ -7,7 +7,7 @@ import { EbookListPage } from './pages/ebook-list-page'
 function EbookReaderRoute() {
   const { bookId } = useParams()
   if (!bookId || !ebookStore) return <EbookListPage />
-  return <EbookReaderPage bookId={bookId} store={ebookStore} />
+  return <EbookReaderPage key={bookId} bookId={bookId} store={ebookStore} />
 }
 
 function App() {

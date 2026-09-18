@@ -16,7 +16,7 @@
   },
   "overrides": [
     {
-      "files": ["src/components/ui/**/*.tsx"],
+      "files": ["src/components/ui/**/*.tsx", "src/components/assistant-ui/**/*.tsx"],
       "rules": {
         "react/only-export-components": "off"
       }
