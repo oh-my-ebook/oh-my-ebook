@@ -359,6 +359,34 @@ describe('WebLLM 모델 로딩과 상태', () => {
     )
   })
 
+  it('메모리 부족 오류에 "다운로드"가 섞여 있어도 네트워크 오류로 잘못 안내하지 않는다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    mockCreateWebWorkerMLCEngine(
+      vi.fn().mockRejectedValue(new Error('out of memory while downloading model shard')),
+    )
+    const { prepareWebLlmModel, getWebLlmModelError } = await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getWebLlmModelError()).toBe(
+      'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.',
+    )
+  })
+
+  it('메모리·GPU와 무관하게 "GPU"만 언급된 오류는 GPU 메모리 안내로 단정하지 않는다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    mockCreateWebWorkerMLCEngine(vi.fn().mockRejectedValue(new Error('failed to query GPU vendor')))
+    const { prepareWebLlmModel, getWebLlmModelError } = await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getWebLlmModelError()).toBe(
+      'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.',
+    )
+  })
+
   it('워커 로딩 중 오류가 발생하면 안내 메시지를 남긴다', async () => {
     restoreGpu.push(stubSupportedGpu())
     const workerInstances = stubWorker()
