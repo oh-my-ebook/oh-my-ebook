@@ -139,3 +139,7 @@ export function normalizeStoredProgress(
   })
   return { ...book, last_page: 1 }
 }
+
+export function isRowAffected(database: Database): boolean {
+  return database.selectValue('SELECT changes()') === 1
+}

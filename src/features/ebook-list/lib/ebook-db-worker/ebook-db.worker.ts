@@ -13,6 +13,7 @@ import {
 import {
   getPayload,
   isAddBookInput,
+  isRowAffected,
   isUpdateCoverInput,
   isUpdateProgressInput,
   isUpdateTitleInput,
@@ -169,7 +170,7 @@ function updateProgress(database: Database, request: WorkerRequest): undefined {
      WHERE id = ? AND ? <= page_count`,
     { bind: [input.page, Date.now(), input.id, input.page] },
   )
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
@@ -178,14 +179,14 @@ function updateTitle(database: Database, request: WorkerRequest): undefined {
   database.exec('UPDATE books SET title = ?, updated_at = ? WHERE id = ?', {
     bind: [input.title.trim(), Date.now(), input.id],
   })
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
 function deleteBook(database: Database, request: WorkerRequest): undefined {
   const id = getBookId(request)
   database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
@@ -197,7 +198,7 @@ function updateCover(database: Database, request: WorkerRequest): undefined {
       bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
     },
   )
-  if (database.selectValue('SELECT changes()') !== 1) throw new DeletedBookError()
+  if (isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
