@@ -4,13 +4,13 @@ import { Reader } from '@/features/reader/components/reader'
 import { BookOpen, RefreshCw, TriangleAlert } from 'lucide-react'
 import {
   type EbookReaderStore,
-  useEbookReaderBook,
-} from '@/features/reader/hooks/use-ebook-reader-book'
+  useEbookReadingSession,
+} from '@/features/reader/hooks/use-ebook-reading-session'
 
 export type { EbookReaderStore }
 
 export function EbookReaderPage({ bookId, store }: { bookId: string; store: EbookReaderStore }) {
-  const { retry, saveProgress, state } = useEbookReaderBook(bookId, store)
+  const { retry, saveReadingPosition, state } = useEbookReadingSession(bookId, store)
 
   if (state.status === 'loading') {
     return <p role="status">책을 불러오는 중</p>
@@ -45,7 +45,7 @@ export function EbookReaderPage({ bookId, store }: { bookId: string; store: Eboo
     <Reader
       data={state.book.pdfData}
       initialPage={state.book.lastPage ?? 1}
-      onPageChange={saveProgress}
+      onPageChange={saveReadingPosition}
       title={state.book.title}
     />
   )
