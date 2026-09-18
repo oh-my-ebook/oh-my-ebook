@@ -8,6 +8,16 @@ import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
+// ModelDownloadAlert가 이 화면에도 함께 렌더링되므로, real getWebLlmModelStatus 등을 그대로 두면
+// 이 테스트가 다운로드 버튼을 누르는 시나리오를 추가했을 때 jsdom에 없는 navigator.gpu 등
+// 실제 WebGPU 경로를 의도치 않게 타게 된다. 상태를 항상 'idle'로 고정해 원천 차단한다.
+const webLlmModelMock = vi.hoisted(() => ({
+  getError: () => undefined,
+  getProgress: () => 0,
+  getStatus: () => 'idle' as const,
+  prepare: vi.fn(async () => undefined),
+  subscribe: () => () => undefined,
+}))
 
 vi.mock('../lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
@@ -26,6 +36,11 @@ vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
   }
   return {
     ...webLlmChatAdapter,
+    getWebLlmModelError: webLlmModelMock.getError,
+    getWebLlmModelProgress: webLlmModelMock.getProgress,
+    getWebLlmModelStatus: webLlmModelMock.getStatus,
+    prepareWebLlmModel: webLlmModelMock.prepare,
+    subscribeWebLlmModelStatus: webLlmModelMock.subscribe,
     webLlmChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
   }
 })
@@ -133,6 +148,7 @@ describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
     respondSpy.mockReset()
+    webLlmModelMock.prepare.mockReset()
     vi.unstubAllGlobals()
   })
 

@@ -46,6 +46,14 @@ const webLlmModelMock = vi.hoisted(() => {
 vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
   const webLlmChatAdapter =
     await importOriginal<typeof import('../lib/web-llm/webllm-chat-adapter')>()
+  const mockChatAdapter = await import('../lib/mock-chat-adapter')
+  // 실제 테스트는 전부 ReaderChat에 chatModel prop을 명시하므로 이 기본값은 쓰이지 않아야 한다.
+  // 그래도 real webLlmChatModelAdapter를 그대로 두면, 누군가 prop 지정을 깜빡한 새 테스트를
+  // 추가했을 때 jsdom에 없는 navigator.gpu 등 실제 WebGPU 경로를 의도치 않게 타게 된다.
+  // oxlint-disable-next-line require-yield
+  async function* unexpectedRespond(): AsyncGenerator<string, void> {
+    throw new Error('이 테스트는 ReaderChat에 chatModel prop을 지정하지 않았습니다.')
+  }
   return {
     ...webLlmChatAdapter,
     getWebLlmModelError: webLlmModelMock.getError,
@@ -53,6 +61,7 @@ vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
     getWebLlmModelStatus: webLlmModelMock.getStatus,
     prepareWebLlmModel: webLlmModelMock.prepare,
     subscribeWebLlmModelStatus: webLlmModelMock.subscribe,
+    webLlmChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(unexpectedRespond),
   }
 })
 
