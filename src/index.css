@@ -82,7 +82,6 @@
   --reader-highlight: oklch(0.9745 0.0523 99.07);
   --reader-code: oklch(0.2386 0.0094 97.75);
   --reader-code-foreground: oklch(0.9154 0.0179 92.69);
-  --shelf: oklch(0.8984 0.0375 90.08);
   --ocr-highlight: oklch(0.8823 0.0571 254.13);
 }
 
@@ -119,7 +118,6 @@
   --reader-highlight: oklch(0.3036 0.0205 159.31);
   --reader-code: oklch(0.1688 0.0044 84.59);
   --reader-code-foreground: oklch(0.8611 0.0185 89.37);
-  --shelf: oklch(0.2721 0.0145 95.57);
   --ocr-highlight: oklch(0.7137 0.1434 254.62);
 }
 
@@ -151,7 +149,6 @@
   --color-reader-highlight: var(--reader-highlight);
   --color-reader-code: var(--reader-code);
   --color-reader-code-foreground: var(--reader-code-foreground);
-  --color-shelf: var(--shelf);
   --color-ocr-highlight: var(--ocr-highlight);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
