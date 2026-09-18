@@ -49,7 +49,11 @@ async function saveBook(request: WorkerRequest): Promise<string> {
     await writePdf(input.contentHash, input.pdfData)
     return id
   } catch (error) {
-    deleteBookById(database, id)
+    try {
+      deleteBookById(database, id)
+    } catch {
+      console.error('Failed to delete book from SQLite', { id })
+    }
     throw error
   }
 }
