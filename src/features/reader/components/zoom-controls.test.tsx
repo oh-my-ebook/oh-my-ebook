@@ -49,12 +49,12 @@ describe('ZoomControls', () => {
     await user.keyboard('{Enter}')
 
     await user.tab()
-    expect(screen.getByRole('button', { name: '확대' })).toHaveFocus()
-    await user.keyboard(' ')
-
-    await user.tab()
     expect(screen.getByRole('button', { name: '높이 맞춤' })).toHaveFocus()
     await user.keyboard('{Enter}')
+
+    await user.tab()
+    expect(screen.getByRole('button', { name: '확대' })).toHaveFocus()
+    await user.keyboard(' ')
 
     expect(props.onZoomOut).toHaveBeenCalledOnce()
     expect(props.onZoomIn).toHaveBeenCalledOnce()

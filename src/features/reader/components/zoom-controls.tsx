@@ -1,3 +1,4 @@
+import { MinusIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ZoomControlsProps {
@@ -24,35 +25,37 @@ export function ZoomControls({
   return (
     <div role="group" aria-label="크기 조절" className="flex flex-wrap items-center gap-1">
       <Button
+        aria-label="축소"
         type="button"
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon-sm"
         disabled={disabled || !canZoomOut}
         onClick={onZoomOut}
       >
-        축소
-      </Button>
-      <output role="status" aria-label="현재 확대율">
-        {Math.round(scale * 100)}%
-      </output>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={disabled || !canZoomIn}
-        onClick={onZoomIn}
-      >
-        확대
+        <MinusIcon />
       </Button>
       <Button
         type="button"
-        variant={isFitHeight ? 'secondary' : 'outline'}
+        variant={isFitHeight ? 'secondary' : 'ghost'}
         size="sm"
+        aria-label="높이 맞춤"
         aria-pressed={isFitHeight}
         disabled={disabled}
         onClick={onFitHeight}
       >
-        높이 맞춤
+        <output role="status" aria-label="현재 확대율">
+          {Math.round(scale * 100)}%
+        </output>
+      </Button>
+      <Button
+        aria-label="확대"
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        disabled={disabled || !canZoomIn}
+        onClick={onZoomIn}
+      >
+        <PlusIcon />
       </Button>
     </div>
   )
