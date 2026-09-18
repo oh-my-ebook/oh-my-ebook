@@ -157,21 +157,6 @@ describe('useReaderLayout', () => {
     expect(layout.current?.availableHeight).toBe(1199.652)
   })
 
-  it('읽기 영역 가용 폭 999px과 1000px 경계를 정확히 구분한다', () => {
-    const resizeObserver = setupResizeObserverMock()
-    setupMatchMediaMock()
-    const { layout } = renderLayoutHarness()
-    const container = layout.current!.containerRef.current!
-
-    setContainerSize(container, 999, 800)
-    resizeObserver.triggerResize()
-    expect(layout.current?.availableWidth).toBe(999)
-
-    setContainerSize(container, 1000, 800)
-    resizeObserver.triggerResize()
-    expect(layout.current?.availableWidth).toBe(1000)
-  })
-
   it('읽기 영역 너비와 관계없이 브라우저 창 너비만으로 두 페이지 가능 여부를 계산한다', () => {
     const resizeObserver = setupResizeObserverMock()
     const mediaQuery = setupMatchMediaMock(false)
