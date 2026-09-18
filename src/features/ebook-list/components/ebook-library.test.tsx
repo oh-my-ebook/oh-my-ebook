@@ -324,6 +324,56 @@ describe('EbookLibrary', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('제목 저장 후 목록 갱신 실패는 새로고침 오류로 알린다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    let listRequestCount = 0
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') {
+        listRequestCount += 1
+        if (listRequestCount === 1) return [createStoredBook('기존 책')]
+        throw new Error('failed')
+      }
+      return null
+    })
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByText('기존 책')
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 제목 수정' }))
+    await user.click(screen.getByRole('button', { name: '저장' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('책장을 새로고침하지 못했습니다.')
+    expect(screen.queryByText('책 제목을 수정하지 못했습니다.')).not.toBeInTheDocument()
+  })
+
+  it('삭제 저장 후 목록 갱신이 실패해도 삭제 다이얼로그를 닫는다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    let listRequestCount = 0
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') {
+        listRequestCount += 1
+        if (listRequestCount === 1) return [createStoredBook('기존 책')]
+        throw new Error('failed')
+      }
+      return null
+    })
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByText('기존 책')
+    await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('책장을 새로고침하지 못했습니다.')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
   it('다른 탭에서 삭제된 책은 리더로 이동하지 않고 토스트로 알린다', async () => {
     const user = userEvent.setup()
     const onOpenBook = vi.fn()

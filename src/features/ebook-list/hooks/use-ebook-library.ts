@@ -107,15 +107,16 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   async function renameBook(bookId: string, title: string) {
     try {
       await store.request('updateTitle', { id: bookId, title })
-      await Promise.all([refreshBooks(), storage.refreshCapacity()])
     } catch {
       toast.add({ title: '책 제목을 수정하지 못했습니다.', type: 'error' })
+      return
     }
+    void refreshLibrary()
   }
 
   async function deleteBook(bookId: string) {
     await store.request('deleteBook', bookId)
-    await Promise.all([refreshBooks(), storage.refreshCapacity()])
+    void refreshLibrary()
   }
 
   return {
