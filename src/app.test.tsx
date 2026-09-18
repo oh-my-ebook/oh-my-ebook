@@ -145,7 +145,7 @@ describe('App', () => {
   it('제목이 없으면 전체 파일명을 제목으로 표시한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />)
+    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: MemoryRouter })
 
     expect(screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })).toBeInTheDocument()
   })

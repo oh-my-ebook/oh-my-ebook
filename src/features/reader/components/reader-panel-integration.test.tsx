@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
@@ -129,7 +130,7 @@ async function renderLoadedReader(
   vi.stubGlobal('devicePixelRatio', 1)
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  render(<Reader url="/sample.pdf" />)
+  render(<Reader url="/sample.pdf" />, { wrapper: MemoryRouter })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -146,7 +147,7 @@ describe('Reader 보조 패널 연결', () => {
     vi.unstubAllGlobals()
   })
 
-  it('넓은 화면에서 패널을 열면 본문 옆 영역이 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
+  it('넓은 화면에서 패널을 열면 본문 옆 영역이 표시되고, 같은 버튼으로 닫는다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
@@ -158,10 +159,10 @@ describe('Reader 보조 패널 연결', () => {
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
     expect(screen.getByRole('separator', { name: '함께 읽기 패널 너비 조절' })).toBeInTheDocument()
 
-    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기', pressed: true }))
 
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: PANEL_OPEN_LABEL })).toHaveFocus()
+    expect(screen.getByRole('button', { name: PANEL_OPEN_LABEL, pressed: false })).toHaveFocus()
   })
 
   it('좁은 화면에서 패널을 열면 Sheet로 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
