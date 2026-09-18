@@ -109,7 +109,7 @@ YAML은 토큰 값, 본문은 적용 규칙을 정의한다.
 ## Layout
 
 - 아래 수치와 spacing 토큰은 페이지·전자책 배치 전용이다.
-  `@theme`의 `--spacing-reader-*`에 연결해 `gap-reader-spread-gap`, `p-reader-page-mobile`로 사용한다.
+  `@theme`의 `--spacing-reader-*`에 연결해 `gap-reader-spread-gap`로 사용한다.
 - 랜딩 최대 폭 900px, 좌우 여백 16–32px.
 - 리더 상·하단 바는 최소 48px. 중앙 지면과 오른쪽 320px 질문 패널은 각각 스크롤한다.
 - HTML 지면은 단면 최대 640px, 안쪽 여백은 데스크톱 세로 72px·가로 80px, 모바일 24px.

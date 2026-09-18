@@ -164,7 +164,6 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --spacing-reader-spread-gap: 1rem;
-  --spacing-reader-page-mobile: 1.5rem;
   --radius-reader-page: 0.125rem;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
