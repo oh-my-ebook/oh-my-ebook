@@ -9,7 +9,7 @@ import type { PageViewMode } from '../lib/page-spread'
 
 // 트랙(radius-md, 패딩 2px) 안의 항목이라 모서리를 한 단계 줄이고, 선택 항목은 shadcn Tabs처럼 트랙 위에 떠 보이게 한다.
 const SEGMENT_ITEM_CLASS_NAME =
-  "h-7 w-8 min-w-0 rounded-sm border border-transparent px-0 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-card data-pressed:text-foreground data-pressed:shadow-sm dark:data-pressed:border-input dark:data-pressed:bg-input/30 [&_svg:not([class*='size-'])]:size-4"
+  "h-7 w-8 min-w-0 rounded-sm border border-transparent px-0 hover:bg-transparent data-pressed:bg-card data-pressed:shadow-sm dark:data-pressed:border-input dark:data-pressed:bg-input/30 [&_svg:not([class*='size-'])]:size-4"
 
 interface ViewModeControlProps {
   preferredView: PageViewMode
