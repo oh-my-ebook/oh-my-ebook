@@ -144,6 +144,17 @@ describe('ReaderChat', () => {
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('모델 다운로드 연결에 실패했습니다.')
+    expect(screen.getByRole('button', { name: '모델 다운로드 재시도' })).toBeInTheDocument()
+  })
+
+  it('모델 다운로드 중에는 버튼의 접근 가능한 이름도 진행 상태를 알려준다', () => {
+    setupResizeObserverMock()
+    webLlmModelMock.setStatus('loading')
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByRole('button', { name: '모델 다운로드 중' })).toBeInTheDocument()
   })
 
   it('Enter로 전송하면 질문이 먼저 표시되고 응답이 스트리밍 조각으로 갱신되며 완료되면 스트리밍 상태가 해제된다', async () => {

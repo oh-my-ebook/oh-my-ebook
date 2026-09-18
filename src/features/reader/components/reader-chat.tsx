@@ -72,7 +72,15 @@ function ModelDownloadAlert() {
       <AlertDescription>{statusText}</AlertDescription>
       <AlertAction>
         <Button
-          aria-label={isReady ? '모델 준비 완료' : '모델 다운로드'}
+          aria-label={
+            isReady
+              ? '모델 준비 완료'
+              : isLoading
+                ? '모델 다운로드 중'
+                : status === 'error'
+                  ? '모델 다운로드 재시도'
+                  : '모델 다운로드'
+          }
           disabled={isLoading || isReady}
           onClick={() => prepareWebLlmModel().catch(() => undefined)}
           size="xs"
