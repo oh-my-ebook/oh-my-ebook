@@ -7,6 +7,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @utility reader-slider {
+
   &[data-dragging] [data-slot='slider-range'],
   &[data-dragging] [data-slot='slider-thumb'] {
     @apply transition-none;
@@ -28,8 +29,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2')
-    format('woff2');
+  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2');
 }
 
 @font-face {
@@ -37,8 +37,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-Regular.woff2')
-    format('woff2');
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-Regular.woff2') format('woff2');
 }
 
 @font-face {
@@ -46,83 +45,82 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-SemiBold.woff2')
-    format('woff2');
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-SemiBold.woff2') format('woff2');
 }
 
 :root {
   color-scheme: light;
   --radius: 0.625rem;
-  --background: #f1eee5;
-  --foreground: #1f201c;
-  --card: #fffdf8;
-  --card-foreground: #1f201c;
-  --popover: #fffdf8;
-  --popover-foreground: #1f201c;
-  --primary: #3a6b55;
-  --primary-foreground: #f4f3ee;
-  --secondary: #faf7ef;
-  --secondary-foreground: #4a4840;
-  --muted: #ede9dc;
-  --muted-foreground: #4a4840;
-  --accent: #e5ede4;
-  --accent-foreground: #3a6b55;
-  --destructive: #a6512f;
-  --border: #e0dbcc;
-  --input: #7e7b6f;
-  --ring: #3a6b55;
-  --sidebar: #fffdf8;
-  --sidebar-foreground: #1f201c;
-  --sidebar-primary: #1f201c;
-  --sidebar-primary-foreground: #f4f3ee;
-  --sidebar-accent: #e5ede4;
-  --sidebar-accent-foreground: #3a6b55;
-  --sidebar-border: #e0dbcc;
-  --sidebar-ring: #3a6b55;
-  --reader-page: #faf7ef;
-  --reader-link: #3a6b55;
-  --reader-highlight: #fff8d0;
-  --reader-code: #201f1a;
-  --reader-code-foreground: #e7e3d6;
-  --shelf: #e7ddc2;
-  --ocr-highlight: #bfdbfe;
+  --background: oklch(0.949 0.0124 91.52);
+  --foreground: oklch(0.241 0.0076 118.38);
+  --card: oklch(0.9942 0.0069 88.64);
+  --card-foreground: oklch(0.241 0.0076 118.38);
+  --popover: oklch(0.9942 0.0069 88.64);
+  --popover-foreground: oklch(0.241 0.0076 118.38);
+  --primary: oklch(0.4862 0.0647 163.34);
+  --primary-foreground: oklch(0.9635 0.0067 97.35);
+  --secondary: oklch(0.9763 0.011 89.72);
+  --secondary-foreground: oklch(0.401 0.0133 95.39);
+  --muted: oklch(0.9336 0.0178 92.69);
+  --muted-foreground: oklch(0.401 0.0133 95.39);
+  --accent: oklch(0.9375 0.0147 142.23);
+  --accent-foreground: oklch(0.4862 0.0647 163.34);
+  --destructive: oklch(0.5339 0.1219 41.55);
+  --border: oklch(0.8913 0.0209 91.6);
+  --input: oklch(0.582 0.0182 95.37);
+  --ring: oklch(0.4862 0.0647 163.34);
+  --sidebar: oklch(0.9942 0.0069 88.64);
+  --sidebar-foreground: oklch(0.241 0.0076 118.38);
+  --sidebar-primary: oklch(0.241 0.0076 118.38);
+  --sidebar-primary-foreground: oklch(0.9635 0.0067 97.35);
+  --sidebar-accent: oklch(0.9375 0.0147 142.23);
+  --sidebar-accent-foreground: oklch(0.4862 0.0647 163.34);
+  --sidebar-border: oklch(0.8913 0.0209 91.6);
+  --sidebar-ring: oklch(0.4862 0.0647 163.34);
+  --reader-page: oklch(0.9763 0.011 89.72);
+  --reader-link: oklch(0.4862 0.0647 163.34);
+  --reader-highlight: oklch(0.9745 0.0523 99.07);
+  --reader-code: oklch(0.2386 0.0094 97.75);
+  --reader-code-foreground: oklch(0.9154 0.0179 92.69);
+  --shelf: oklch(0.8984 0.0375 90.08);
+  --ocr-highlight: oklch(0.8823 0.0571 254.13);
 }
 
 .dark {
   color-scheme: dark;
-  --background: #141310;
-  --foreground: #dbd7ca;
-  --card: #201f1a;
-  --card-foreground: #dbd7ca;
-  --popover: #201f1a;
-  --popover-foreground: #dbd7ca;
-  --primary: #86b99c;
-  --primary-foreground: #1a1915;
-  --secondary: #1a1915;
-  --secondary-foreground: #948f80;
-  --muted: #2f2d26;
-  --muted-foreground: #948f80;
-  --accent: #26322b;
-  --accent-foreground: #86b99c;
-  --destructive: #d98a63;
-  --border: #2f2d26;
-  --input: #948f80;
-  --ring: #86b99c;
-  --sidebar: #201f1a;
-  --sidebar-foreground: #dbd7ca;
-  --sidebar-primary: #dbd7ca;
-  --sidebar-primary-foreground: #1a1915;
-  --sidebar-accent: #26322b;
-  --sidebar-accent-foreground: #86b99c;
-  --sidebar-border: #2f2d26;
-  --sidebar-ring: #86b99c;
-  --reader-page: #1a1915;
-  --reader-link: #86b99c;
-  --reader-highlight: #26322b;
-  --reader-code: #100f0d;
-  --reader-code-foreground: #d6d1c4;
-  --shelf: #29271f;
-  --ocr-highlight: #60a5fa;
+  --background: oklch(0.1867 0.0061 91.66);
+  --foreground: oklch(0.8787 0.0181 92.7);
+  --card: oklch(0.2386 0.0094 97.75);
+  --card-foreground: oklch(0.8787 0.0181 92.7);
+  --popover: oklch(0.2386 0.0094 97.75);
+  --popover-foreground: oklch(0.8787 0.0181 92.7);
+  --primary: oklch(0.7416 0.0683 159.26);
+  --primary-foreground: oklch(0.213 0.0078 95.42);
+  --secondary: oklch(0.213 0.0078 95.42);
+  --secondary-foreground: oklch(0.65 0.0225 91.67);
+  --muted: oklch(0.2968 0.0126 93.85);
+  --muted-foreground: oklch(0.65 0.0225 91.67);
+  --accent: oklch(0.3036 0.0205 159.31);
+  --accent-foreground: oklch(0.7416 0.0683 159.26);
+  --destructive: oklch(0.7066 0.1107 46.69);
+  --border: oklch(0.2968 0.0126 93.85);
+  --input: oklch(0.65 0.0225 91.67);
+  --ring: oklch(0.7416 0.0683 159.26);
+  --sidebar: oklch(0.2386 0.0094 97.75);
+  --sidebar-foreground: oklch(0.8787 0.0181 92.7);
+  --sidebar-primary: oklch(0.8787 0.0181 92.7);
+  --sidebar-primary-foreground: oklch(0.213 0.0078 95.42);
+  --sidebar-accent: oklch(0.3036 0.0205 159.31);
+  --sidebar-accent-foreground: oklch(0.7416 0.0683 159.26);
+  --sidebar-border: oklch(0.2968 0.0126 93.85);
+  --sidebar-ring: oklch(0.7416 0.0683 159.26);
+  --reader-page: oklch(0.213 0.0078 95.42);
+  --reader-link: oklch(0.7416 0.0683 159.26);
+  --reader-highlight: oklch(0.3036 0.0205 159.31);
+  --reader-code: oklch(0.1688 0.0044 84.59);
+  --reader-code-foreground: oklch(0.8611 0.0185 89.37);
+  --shelf: oklch(0.2721 0.0145 95.57);
+  --ocr-highlight: oklch(0.7137 0.1434 254.62);
 }
 
 @theme inline {
@@ -220,6 +218,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
@@ -235,10 +234,12 @@
   .library-page {
     background: var(--background);
   }
+
   .library-navigation {
     border-bottom: 1px solid var(--border);
     background: color-mix(in srgb, var(--card) 92%, transparent);
   }
+
   .library-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -247,14 +248,17 @@
     border-bottom: 1px solid var(--border);
     padding-bottom: 2rem;
   }
+
   .library-actions {
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .library-intro > p {
+
+  .library-intro>p {
     overflow-wrap: break-word;
   }
+
   .ebook-shelf {
     display: grid;
     background: transparent;
@@ -263,6 +267,7 @@
     column-gap: 2rem;
     row-gap: 2.5rem;
   }
+
   .book-card-cover {
     display: flex;
     width: 100%;
@@ -279,14 +284,17 @@
       transform 180ms ease-out,
       box-shadow 180ms ease-out;
   }
+
   .book-card-cover:hover,
   .book-card-cover:focus-visible {
     transform: scale(1.02);
     box-shadow: 0 14px 24px -12px rgb(31 32 28 / 24%);
   }
+
   .book-card-cover img {
     background: var(--muted);
   }
+
   .book-title-button {
     display: block;
     min-width: 0;
@@ -302,17 +310,24 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
+
   .book-title-button:hover {
     color: var(--primary);
     text-decoration: none;
   }
+
   @media (max-width: 560px) {
     .library-header {
       grid-template-columns: 1fr;
       align-items: start;
     }
+
     .library-actions {
       grid-row: 2;
     }
   }
 }
+
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+
+@custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
