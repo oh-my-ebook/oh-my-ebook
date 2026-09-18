@@ -102,7 +102,8 @@ test.describe('기본 PDF 리더', () => {
 
     await expect(page.getByRole('status', { name: '현재 확대율' })).toHaveText('300%')
 
-    const viewport = page.getByRole('region', { name: 'PDF 본문' })
+    // 읽기 영역을 감싼 ResizablePanel이 스크롤을 맡는다.
+    const viewport = page.getByRole('main', { name: 'PDF 읽기 영역' }).locator('..')
     await expect
       .poll(() =>
         viewport.evaluate((element) => ({
@@ -149,6 +150,23 @@ test.describe('기본 PDF 리더', () => {
     expect(scrollMetrics.startTop).toBeGreaterThanOrEqual(scrollMetrics.viewportTop - 1)
     expect(scrollMetrics.endRight).toBeLessThanOrEqual(scrollMetrics.viewportRight + 1)
     expect(scrollMetrics.endBottom).toBeLessThanOrEqual(scrollMetrics.viewportBottom + 1)
+  })
+
+  test('확대해 아래로 스크롤한 뒤 페이지를 넘기면 본문 상단을 표시한다', async ({ page }) => {
+    await openPdf(page, textPdfPath)
+
+    const zoomIn = page.getByRole('button', { name: '확대' })
+    while (await zoomIn.isEnabled()) {
+      await zoomIn.click()
+    }
+    const scroller = page.getByRole('main', { name: 'PDF 읽기 영역' }).locator('..')
+    await scroller.evaluate((element) => element.scrollTo({ top: element.scrollHeight }))
+    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+
+    await page.getByRole('button', { name: '다음 페이지' }).click()
+
+    await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('2 / 5')
+    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBe(0)
   })
 
   test('PDF 요청이 실패하면 안내하고 다시 불러온다', async ({ page }) => {

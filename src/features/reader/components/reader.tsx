@@ -168,7 +168,8 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber)
     onPageChange?.(pageNumber)
-    containerRef.current?.scrollTo({ top: 0 })
+    // 스크롤은 읽기 영역을 감싼 ResizablePanel의 내부 요소가 맡는다.
+    containerRef.current?.parentElement?.scrollTo({ top: 0 })
   }
 
   const previousPage = isPageReady ? pageSpread.previousPage : null

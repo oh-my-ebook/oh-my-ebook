@@ -54,9 +54,6 @@ describe('Reader 페이지 탐색 연결', () => {
   it('하단 탐색에서 페이지를 바꾸면 본문과 현재 페이지 표시를 함께 갱신한다', async () => {
     const user = userEvent.setup()
     render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
-    const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
-    const scrollTo = vi.fn()
-    readerArea.scrollTo = scrollTo
 
     expect(screen.getByRole('navigation', { name: '페이지 탐색' })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
@@ -66,7 +63,6 @@ describe('Reader 페이지 탐색 연결', () => {
 
     expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('2 / 5')
-    expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
   })
 
   it('다른 문서를 열면 첫 페이지로 이동한다', async () => {
@@ -85,7 +81,6 @@ describe('Reader 페이지 탐색 연결', () => {
     const { rerender } = render(<Reader title="탐색 테스트" url="/first.pdf" />, {
       wrapper: MemoryRouter,
     })
-    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.click(screen.getByRole('button', { name: '마지막 페이지' }))
     expect(screen.getByRole('img', { name: 'PDF 5페이지' })).toBeInTheDocument()
@@ -117,7 +112,6 @@ describe('Reader 페이지 탐색 연결', () => {
     render(<Reader onPageChange={onPageChange} title="탐색 테스트" url="/sample.pdf" />, {
       wrapper: MemoryRouter,
     })
-    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.click(screen.getByRole('button', { name: '다음 페이지' }))
 
@@ -127,7 +121,6 @@ describe('Reader 페이지 탐색 연결', () => {
   it('키보드 ←·→로 이전·다음 페이지로 이동한다', async () => {
     const user = userEvent.setup()
     render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
-    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.keyboard('{ArrowRight}')
     expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
@@ -139,7 +132,6 @@ describe('Reader 페이지 탐색 연결', () => {
   it('화살표 키를 누르고 있으면 반복 입력마다 계속 이동하고 마지막 페이지에서 멈춘다', async () => {
     const user = userEvent.setup()
     render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
-    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.keyboard('{ArrowRight>3/}')
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('4 / 5')
@@ -157,7 +149,6 @@ describe('Reader 페이지 탐색 연결', () => {
       </>,
       { wrapper: MemoryRouter },
     )
-    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.click(screen.getByRole('textbox', { name: '메모' }))
     await user.keyboard('{ArrowRight}')
