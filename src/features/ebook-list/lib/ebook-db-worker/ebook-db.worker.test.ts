@@ -127,6 +127,78 @@ describe('ebook-db.worker', () => {
     ])
   })
 
+  it('빈 PDF와 공백 콘텐츠 해시는 저장하지 않고 잘못된 payload로 처리한다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+
+    await handler(
+      new MessageEvent('message', {
+        data: {
+          requestId: 16,
+          command: 'addBook',
+          payload: {
+            pdfData: new ArrayBuffer(0),
+            contentHash: 'hash',
+            fileName: 'empty.pdf',
+            title: '빈 PDF',
+            pageCount: 1,
+            coverData: null,
+            coverMime: null,
+            coverStatus: 'fallback',
+          },
+        },
+      }),
+    )
+    await handler(
+      new MessageEvent('message', {
+        data: {
+          requestId: 17,
+          command: 'addBook',
+          payload: {
+            pdfData: new ArrayBuffer(1),
+            contentHash: '   ',
+            fileName: 'empty-hash.pdf',
+            title: '빈 해시',
+            pageCount: 1,
+            coverData: null,
+            coverMime: null,
+            coverStatus: 'fallback',
+          },
+        },
+      }),
+    )
+
+    expect(responses).toHaveBeenNthCalledWith(1, {
+      requestId: 16,
+      error: { code: 'storage-failed' },
+    })
+    expect(responses).toHaveBeenNthCalledWith(2, {
+      requestId: 17,
+      error: { code: 'storage-failed' },
+    })
+    expect(statements).not.toContain(expect.stringContaining('INSERT INTO books'))
+  })
+
   it('범위 밖 읽기 위치를 1페이지로 정정하고 진행률 갱신을 페이지 수로 제한한다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
