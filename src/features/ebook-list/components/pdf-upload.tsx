@@ -11,7 +11,7 @@ export interface UploadItem {
 
 interface PdfUploadProps {
   items: UploadItem[]
-  busy?: boolean
+  isUploading?: boolean
   disabled?: boolean
   onFilesSelected(files: File[]): void
 }
@@ -25,7 +25,7 @@ const labels = {
 
 export function PdfUpload({
   items,
-  busy = false,
+  isUploading = false,
   disabled = false,
   onFilesSelected,
 }: PdfUploadProps) {
@@ -40,14 +40,14 @@ export function PdfUpload({
         type="file"
         accept=".pdf,application/pdf"
         multiple
-        disabled={disabled || busy}
+        disabled={disabled || isUploading}
         onChange={(event) => {
           const files = Array.from(event.currentTarget.files ?? [])
           event.currentTarget.value = ''
-          if (files.length > 0 && !busy && !disabled) onFilesSelected(files)
+          if (files.length > 0 && !isUploading && !disabled) onFilesSelected(files)
         }}
       />
-      <Button disabled={disabled || busy} onClick={() => inputRef.current?.click()}>
+      <Button disabled={disabled || isUploading} onClick={() => inputRef.current?.click()}>
         PDF 추가
       </Button>
       {items.length > 0 && (

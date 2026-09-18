@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { UploadItem } from '../components/pdf-upload'
 import type { AddBookInput, StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
@@ -47,13 +47,12 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [attempt, setAttempt] = useState(0)
   const [capacity, setCapacity] = useState<StorageCapacity | null>(null)
   const [items, setItems] = useState<UploadItem[]>([])
-  const [busy, setBusy] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [coverErrors, setCoverErrors] = useState<Record<string, string>>({})
   const [regeneratingCover, setRegeneratingCover] = useState<string | null>(null)
-  const busyRef = useRef(false)
 
   async function refreshCapacity() {
     setCapacity(await getStorageCapacity())
@@ -134,9 +133,9 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   }
 
   async function addFiles(files: File[]) {
-    if (busyRef.current || state.status !== 'ready') return
-    busyRef.current = true
-    setBusy(true)
+    if (isUploading || state.status !== 'ready') return
+
+    setIsUploading(true)
     const queued = files.map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
@@ -176,8 +175,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
         ),
       )
     } finally {
-      busyRef.current = false
-      setBusy(false)
+      setIsUploading(false)
     }
   }
 
@@ -228,7 +226,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     capacity,
     refreshCapacity,
     items,
-    busy,
+    isUploading,
     persistentStorage,
     requestPersistence,
     addFiles,

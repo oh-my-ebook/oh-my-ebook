@@ -19,7 +19,7 @@ describe('PdfUpload', () => {
 
     rerender(
       <PdfUpload
-        busy
+        isUploading
         items={[
           { id: '1', name: 'first.pdf', status: 'processing' },
           { id: '2', name: 'second.pdf', status: 'pending' },

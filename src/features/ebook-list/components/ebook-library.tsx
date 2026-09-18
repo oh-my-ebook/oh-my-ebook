@@ -31,7 +31,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     refreshing,
     capacity,
     items,
-    busy,
+    isUploading,
     persistentStorage,
     requestPersistence,
     addFiles,
@@ -55,7 +55,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             새로고침
           </Button>
           <PdfUpload
-            busy={busy}
+            isUploading={isUploading}
             disabled={state.status !== 'ready'}
             items={items}
             onFilesSelected={(files) => {
