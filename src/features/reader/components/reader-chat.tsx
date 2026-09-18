@@ -11,7 +11,9 @@ import { mockChatModelAdapter } from '../lib/mock-chat-adapter'
 const THREAD_COMPONENTS: ThreadComponents = {
   Welcome: () => (
     <div className="flex flex-1 items-center justify-center px-4">
-      <p className="text-center text-lg font-medium">어떤 것에 대해 알아볼까요?</p>
+      <p className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-center text-lg font-medium delay-50 duration-300 ease-out motion-reduce:animate-none">
+        어떤 것에 대해 알아볼까요?
+      </p>
     </div>
   ),
 }
