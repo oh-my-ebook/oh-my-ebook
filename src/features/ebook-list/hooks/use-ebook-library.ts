@@ -1,22 +1,12 @@
 import { useEffect, useState } from 'react'
-import type { UploadItem } from '../components/pdf-upload'
-import type { AddBookInput, StoredBook } from '../ebook-types'
+import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
-import { analyzePdf, PdfImportError } from '../lib/pdf-import'
-import {
-  getStorageCapacity,
-  getPersistentStorageStatus,
-  requestPersistentStorage,
-  type StorageCapacity,
-} from '../lib/storage-manager'
+import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import { useCoverRegeneration } from './use-cover-regeneration'
+import { useEbookUpload } from './use-ebook-upload'
+import { useLibraryStorage } from './use-library-storage'
 
-export interface EbookLibraryStore {
-  request(
-    command: 'initialize' | 'listBooks' | 'getBook' | 'updateCover',
-    payload?: unknown,
-  ): Promise<unknown>
-  addBook(input: AddBookInput): Promise<unknown>
-}
+export type { EbookLibraryStore } from '../lib/ebook-library-store'
 
 type LibraryState =
   | { status: 'loading' }
@@ -34,29 +24,13 @@ function isStoredBook(value: unknown): value is StoredBook {
   )
 }
 
-function failureMessage(error: unknown) {
-  if (error instanceof EbookStoreError && error.code === 'storage-failed') {
-    return 'PDF 저장에 실패했습니다. 다시 시도해 주세요.'
-  }
-  if (error instanceof PdfImportError || error instanceof EbookStoreError) return error.message
-  return 'PDF 저장에 실패했습니다. 다시 시도해 주세요.'
-}
-
 export function useEbookLibrary(store: EbookLibraryStore) {
   const [state, setState] = useState<LibraryState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
-  const [capacity, setCapacity] = useState<StorageCapacity | null>(null)
-  const [items, setItems] = useState<UploadItem[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [coverErrors, setCoverErrors] = useState<Record<string, string>>({})
-  const [regeneratingCover, setRegeneratingCover] = useState<string | null>(null)
-
-  async function refreshCapacity() {
-    setCapacity(await getStorageCapacity())
-  }
+  const storage = useLibraryStorage()
+  const { refreshStorageStatus } = storage
 
   async function refreshBooks() {
     const result = await store.request('listBooks')
@@ -69,14 +43,10 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     setRefreshing(true)
     setRefreshError(null)
     try {
-      const [result, nextCapacity] = await Promise.all([
-        store.request('listBooks'),
-        getStorageCapacity(),
-      ])
+      const [result] = await Promise.all([store.request('listBooks'), storage.refreshCapacity()])
       if (!Array.isArray(result) || !result.every(isStoredBook))
         throw new Error('Invalid book list')
       setState({ status: 'ready', books: result })
-      setCapacity(nextCapacity)
     } catch {
       setRefreshError('책장을 새로고침하지 못했습니다.')
     } finally {
@@ -93,14 +63,9 @@ export function useEbookLibrary(store: EbookLibraryStore) {
         const result = await store.request('listBooks')
         if (!Array.isArray(result) || !result.every(isStoredBook))
           throw new Error('Invalid book list')
-        const [nextCapacity, isPersistent] = await Promise.all([
-          getStorageCapacity(),
-          getPersistentStorageStatus(),
-        ])
+        await refreshStorageStatus()
         if (active) {
           setState({ status: 'ready', books: result })
-          setCapacity(nextCapacity)
-          setPersistentStorage(isPersistent)
         }
       } catch (error) {
         if (active) {
@@ -119,103 +84,24 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     return () => {
       active = false
     }
-  }, [store, attempt])
+  }, [store, attempt, refreshStorageStatus])
 
   function retry() {
     setState({ status: 'loading' })
     setAttempt((current) => current + 1)
   }
 
-  function updateItem(id: string, status: UploadItem['status'], message?: string) {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, status, message } : item)),
-    )
-  }
-
-  async function addFiles(files: File[]) {
-    if (isUploading || state.status !== 'ready') return
-
-    setIsUploading(true)
-    const queued = files.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      status: 'pending' as const,
-    }))
-    setItems(queued)
-
-    try {
-      for (const [index, file] of files.entries()) {
-        const id = queued[index].id
-        updateItem(id, 'processing')
-        try {
-          const currentCapacity = await getStorageCapacity()
-          if (currentCapacity && file.size > currentCapacity.remaining) {
-            throw new EbookStoreError('quota')
-          }
-          const analyzed = await analyzePdf(file)
-          await store.addBook(analyzed)
-          updateItem(id, 'success')
-        } catch (error) {
-          updateItem(id, 'error', failureMessage(error))
-        } finally {
-          await refreshCapacity()
-          try {
-            await refreshBooks()
-          } catch {
-            /* 다음 파일은 계속 처리한다. */
-          }
-        }
-      }
-    } catch (error) {
-      setItems((current) =>
-        current.map((item) =>
-          item.status === 'pending' || item.status === 'processing'
-            ? { ...item, status: 'error', message: failureMessage(error) }
-            : item,
-        ),
-      )
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  async function regenerateCover(book: StoredBook) {
-    setRegeneratingCover(book.id)
-    setCoverErrors((current) => ({ ...current, [book.id]: '' }))
-    try {
-      const result = await store.request('getBook', book.id)
-      if (
-        typeof result !== 'object' ||
-        result === null ||
-        !('pdf_data' in result) ||
-        !(result.pdf_data instanceof Uint8Array)
-      )
-        throw new Error('Invalid PDF data')
-      const analyzed = await analyzePdf(new File([new Uint8Array(result.pdf_data)], book.file_name))
-      if (!analyzed.coverData || !analyzed.coverMime) throw new Error('Cover rendering failed')
-      await store.request('updateCover', {
-        id: book.id,
-        coverData: analyzed.coverData,
-        coverMime: analyzed.coverMime,
-      })
-      await refreshBooks()
-      await refreshCapacity()
-    } catch (error) {
-      setCoverErrors((current) => ({
-        ...current,
-        [book.id]:
-          error instanceof EbookStoreError ? error.message : '표지를 다시 만들지 못했습니다.',
-      }))
-    } finally {
-      setRegeneratingCover(null)
-    }
-  }
-
-  async function requestPersistence(): Promise<boolean> {
-    const isPersistent = await requestPersistentStorage()
-    setPersistentStorage(isPersistent)
-    return isPersistent
-  }
+  const upload = useEbookUpload({
+    store,
+    isLibraryReady: state.status === 'ready',
+    refreshBooks,
+    refreshCapacity: storage.refreshCapacity,
+  })
+  const coverRegeneration = useCoverRegeneration({
+    store,
+    refreshBooks,
+    refreshCapacity: storage.refreshCapacity,
+  })
 
   return {
     state,
@@ -223,15 +109,15 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     refreshLibrary,
     refreshError,
     refreshing,
-    capacity,
-    refreshCapacity,
-    items,
-    isUploading,
-    persistentStorage,
-    requestPersistence,
-    addFiles,
-    regenerateCover,
-    coverErrors,
-    regeneratingCover,
+    capacity: storage.capacity,
+    refreshCapacity: storage.refreshCapacity,
+    items: upload.items,
+    isUploading: upload.isUploading,
+    persistentStorage: storage.persistentStorage,
+    requestPersistence: storage.requestPersistence,
+    addFiles: upload.addFiles,
+    regenerateCover: coverRegeneration.regenerateCover,
+    coverErrors: coverRegeneration.coverErrors,
+    regeneratingCover: coverRegeneration.regeneratingCover,
   }
 }
