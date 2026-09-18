@@ -1,11 +1,12 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { executeOpfsCommand, isOpfsCommand } from './ebook-db.worker.opfs'
+import { executeOpfsCommand, isOpfsCommand, writePdf } from './ebook-db.worker.opfs'
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
 vi.mock('./ebook-db.worker.opfs', () => ({
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
+  writePdf: vi.fn(),
 }))
 
 afterEach(() => {
@@ -166,10 +167,10 @@ describe('ebook-db.worker', () => {
       new MessageEvent('message', {
         data: {
           requestId: 7,
-          command: 'addBook',
+          command: 'saveBook',
           payload: {
             pdfData: new ArrayBuffer(2),
-            contentHash: 'hash',
+            contentHash: 'a'.repeat(64),
             fileName: 'a.pdf',
             title: 'A',
             author: '저자',
@@ -222,10 +223,10 @@ describe('ebook-db.worker', () => {
       new MessageEvent('message', {
         data: {
           requestId: 18,
-          command: 'addBook',
+          command: 'saveBook',
           payload: {
             pdfData: new ArrayBuffer(123),
-            contentHash: 'hash',
+            contentHash: 'a'.repeat(64),
             fileName: 'book.pdf',
             title: '서재 제목',
             author: '저자',
@@ -248,7 +249,65 @@ describe('ebook-db.worker', () => {
     expect(insert?.bind).toEqual(
       expect.arrayContaining(['저자', 'PDF 제목', null, 'pdf, metadata', '출판사', 123]),
     )
+    expect(writePdf).toHaveBeenCalledWith('a'.repeat(64), expect.any(ArrayBuffer))
     expect(responses).toHaveBeenCalledWith({ requestId: 18, result: expect.any(String) })
+  })
+
+  it('OPFS 저장 실패 시 방금 만든 SQLite 메타데이터를 삭제한다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+    vi.mocked(writePdf).mockRejectedValueOnce(new Error('write failed'))
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectValue() {
+        return undefined
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: {
+          requestId: 19,
+          command: 'saveBook',
+          payload: {
+            pdfData: new ArrayBuffer(1),
+            contentHash: 'a'.repeat(64),
+            fileName: 'book.pdf',
+            title: '서재 제목',
+            author: null,
+            pdfTitle: null,
+            pdfSubject: null,
+            pdfKeywords: null,
+            publisher: null,
+            pdfSize: 1,
+            pageCount: 1,
+            coverData: null,
+            coverMime: null,
+            coverStatus: 'fallback',
+          },
+        },
+      }),
+    )
+
+    expect(writePdf).toHaveBeenCalledOnce()
+    expect(statements.some((statement) => statement.includes('INSERT INTO books'))).toBe(true)
+    expect(statements).toContain('DELETE FROM books WHERE id = ?')
+    expect(responses).toHaveBeenCalledWith({ requestId: 19, error: { code: 'storage-failed' } })
   })
 
   it('지원하는 명령의 잘못된 payload는 명령별 원인을 기록한다', async () => {
@@ -274,7 +333,7 @@ describe('ebook-db.worker', () => {
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
       new MessageEvent('message', {
-        data: { requestId: 8, command: 'addBook', payload: { title: '불완전한 입력' } },
+        data: { requestId: 8, command: 'saveBook', payload: { title: '불완전한 입력' } },
       }),
     )
     await handler(
@@ -295,10 +354,10 @@ describe('ebook-db.worker', () => {
     expect(responses).toHaveBeenCalledWith({ requestId: 8, error: { code: 'storage-failed' } })
     expect(consoleError).toHaveBeenCalledWith(
       'ebook-db.worker command failed',
-      expect.objectContaining({ command: 'addBook', error: expect.any(Error) }),
+      expect.objectContaining({ command: 'saveBook', error: expect.any(Error) }),
     )
     expect(consoleError.mock.calls[0][1]).toMatchObject({
-      error: expect.objectContaining({ message: 'Invalid payload for addBook' }),
+      error: expect.objectContaining({ message: 'Invalid payload for saveBook' }),
     })
     expect(consoleError.mock.calls.slice(1)).toEqual([
       [
@@ -346,10 +405,10 @@ describe('ebook-db.worker', () => {
       new MessageEvent('message', {
         data: {
           requestId: 16,
-          command: 'addBook',
+          command: 'saveBook',
           payload: {
             pdfData: new ArrayBuffer(0),
-            contentHash: 'hash',
+            contentHash: 'a'.repeat(64),
             fileName: 'empty.pdf',
             title: '빈 PDF',
             author: null,
@@ -370,7 +429,7 @@ describe('ebook-db.worker', () => {
       new MessageEvent('message', {
         data: {
           requestId: 17,
-          command: 'addBook',
+          command: 'saveBook',
           payload: {
             pdfData: new ArrayBuffer(1),
             contentHash: '   ',

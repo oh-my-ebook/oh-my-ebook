@@ -10,7 +10,6 @@ import {
 } from './ebook-db.worker.error'
 import {
   getPayload,
-  isAddBookInput,
   isRowAffected,
   isUpdateCoverInput,
   isUpdateProgressInput,
@@ -29,7 +28,7 @@ export function isSqliteCommand(command: string): command is SqliteCommand {
 
 let databasePromise: Promise<Database> | undefined
 
-function addBook(database: Database, input: AddBookInput): string {
+export function addBook(database: Database, input: AddBookInput): string {
   if (database.selectValue('SELECT id FROM books WHERE content_hash = ?', [input.contentHash])) {
     throw new DuplicateBookError()
   }
@@ -70,6 +69,10 @@ function addBook(database: Database, input: AddBookInput): string {
     throw error
   }
   return id
+}
+
+export function deleteBookById(database: Database, id: string): void {
+  database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
 }
 
 async function openDatabase(): Promise<Database> {
@@ -220,8 +223,6 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return listBooks(database)
     case SQLITE_COMMAND.HAS_BOOK:
       return hasBook(database, request)
-    case SQLITE_COMMAND.ADD_BOOK:
-      return addBook(database, getPayload(request, request.command, isAddBookInput))
     case SQLITE_COMMAND.GET_BOOK:
       return getBook(database, request)
     case SQLITE_COMMAND.UPDATE_PROGRESS:

@@ -13,7 +13,7 @@ function createStore() {
     request: vi.fn(async (command: string): Promise<unknown> =>
       command === 'listBooks' ? [] : null,
     ),
-    addBook: vi.fn(async () => 'saved-id'),
+    saveBook: vi.fn(async () => 'saved-id'),
   }
 }
 
@@ -105,7 +105,7 @@ describe('EbookLibrary', () => {
       new File(['pdf'], 'first.pdf', { type: 'application/pdf' }),
     )
 
-    expect(store.addBook).toHaveBeenCalledOnce()
+    expect(store.saveBook).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
     expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent('확인 불가')
@@ -130,7 +130,7 @@ describe('EbookLibrary', () => {
       coverMime: null,
       coverStatus: 'fallback',
     })
-    store.addBook.mockRejectedValueOnce(new Error('write failed'))
+    store.saveBook.mockRejectedValueOnce(new Error('write failed'))
     render(<EbookLibrary store={store} />)
     await screen.findByText('아직 저장한 책이 없습니다.')
 
@@ -141,7 +141,7 @@ describe('EbookLibrary', () => {
 
     expect(screen.queryByText(/저장에 실패/)).not.toBeInTheDocument()
     expect(screen.queryByText(/저장 공간이 부족/)).not.toBeInTheDocument()
-    expect(store.addBook).toHaveBeenCalledTimes(2)
+    expect(store.saveBook).toHaveBeenCalledTimes(2)
   })
 
   it('수동 새로고침이 목록과 용량을 함께 교체한다', async () => {
@@ -267,7 +267,7 @@ describe('EbookLibrary', () => {
       }
       return null
     })
-    store.addBook.mockImplementation(async () => {
+    store.saveBook.mockImplementation(async () => {
       books = [savedBook]
       usage = 5
       return 'saved-id'

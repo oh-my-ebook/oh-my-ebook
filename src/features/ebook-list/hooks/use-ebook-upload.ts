@@ -35,7 +35,7 @@ export function useEbookUpload({
       for (const file of files) {
         try {
           const analyzed = await analyzePdf(file)
-          await store.addBook(analyzed)
+          await store.saveBook(analyzed)
           toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
         } catch (error) {
           toast.add({

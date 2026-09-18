@@ -55,7 +55,7 @@ export function isAddBookInput(value: unknown): value is AddBookInput {
   const input = value
 
   if (!(input.pdfData instanceof ArrayBuffer) || input.pdfData.byteLength === 0) return false
-  if (typeof input.contentHash !== 'string' || input.contentHash.trim().length === 0) return false
+  if (!isContentHash(input.contentHash)) return false
   if (typeof input.fileName !== 'string' || typeof input.title !== 'string') return false
   if (
     !isNullableString(input.author) ||
