@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -52,7 +53,7 @@ describe('Reader 페이지 탐색 연결', () => {
 
   it('하단 탐색에서 페이지를 바꾸면 본문과 현재 페이지 표시를 함께 갱신한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="탐색 테스트" url="/sample.pdf" />)
+    render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
     const readerArea = screen.getByRole('main', { name: 'PDF 읽기 영역' })
     const scrollTo = vi.fn()
     readerArea.scrollTo = scrollTo
@@ -81,7 +82,9 @@ describe('Reader 페이지 탐색 연결', () => {
       retry: vi.fn(),
       status: 'ready',
     }))
-    const { rerender } = render(<Reader title="탐색 테스트" url="/first.pdf" />)
+    const { rerender } = render(<Reader title="탐색 테스트" url="/first.pdf" />, {
+      wrapper: MemoryRouter,
+    })
     screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.click(screen.getByRole('button', { name: '마지막 페이지' }))
@@ -95,7 +98,9 @@ describe('Reader 페이지 탐색 연결', () => {
   })
 
   it('저장된 초기 페이지를 표시하고 범위를 벗어나면 첫 페이지로 보정한다', async () => {
-    const { rerender } = render(<Reader initialPage={3} title="탐색 테스트" url="/sample.pdf" />)
+    const { rerender } = render(<Reader initialPage={3} title="탐색 테스트" url="/sample.pdf" />, {
+      wrapper: MemoryRouter,
+    })
 
     expect(screen.getByRole('img', { name: 'PDF 3페이지' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 5')
@@ -109,12 +114,54 @@ describe('Reader 페이지 탐색 연결', () => {
   it('사용자가 페이지를 이동하면 현재 페이지를 콜백으로 알린다', async () => {
     const user = userEvent.setup()
     const onPageChange = vi.fn()
-    render(<Reader onPageChange={onPageChange} title="탐색 테스트" url="/sample.pdf" />)
+    render(<Reader onPageChange={onPageChange} title="탐색 테스트" url="/sample.pdf" />, {
+      wrapper: MemoryRouter,
+    })
     screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
 
     await user.click(screen.getByRole('button', { name: '다음 페이지' }))
 
     expect(onPageChange).toHaveBeenCalledOnce()
     expect(onPageChange).toHaveBeenCalledWith(2)
+  })
+  it('키보드 ←·→로 이전·다음 페이지로 이동한다', async () => {
+    const user = userEvent.setup()
+    render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+  })
+
+  it('화살표 키를 누르고 있으면 반복 입력마다 계속 이동하고 마지막 페이지에서 멈춘다', async () => {
+    const user = userEvent.setup()
+    render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
+
+    await user.keyboard('{ArrowRight>3/}')
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('4 / 5')
+
+    await user.keyboard('{ArrowRight>5/}')
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('5 / 5')
+  })
+
+  it('글자를 입력하는 곳에 포커스가 있으면 화살표로 페이지를 넘기지 않는다', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <input aria-label="메모" />
+        <Reader title="탐색 테스트" url="/sample.pdf" />
+      </>,
+      { wrapper: MemoryRouter },
+    )
+    screen.getByRole('main', { name: 'PDF 읽기 영역' }).scrollTo = vi.fn()
+
+    await user.click(screen.getByRole('textbox', { name: '메모' }))
+    await user.keyboard('{ArrowRight}')
+
+    expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
   })
 })

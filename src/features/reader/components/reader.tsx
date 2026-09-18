@@ -97,6 +97,19 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
   )
 }
 
+// 화살표를 직접 쓰는 조작부(글자 입력, 슬라이더, 패널 구분선, 보기 방식)나 열린 Sheet 안에서는
+// 화살표를 페이지 이동에 쓰지 않는다.
+const ARROW_KEY_OWNER_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable="true"]',
+  '[role="slider"]',
+  '[role="separator"]',
+  '[role="dialog"]',
+  '[data-slot="toggle-group"]',
+].join(', ')
+
 export function Reader({ data, initialPage, onPageChange, title, url }: ReaderProps) {
   const source = data ?? url ?? ''
   const [currentPage, setCurrentPage] = useState(1)
@@ -157,6 +170,43 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
     onPageChange?.(pageNumber)
     containerRef.current?.scrollTo({ top: 0 })
   }
+
+  const previousPage = isPageReady ? pageSpread.previousPage : null
+  const nextPage = isPageReady ? pageSpread.nextPage : null
+
+  // 키를 누르고 있을 때 오는 반복 keydown도 막지 않아야 계속 넘어간다.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return
+      }
+      if (event.target instanceof Element && event.target.closest(ARROW_KEY_OWNER_SELECTOR)) {
+        return
+      }
+
+      const targetPage =
+        event.key === 'ArrowLeft' ? previousPage : event.key === 'ArrowRight' ? nextPage : undefined
+      if (targetPage === undefined) {
+        return
+      }
+
+      event.preventDefault()
+      if (targetPage !== null) {
+        handlePageChange(targetPage)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  })
 
   const readerMain = (
     <main aria-label="PDF 읽기 영역" className="h-full min-h-0 min-w-0 flex-1" ref={containerRef}>
