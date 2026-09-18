@@ -20,28 +20,7 @@ interface ReaderPanelProps {
 
 type PanelSectionProps = Omit<ReaderPanelProps, 'isWideScreen'>
 
-// 패널을 닫을 때는 항상 열기 버튼으로 포커스를 되돌린다. 열기 버튼 자체를 다시 누른 경우에도
-// 이미 그 버튼에 포커스가 있으므로 결과에 차이가 없다.
-function useRestoreFocusOnClose(open: boolean, openButtonRef: RefObject<HTMLButtonElement | null>) {
-  const wasOpenRef = useRef(open)
-
-  useEffect(() => {
-    if (wasOpenRef.current && !open) {
-      openButtonRef.current?.focus()
-    }
-    wasOpenRef.current = open
-  }, [open, openButtonRef])
-}
-
-function WideReaderPanel({
-  chatSessionKey,
-  currentPage,
-  onOpenChange,
-  open,
-  openButtonRef,
-}: PanelSectionProps) {
-  useRestoreFocusOnClose(open, openButtonRef)
-
+function WideReaderPanel({ chatSessionKey, currentPage, onOpenChange, open }: PanelSectionProps) {
   // 열려 있을 때 포커스 위치와 무관하게 Escape로 닫을 수 있어야 하므로 문서 전체에서 관찰한다.
   // Resizable은 Dialog와 달리 포커스를 가두지 않아 패널 밖(예: 열기 버튼)에 포커스가 있을 수 있다.
   useEffect(() => {
@@ -67,8 +46,8 @@ function WideReaderPanel({
 
   return (
     <>
-      <ResizableHandle aria-label={RESIZE_HANDLE_LABEL} withHandle />
-      <ResizablePanel defaultSize="320px" id="reader-chat" maxSize="45%" minSize="280px">
+      <ResizableHandle aria-label={RESIZE_HANDLE_LABEL} />
+      <ResizablePanel defaultSize="30%" id="reader-chat" maxSize="45%" minSize="400px">
         <aside
           aria-label={PANEL_TITLE}
           className="flex h-full min-w-0 flex-col bg-card"

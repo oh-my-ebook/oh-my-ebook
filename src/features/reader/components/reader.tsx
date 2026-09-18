@@ -208,7 +208,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
 
       <div className="flex min-h-0 flex-1">
         <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel defaultSize="75%" id="reader" minSize="45%">
+          <ResizablePanel defaultSize="70%" id="reader" minSize="45%">
             {readerMain}
           </ResizablePanel>
           {isWideScreen && readerPanel}
