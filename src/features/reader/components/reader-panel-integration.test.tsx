@@ -15,16 +15,18 @@ vi.mock('../lib/pdf-document', async (importOriginal) => {
 })
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
-// 실제 Mock 어댑터 팩토리는 그대로 두고 응답 소스만 호출 인자를 기록하는 스파이로 바꾼다.
-vi.mock('../lib/mock-chat-adapter', async (importOriginal) => {
-  const mockChatAdapter = await importOriginal<typeof import('../lib/mock-chat-adapter')>()
+// 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
+vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
+  const webLlmChatAdapter =
+    await importOriginal<typeof import('../lib/web-llm/webllm-chat-adapter')>()
+  const mockChatAdapter = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
     yield '답변'
   }
   return {
-    ...mockChatAdapter,
-    mockChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
+    ...webLlmChatAdapter,
+    webLlmChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
   }
 })
 

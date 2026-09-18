@@ -4,8 +4,18 @@ import {
   useLocalRuntime,
   type ChatModelAdapter,
 } from '@assistant-ui/react'
+import { useSyncExternalStore } from 'react'
 import { Thread } from '@/components/assistant-ui/elements/thread.aui'
-import { mockChatModelAdapter } from '../lib/mock-chat-adapter'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  getWebLlmModelError,
+  getWebLlmModelProgress,
+  getWebLlmModelStatus,
+  prepareWebLlmModel,
+  subscribeWebLlmModelStatus,
+  webLlmChatModelAdapter,
+} from '../lib/web-llm/webllm-chat-adapter'
 
 interface ReaderChatProps {
   chatModel?: ChatModelAdapter
@@ -14,6 +24,66 @@ interface ReaderChatProps {
 
 interface ReaderChatContentProps {
   currentPage?: number
+}
+
+const MODEL_STATUS_TEXT = {
+  idle: '채팅 전에 로컬 모델을 준비하세요.',
+  ready: '준비 완료',
+}
+
+function ModelDownloadAlert() {
+  const status = useSyncExternalStore(
+    subscribeWebLlmModelStatus,
+    getWebLlmModelStatus,
+    getWebLlmModelStatus,
+  )
+  const progress = useSyncExternalStore(
+    subscribeWebLlmModelStatus,
+    getWebLlmModelProgress,
+    getWebLlmModelProgress,
+  )
+  const error = useSyncExternalStore(
+    subscribeWebLlmModelStatus,
+    getWebLlmModelError,
+    getWebLlmModelError,
+  )
+  const isLoading = status === 'loading'
+  const isReady = status === 'ready'
+  const statusText = isLoading
+    ? `모델을 다운로드하고 있습니다. ${progress}%`
+    : status === 'error'
+      ? (error ?? '모델 다운로드에 실패했습니다.')
+      : MODEL_STATUS_TEXT[status]
+  const buttonText = isLoading
+    ? '다운로드 중'
+    : isReady
+      ? '완료'
+      : status === 'error'
+        ? '재시도'
+        : '다운로드'
+
+  return (
+    <Alert
+      className="shrink-0"
+      role="status"
+      variant={status === 'error' ? 'destructive' : 'default'}
+    >
+      <AlertTitle>Qwen2.5 1.5B</AlertTitle>
+      <AlertDescription>{statusText}</AlertDescription>
+      <AlertAction>
+        <Button
+          aria-label={isReady ? '모델 준비 완료' : '모델 다운로드'}
+          disabled={isLoading || isReady}
+          onClick={() => prepareWebLlmModel().catch(() => undefined)}
+          size="xs"
+          type="button"
+          variant="outline"
+        >
+          {buttonText}
+        </Button>
+      </AlertAction>
+    </Alert>
+  )
 }
 
 // AssistantRuntimeProvider의 자식이어야 useAssistantInstructions가 런타임 컨텍스트를 읽을 수 있어
@@ -25,10 +95,17 @@ function ReaderChatContent({ currentPage }: ReaderChatContentProps) {
     disabled: currentPage === undefined,
   })
 
-  return <Thread />
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+      <ModelDownloadAlert />
+      <div className="min-h-0 flex-1">
+        <Thread />
+      </div>
+    </div>
+  )
 }
 
-export function ReaderChat({ chatModel = mockChatModelAdapter, currentPage }: ReaderChatProps) {
+export function ReaderChat({ chatModel = webLlmChatModelAdapter, currentPage }: ReaderChatProps) {
   const runtime = useLocalRuntime(chatModel)
 
   return (

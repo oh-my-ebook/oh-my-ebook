@@ -5,6 +5,57 @@ import { createPromiseController } from '../../../test/promise-controller'
 import { createMockChatModelAdapter, type MockResponder } from '../lib/mock-chat-adapter'
 import { ReaderChat } from './reader-chat'
 
+const webLlmModelMock = vi.hoisted(() => {
+  let status = 'idle'
+  let progress = 0
+  let error: string | undefined
+  const listeners = new Set<() => void>()
+  const setStatus = (nextStatus: string) => {
+    status = nextStatus
+    listeners.forEach((listener) => listener())
+  }
+  const setProgress = (nextProgress: number) => {
+    progress = nextProgress
+    listeners.forEach((listener) => listener())
+  }
+  const setError = (nextError: string | undefined) => {
+    error = nextError
+    listeners.forEach((listener) => listener())
+  }
+
+  return {
+    getError: () => error,
+    getProgress: () => progress,
+    getStatus: () => status,
+    prepare: vi.fn(async () => undefined),
+    reset: () => {
+      error = undefined
+      progress = 0
+      status = 'idle'
+    },
+    setError,
+    setProgress,
+    setStatus,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+})
+
+vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
+  const webLlmChatAdapter =
+    await importOriginal<typeof import('../lib/web-llm/webllm-chat-adapter')>()
+  return {
+    ...webLlmChatAdapter,
+    getWebLlmModelError: webLlmModelMock.getError,
+    getWebLlmModelProgress: webLlmModelMock.getProgress,
+    getWebLlmModelStatus: webLlmModelMock.getStatus,
+    prepareWebLlmModel: webLlmModelMock.prepare,
+    subscribeWebLlmModelStatus: webLlmModelMock.subscribe,
+  }
+})
+
 // Thread가 내부적으로 ResizeObserver를 사용해 뷰포트 크기를 관찰하므로 jsdom에 없는 API를 채워준다.
 function setupResizeObserverMock() {
   class ResizeObserverMock {
@@ -34,7 +85,56 @@ const RETRY_BUTTON_NAME = 'Refresh'
 
 describe('ReaderChat', () => {
   afterEach(() => {
+    webLlmModelMock.prepare.mockReset()
+    webLlmModelMock.reset()
     vi.unstubAllGlobals()
+  })
+
+  it('모델 다운로드 버튼으로 준비 상태를 확인할 수 있다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    const controller = createPromiseController<void>()
+    webLlmModelMock.prepare.mockImplementation(async () => {
+      webLlmModelMock.setStatus('loading')
+      await controller.promise
+      webLlmModelMock.setStatus('ready')
+    })
+    const { respond } = createControllableRespond(0)
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    const downloadButton = screen.getByRole('button', { name: '모델 다운로드' })
+    await user.click(downloadButton)
+
+    expect(downloadButton).toBeDisabled()
+    expect(downloadButton).toHaveTextContent('다운로드 중')
+
+    controller.resolve()
+    expect(await screen.findByText('준비 완료')).toBeInTheDocument()
+    expect(webLlmModelMock.prepare).toHaveBeenCalledOnce()
+  })
+
+  it('모델 다운로드 진행률을 표시한다', () => {
+    setupResizeObserverMock()
+    webLlmModelMock.setStatus('loading')
+    webLlmModelMock.setProgress(37)
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByText('모델을 다운로드하고 있습니다. 37%')).toBeInTheDocument()
+  })
+
+  it('모델 다운로드 실패 원인을 표시한다', () => {
+    setupResizeObserverMock()
+    webLlmModelMock.setStatus('error')
+    webLlmModelMock.setError(
+      '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
+    )
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('모델 다운로드 연결에 실패했습니다.')
   })
 
   it('Enter로 전송하면 질문이 먼저 표시되고 응답이 스트리밍 조각으로 갱신되며 완료되면 스트리밍 상태가 해제된다', async () => {
