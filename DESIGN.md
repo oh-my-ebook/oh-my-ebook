@@ -5,9 +5,9 @@ description: 읽기·질문·근거 확인에 집중하는 전자책 리더
 colors:
   primary: '#1F201C'
   primary-foreground: '#F4F3EE'
-  background: '#F1EEE5'
-  card: '#FFFDF8'
-  muted: '#EDE9DC'
+  background: '#EEEAE0'
+  card: '#F9F5EB'
+  muted: '#E9E5D7'
   muted-foreground: '#4A4840'
   border: '#E0DBCC'
   input: '#7E7B6F'
@@ -20,7 +20,7 @@ colors:
   reader-code-foreground: '#E7E3D6'
   dark-primary: '#DBD7CA'
   dark-primary-foreground: '#1A1915'
-  dark-background: '#141310'
+  dark-background: '#181714'
   dark-card: '#201F1A'
   dark-muted: '#2F2D26'
   dark-muted-foreground: '#948F80'
@@ -89,10 +89,11 @@ YAML은 토큰 값, 본문은 적용 규칙을 정의한다.
   YAML의 `dark-*`는 다크 값 표기이며 별도 CSS 변수명이 아니다.
 - `@theme inline`의 `--color-*`에 일반·`reader-*` 토큰을 연결하고 `bg-background`, `text-reader-link` 등 의미 클래스로 사용한다.
 - 중복 색 매핑: `foreground/card-foreground/popover-foreground/sidebar-foreground/sidebar-primary`는 `primary`,
-  `popover/sidebar`는 `card`, `secondary`는 `reader-page`, `secondary-foreground`는 `muted-foreground`,
+  `popover/sidebar`는 `card`, 라이트 `secondary-foreground`는 `muted-foreground`, 다크 `secondary-foreground`는 `foreground`,
   `accent-foreground/ring/sidebar-accent-foreground/sidebar-ring`은 `reader-link`와 같은 값이다.
   `sidebar-primary-foreground/sidebar-accent/sidebar-border`는 대응하는 일반 토큰과 같은 값이다.
 - Figma Make의 HEX 값을 보존한다. `muted`는 배경과 구분되는 면 색으로 기본 hover를 표현한다.
+- `secondary`는 눌린 버튼(목차·함께 읽기 패널·높이 맞춤)의 면 색으로, `card` 위에서 hover(`muted`)보다 한 단계 진하게 보이도록 둔다.
 
 ## Typography
 
