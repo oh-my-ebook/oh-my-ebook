@@ -1,4 +1,5 @@
 import { GlobalWorkerOptions, getDocument, type PDFPageProxy } from 'pdfjs-dist'
+import type { AddBookInput } from '../ebook-types'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -19,17 +20,6 @@ export class PdfImportError extends Error {
     this.name = 'PdfImportError'
     this.kind = kind
   }
-}
-
-export interface AnalyzedPdf {
-  pdfData: ArrayBuffer
-  contentHash: string
-  fileName: string
-  title: string
-  pageCount: number
-  coverData: ArrayBuffer | null
-  coverMime: 'image/webp' | 'image/png' | null
-  coverStatus: 'ready' | 'fallback'
 }
 
 async function renderCover(page: PDFPageProxy) {
@@ -71,7 +61,23 @@ function property(value: unknown, key: string): unknown {
     : undefined
 }
 
-export async function analyzePdf(file: File): Promise<AnalyzedPdf> {
+function readPdfMetadata(info: unknown, metadata: { get(key: string): unknown } | null) {
+  const pdfTitle = clean(property(info, 'Title')) || clean(metadata?.get('dc:title'))
+
+  return {
+    author: clean(property(info, 'Author')),
+    pdfTitle,
+    pdfSubject: clean(property(info, 'Subject')),
+    pdfKeywords: clean(property(info, 'Keywords')),
+    publisher: clean(metadata?.get('dc:publisher')),
+  }
+}
+
+function generateTitle(pdfTitle: string | null, fileName: string): string {
+  return pdfTitle || clean(fileName.replace(/\.pdf$/i, '')) || '제목 없음'
+}
+
+export async function analyzePdf(file: File): Promise<AddBookInput> {
   let pdfData: ArrayBuffer
   try {
     pdfData = await file.arrayBuffer()
@@ -92,11 +98,8 @@ export async function analyzePdf(file: File): Promise<AnalyzedPdf> {
     const firstPage = await document.getPage(1)
     const { info, metadata } = await document.getMetadata()
     const fileName = file.name.trim()
-    const title =
-      clean(property(info, 'Title')) ||
-      clean(metadata?.get('dc:title')) ||
-      clean(fileName.replace(/\.pdf$/i, '')) ||
-      '제목 없음'
+    const pdfMetadata = readPdfMetadata(info, metadata)
+    const title = generateTitle(pdfMetadata.pdfTitle, fileName)
     const cover = await renderCover(firstPage).catch(() => ({
       coverData: null,
       coverMime: null,
@@ -108,6 +111,8 @@ export async function analyzePdf(file: File): Promise<AnalyzedPdf> {
       contentHash,
       fileName,
       title,
+      ...pdfMetadata,
+      pdfSize: pdfData.byteLength,
       pageCount: document.numPages,
       ...cover,
     }
