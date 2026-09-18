@@ -9,7 +9,7 @@ async function openPdf(page: Page, pdfPath: string) {
   await page.route(pdfRequestUrl, (route) =>
     route.fulfill({ contentType: 'application/pdf', path: pdfPath }),
   )
-  await page.goto('/')
+  await page.goto('/sample-reader')
   await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeVisible()
   await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('1 / 5')
 }
@@ -144,7 +144,7 @@ test.describe('기본 PDF 리더', () => {
       { times: 1 },
     )
 
-    await page.goto('/')
+    await page.goto('/sample-reader')
 
     await expect(page.getByRole('alert')).toContainText('PDF를 불러오지 못했습니다.')
     await page.getByRole('button', { name: 'PDF 다시 불러오기' }).click()
