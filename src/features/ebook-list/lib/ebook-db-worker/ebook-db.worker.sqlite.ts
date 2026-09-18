@@ -163,8 +163,7 @@ function hasBook(database: Database, request: WorkerRequest): undefined {
   return undefined
 }
 
-function getBook(database: Database, request: WorkerRequest): Record<string, unknown> {
-  const id = getBookId(request)
+export function getBookMetadata(database: Database, id: string): Record<string, unknown> {
   const book = database.selectObject(
     `SELECT id, content_hash, file_name, title,
             author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
@@ -223,8 +222,6 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return listBooks(database)
     case SQLITE_COMMAND.HAS_BOOK:
       return hasBook(database, request)
-    case SQLITE_COMMAND.GET_BOOK:
-      return getBook(database, request)
     case SQLITE_COMMAND.UPDATE_PROGRESS:
       return updateProgress(database, request)
     case SQLITE_COMMAND.UPDATE_TITLE:

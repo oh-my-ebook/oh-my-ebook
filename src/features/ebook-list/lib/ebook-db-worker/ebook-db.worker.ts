@@ -3,17 +3,19 @@
 import { COMMAND } from '../../ebook-consts'
 import type { EbookStoreResponse } from '../../ebook-types'
 import { getErrorCode, UnsupportedCommandError } from './ebook-db.worker.error'
-import { executeOpfsCommand, isOpfsCommand, writePdf } from './ebook-db.worker.opfs'
+import { executeOpfsCommand, isOpfsCommand, readPdf, writePdf } from './ebook-db.worker.opfs'
 import {
   addBook,
   deleteBookById,
   executeSqliteCommand,
   getDatabase,
+  getBookMetadata,
   isSqliteCommand,
 } from './ebook-db.worker.sqlite'
 import {
   getPayload,
   isAddBookInput,
+  isContentHash,
   isWorkerRequest,
   type WorkerRequest,
 } from './ebook-db.worker.util'
@@ -38,8 +40,22 @@ async function saveBook(request: WorkerRequest): Promise<string> {
   }
 }
 
+async function getBook(request: WorkerRequest): Promise<Record<string, unknown>> {
+  const id = getPayload(
+    request,
+    request.command,
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  )
+  const book = getBookMetadata(await getDatabase(), id)
+  const contentHash = book.content_hash
+  if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
+
+  return { ...book, pdf_data: await readPdf(contentHash) }
+}
+
 async function executeCommand(request: WorkerRequest): Promise<unknown> {
   if (request.command === COMMAND.SAVE_BOOK) return await saveBook(request)
+  if (request.command === COMMAND.GET_BOOK) return await getBook(request)
   if (isOpfsCommand(request.command)) return await executeOpfsCommand(request)
   if (isSqliteCommand(request.command)) return executeSqliteCommand(await getDatabase(), request)
   throw new UnsupportedCommandError(request.command)

@@ -1,11 +1,12 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { executeOpfsCommand, isOpfsCommand, writePdf } from './ebook-db.worker.opfs'
+import { executeOpfsCommand, isOpfsCommand, readPdf, writePdf } from './ebook-db.worker.opfs'
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
 vi.mock('./ebook-db.worker.opfs', () => ({
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
+  readPdf: vi.fn(),
   writePdf: vi.fn(),
 }))
 
@@ -466,6 +467,7 @@ describe('ebook-db.worker', () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
     vi.stubGlobal('self', workerScope)
+    vi.mocked(readPdf).mockResolvedValueOnce(new Uint8Array([1, 2, 3]))
 
     class Database {
       exec(sql: string) {
@@ -476,10 +478,10 @@ describe('ebook-db.worker', () => {
       selectObject() {
         return {
           id: 'book-1',
+          content_hash: 'a'.repeat(64),
           file_name: 'book.pdf',
           title: '책',
           page_count: 3,
-          pdf_data: new Uint8Array([1]),
           last_page: 10,
         }
       }
@@ -509,8 +511,9 @@ describe('ebook-db.worker', () => {
 
     expect(responses).toHaveBeenNthCalledWith(1, {
       requestId: 11,
-      result: expect.objectContaining({ last_page: 1 }),
+      result: expect.objectContaining({ last_page: 1, pdf_data: new Uint8Array([1, 2, 3]) }),
     })
+    expect(readPdf).toHaveBeenCalledWith('a'.repeat(64))
     expect(statements).toContain('UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?')
     expect(statements.some((statement) => statement.includes('? <= page_count'))).toBe(true)
   })

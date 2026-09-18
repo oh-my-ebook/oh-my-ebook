@@ -10,13 +10,13 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
 
 export const COMMAND = {
   SAVE_BOOK: 'saveBook',
+  GET_BOOK: 'getBook',
 } as const
 
 export const SQLITE_COMMAND = {
   INITIALIZE: 'initialize',
   LIST_BOOKS: 'listBooks',
   HAS_BOOK: 'hasBook',
-  GET_BOOK: 'getBook',
   DELETE_BOOK: 'deleteBook',
   UPDATE_TITLE: 'updateTitle',
   UPDATE_PROGRESS: 'updateProgress',
