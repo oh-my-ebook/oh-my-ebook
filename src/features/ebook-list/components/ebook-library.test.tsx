@@ -67,12 +67,10 @@ describe('EbookLibrary', () => {
     expect(store.request).toHaveBeenCalledTimes(3)
   })
 
-  it('영구 저장 상태와 무관하게 업로드한다', async () => {
+  it('사용량 조회 여부와 무관하게 업로드한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    vi.spyOn(storage, 'requestPersistentStorage').mockResolvedValue(false)
-    vi.spyOn(storage, 'getPersistentStorageStatus').mockResolvedValue(false)
-    vi.spyOn(storage, 'getStorageCapacity').mockResolvedValue(null)
+    vi.spyOn(storage, 'getStorageUsage').mockResolvedValue(null)
     vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
       pdfData: new ArrayBuffer(1),
       contentHash: 'hash',
@@ -98,18 +96,12 @@ describe('EbookLibrary', () => {
     expect(store.addBook).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
     expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
-    expect(storage.requestPersistentStorage).not.toHaveBeenCalled()
+    expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent('확인 불가')
   })
 
-  it('파일마다 최신 잔여량을 확인하고 일부 실패 후 다음 파일을 처리한다', async () => {
+  it('업로드 전에 quota 기반으로 파일을 차단하지 않고 일부 실패 후 다음 파일을 처리한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const capacity = vi.spyOn(storage, 'getStorageCapacity')
-    capacity.mockResolvedValueOnce({ usage: 0, quota: 100, remaining: 100 })
-    capacity.mockResolvedValueOnce({ usage: 0, quota: 100, remaining: 100 })
-    capacity.mockResolvedValueOnce({ usage: 0, quota: 100, remaining: 100 })
-    capacity.mockResolvedValueOnce({ usage: 90, quota: 100, remaining: 10 })
-    capacity.mockResolvedValue({ usage: 90, quota: 100, remaining: 10 })
     vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
       pdfData: new ArrayBuffer(1),
       contentHash: 'hash',
@@ -131,8 +123,7 @@ describe('EbookLibrary', () => {
 
     expect(screen.queryByText(/저장에 실패/)).not.toBeInTheDocument()
     expect(screen.queryByText(/저장 공간이 부족/)).not.toBeInTheDocument()
-    expect(store.addBook).toHaveBeenCalledTimes(1)
-    expect(capacity).toHaveBeenCalled()
+    expect(store.addBook).toHaveBeenCalledTimes(2)
   })
 
   it('수동 새로고침이 목록과 용량을 함께 교체한다', async () => {
@@ -146,10 +137,8 @@ describe('EbookLibrary', () => {
         ? [createStoredBook('기존 책')]
         : [createStoredBook('새 책')]
     })
-    const capacity = vi.spyOn(storage, 'getStorageCapacity')
-    capacity
-      .mockResolvedValueOnce({ usage: 1, quota: 10, remaining: 9 })
-      .mockResolvedValueOnce({ usage: 2, quota: 20, remaining: 18 })
+    const usage = vi.spyOn(storage, 'getStorageUsage')
+    usage.mockResolvedValueOnce(1).mockResolvedValueOnce(2)
     render(<EbookLibrary store={store} />)
 
     expect(await screen.findByText('기존 책')).toBeInTheDocument()
@@ -158,7 +147,9 @@ describe('EbookLibrary', () => {
 
     expect(await screen.findByText('새 책')).toBeInTheDocument()
     expect(screen.queryByText('기존 책')).not.toBeInTheDocument()
-    expect(screen.getByText('남은 용량 18 B')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
+      '소장 도서 1권 (2 B)',
+    )
   })
 
   it('수동 새로고침 실패 시 기존 목록을 유지하고 재시도한다', async () => {
@@ -224,9 +215,7 @@ describe('EbookLibrary', () => {
       }
       return null
     })
-    vi.spyOn(storage, 'getStorageCapacity')
-      .mockResolvedValueOnce({ usage: 10, quota: 100, remaining: 90 })
-      .mockResolvedValueOnce({ usage: 2, quota: 100, remaining: 98 })
+    vi.spyOn(storage, 'getStorageUsage').mockResolvedValueOnce(10).mockResolvedValueOnce(2)
     render(<EbookLibrary store={store} />)
 
     await screen.findByText('첫 번째 책')
@@ -241,7 +230,9 @@ describe('EbookLibrary', () => {
     await user.click(screen.getByRole('button', { name: '삭제' }))
     expect(await screen.findByText('두 번째 책')).toBeInTheDocument()
     expect(screen.queryByText('첫 번째 책')).not.toBeInTheDocument()
-    expect(screen.getByText('남은 용량 98 B')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
+      '소장 도서 1권 (2 B)',
+    )
   })
 
   it('업로드·목록·용량·새로고침·삭제를 하나의 책장 흐름으로 조합한다', async () => {
@@ -263,11 +254,7 @@ describe('EbookLibrary', () => {
       usage = 5
       return 'saved-id'
     })
-    vi.spyOn(storage, 'getStorageCapacity').mockImplementation(async () => ({
-      usage,
-      quota: 100,
-      remaining: 100 - usage,
-    }))
+    vi.spyOn(storage, 'getStorageUsage').mockImplementation(async () => usage)
     vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
       pdfData: new ArrayBuffer(1),
       contentHash: 'new-book-hash',
@@ -290,7 +277,9 @@ describe('EbookLibrary', () => {
       new File(['pdf'], 'new-book.pdf', { type: 'application/pdf' }),
     )
     expect(await screen.findByText(savedBook.title)).toBeInTheDocument()
-    expect(screen.getByText('남은 용량 95 B')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
+      '소장 도서 1권 (5 B)',
+    )
 
     await user.click(screen.getByRole('button', { name: '새로고침' }))
     expect(screen.getByText(savedBook.title)).toBeInTheDocument()
@@ -299,7 +288,9 @@ describe('EbookLibrary', () => {
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '삭제' }))
     expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
-    expect(screen.getByText('남은 용량 100 B')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
+      '소장 도서 0권 (0 B)',
+    )
   })
 
   it('책 제목 수정 실패는 토스트로 알린다', async () => {

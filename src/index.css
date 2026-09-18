@@ -244,6 +244,37 @@
     align-items: center;
     gap: 0.5rem;
   }
+  .library-summary {
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--background);
+    padding: 0 0.625rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+  .library-summary > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+  .library-summary dd {
+    display: flex;
+    align-items: baseline;
+    color: var(--foreground);
+  }
+  .library-summary dt {
+    color: var(--foreground);
+    font-weight: 700;
+  }
+  .library-summary-usage {
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+  }
   .library-intro > p {
     overflow-wrap: break-word;
   }
@@ -305,6 +336,7 @@
     }
     .library-actions {
       grid-row: 2;
+      flex-wrap: wrap;
     }
   }
 }

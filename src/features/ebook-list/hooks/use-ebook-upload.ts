@@ -3,13 +3,12 @@ import { toast } from '@/components/ui/toast'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
-import { getStorageCapacity } from '../lib/storage-manager'
 
 interface UseEbookUploadOptions {
   store: EbookLibraryStore
   isLibraryReady: boolean
   refreshBooks(): Promise<void>
-  refreshCapacity(): Promise<void>
+  refreshUsage(): Promise<void>
 }
 
 function failureMessage(error: unknown) {
@@ -24,7 +23,7 @@ export function useEbookUpload({
   store,
   isLibraryReady,
   refreshBooks,
-  refreshCapacity,
+  refreshUsage,
 }: UseEbookUploadOptions) {
   const [isUploading, setIsUploading] = useState(false)
 
@@ -35,10 +34,6 @@ export function useEbookUpload({
     try {
       for (const file of files) {
         try {
-          const currentCapacity = await getStorageCapacity()
-          if (currentCapacity && file.size > currentCapacity.remaining) {
-            throw new EbookStoreError('quota')
-          }
           const analyzed = await analyzePdf(file)
           await store.addBook(analyzed)
           toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
@@ -50,7 +45,7 @@ export function useEbookUpload({
           })
         } finally {
           try {
-            await refreshCapacity()
+            await refreshUsage()
             await refreshBooks()
           } catch {
             /* 다음 파일은 계속 처리한다. */

@@ -14,8 +14,8 @@ import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-libr
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
+import { LibrarySummary } from './library-summary'
 import { PdfUpload } from './pdf-upload'
-import { StorageSummary } from './storage-summary'
 
 interface EbookLibraryProps {
   store: EbookLibraryStore
@@ -29,10 +29,8 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     refreshLibrary,
     refreshError,
     refreshing,
-    capacity,
+    usage,
     isUploading,
-    persistentStorage,
-    requestPersistence,
     addFiles,
     regenerateCover,
     coverErrors,
@@ -75,6 +73,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             </p>
           </div>
           <div className="library-actions">
+            {state.status === 'ready' && <LibrarySummary books={state.books} usage={usage} />}
             <Button
               disabled={state.status !== 'ready' || refreshing}
               onClick={() => {
@@ -93,19 +92,6 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             />
           </div>
         </header>
-
-        {state.status === 'ready' && (
-          <StorageSummary
-            books={state.books}
-            capacity={capacity}
-            persistentStorage={persistentStorage}
-            onRequestPersistence={requestPersistence}
-            onRetry={() => {
-              void refreshLibrary()
-            }}
-          />
-        )}
-
         {state.status === 'loading' && <EbookShelfLoading />}
 
         {state.status === 'error' && (

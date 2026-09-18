@@ -31,7 +31,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const storage = useLibraryStorage()
-  const { refreshStorageStatus } = storage
+  const { refreshUsage } = storage
 
   async function refreshBooks() {
     const result = await store.request('listBooks')
@@ -44,7 +44,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     setRefreshing(true)
     setRefreshError(null)
     try {
-      const [result] = await Promise.all([store.request('listBooks'), storage.refreshCapacity()])
+      const [result] = await Promise.all([store.request('listBooks'), refreshUsage()])
       if (!Array.isArray(result) || !result.every(isStoredBook))
         throw new Error('Invalid book list')
       setState({ status: 'ready', books: result })
@@ -64,7 +64,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
         const result = await store.request('listBooks')
         if (!Array.isArray(result) || !result.every(isStoredBook))
           throw new Error('Invalid book list')
-        await refreshStorageStatus()
+        await refreshUsage()
         if (active) {
           setState({ status: 'ready', books: result })
         }
@@ -85,7 +85,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     return () => {
       active = false
     }
-  }, [store, attempt, refreshStorageStatus])
+  }, [store, attempt, refreshUsage])
 
   function retry() {
     setState({ status: 'loading' })
@@ -96,12 +96,12 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     store,
     isLibraryReady: state.status === 'ready',
     refreshBooks,
-    refreshCapacity: storage.refreshCapacity,
+    refreshUsage,
   })
   const coverRegeneration = useCoverRegeneration({
     store,
     refreshBooks,
-    refreshCapacity: storage.refreshCapacity,
+    refreshUsage,
   })
 
   async function renameBook(bookId: string, title: string) {
@@ -125,11 +125,8 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     refreshLibrary,
     refreshError,
     refreshing,
-    capacity: storage.capacity,
-    refreshCapacity: storage.refreshCapacity,
+    usage: storage.usage,
     isUploading: upload.isUploading,
-    persistentStorage: storage.persistentStorage,
-    requestPersistence: storage.requestPersistence,
     addFiles: upload.addFiles,
     regenerateCover: coverRegeneration.regenerateCover,
     coverErrors: coverRegeneration.coverErrors,
