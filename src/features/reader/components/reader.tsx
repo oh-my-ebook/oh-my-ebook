@@ -226,7 +226,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
                 totalPages={documentState.pages.length}
               />
             </div>
-            <Separator className="h-5" orientation="vertical" />
+            <Separator className="h-5 data-vertical:self-center" orientation="vertical" />
             <ZoomControls
               isFitHeight={zoom.mode === 'fit-height'}
               scale={displayScale}
