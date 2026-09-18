@@ -50,7 +50,7 @@ function WideReaderPanel({ chatSessionKey, currentPage, onOpenChange, open }: Pa
         aria-label={RESIZE_HANDLE_LABEL}
         className="data-[separator=active]:bg-primary/40 data-[separator=active]:ring-[1.5px] data-[separator=active]:ring-primary/15 data-[separator=hover]:bg-primary/40 data-[separator=hover]:ring-[1.5px] data-[separator=hover]:ring-primary/15"
       />
-      <ResizablePanel defaultSize="30%" id="reader-chat" maxSize="45%" minSize="380px">
+      <ResizablePanel defaultSize="30%" id="reader-chat" maxSize="45%" minSize="360px">
         <aside
           aria-label={PANEL_TITLE}
           className="flex h-full min-w-0 flex-col bg-card"
