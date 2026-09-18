@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Ellipsis, Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { Ellipsis, Pencil, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import type { StoredBook } from '../ebook-types'
 import { DeleteBookDialog } from './delete-book-dialog'
 import { EditBookDialog } from './edit-book-dialog'
@@ -36,6 +36,7 @@ export function BookCard({
   const imageRef = useRef<HTMLImageElement>(null)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const isPdfMissing = book.pdf_status === 'missing'
   const progress =
     book.last_page === null
       ? `읽지 않음 · 전체 ${book.page_count}페이지`
@@ -55,12 +56,27 @@ export function BookCard({
       <Card className="book-card-surface h-full gap-0 bg-transparent p-0 shadow-none ring-0">
         <CardContent className="flex flex-1 flex-col gap-3 px-0">
           <button
-            aria-label={`${book.title} 열기`}
+            aria-label={`${book.title} ${isPdfMissing ? '삭제' : '열기'}`}
             className="book-card-cover"
-            onClick={onOpen}
+            onClick={() => {
+              if (isPdfMissing && onDelete) {
+                setDeleting(true)
+                return
+              }
+              onOpen()
+            }}
             type="button"
           >
-            {book.cover_data && book.cover_mime ? (
+            {isPdfMissing ? (
+              <div
+                aria-label="원본 PDF 없음"
+                className="flex size-full flex-col items-center justify-center gap-2 text-destructive"
+                role="img"
+              >
+                <TriangleAlert aria-hidden="true" className="size-8" />
+                <span>원본 PDF 없음</span>
+              </div>
+            ) : book.cover_data && book.cover_mime ? (
               <img ref={imageRef} alt={`${book.title} 표지`} className="size-full object-contain" />
             ) : (
               <p>기본 표지</p>
@@ -90,7 +106,7 @@ export function BookCard({
                         <Trash2 />책 삭제
                       </DropdownMenuItem>
                     )}
-                    {book.cover_status === 'fallback' && onRegenerate && (
+                    {!isPdfMissing && book.cover_status === 'fallback' && onRegenerate && (
                       <DropdownMenuItem disabled={regenerating} onClick={onRegenerate}>
                         <RefreshCw />
                         표지 다시 만들기
@@ -108,7 +124,7 @@ export function BookCard({
             />
             <p className="text-sm text-muted-foreground">{progress}</p>
           </div>
-          {book.cover_status === 'fallback' && onRegenerate && (
+          {!isPdfMissing && book.cover_status === 'fallback' && onRegenerate && (
             <>
               <p>표지를 만들지 못했습니다.</p>
               {coverError && <p role="alert">{coverError}</p>}

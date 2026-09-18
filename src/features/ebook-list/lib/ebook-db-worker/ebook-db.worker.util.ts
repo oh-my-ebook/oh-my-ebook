@@ -50,6 +50,15 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
+export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
+  return (
+    typeof book === 'object' &&
+    book !== null &&
+    'content_hash' in book &&
+    isContentHash(book.content_hash)
+  )
+}
+
 export function isAddBookInput(value: unknown): value is AddBookInput {
   if (!isRecord(value)) return false
   const input = value

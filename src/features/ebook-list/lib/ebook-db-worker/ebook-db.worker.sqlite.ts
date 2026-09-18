@@ -146,7 +146,7 @@ export function getBookId(request: WorkerRequest): string {
   )
 }
 
-function listBooks(database: Database): unknown {
+export function listBooks(database: Database): unknown {
   return database.exec(
     `SELECT id, content_hash, file_name, title,
             author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
@@ -213,8 +213,6 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
       return undefined
-    case SQLITE_COMMAND.LIST_BOOKS:
-      return listBooks(database)
     case SQLITE_COMMAND.HAS_BOOK:
       return hasBook(database, request)
     case SQLITE_COMMAND.UPDATE_PROGRESS:

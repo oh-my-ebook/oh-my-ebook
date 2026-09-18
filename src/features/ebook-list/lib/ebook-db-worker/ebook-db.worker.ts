@@ -6,6 +6,7 @@ import { getErrorCode, UnsupportedCommandError } from './ebook-db.worker.error'
 import {
   deletePdf,
   executeOpfsCommand,
+  hasPdf,
   isOpfsCommand,
   readPdf,
   writePdf,
@@ -18,10 +19,12 @@ import {
   getBookMetadata,
   isSqliteCommand,
   getBookId,
+  listBooks,
 } from './ebook-db.worker.sqlite'
 import {
   getPayload,
   isAddBookInput,
+  isBook,
   isContentHash,
   isWorkerRequest,
   type WorkerRequest,
@@ -60,6 +63,19 @@ async function getBook(request: WorkerRequest): Promise<Record<string, unknown>>
   return { ...book, pdf_data: await readPdf(contentHash) }
 }
 
+async function listLibraryBooks(): Promise<Record<string, unknown>[]> {
+  const books = listBooks(await getDatabase())
+  if (!Array.isArray(books)) throw new Error('Invalid book list')
+
+  return await Promise.all(
+    books.map(async (book) => {
+      if (!isBook(book)) throw new Error('Invalid book list')
+
+      return { ...book, pdf_status: (await hasPdf(book.content_hash)) ? 'available' : 'missing' }
+    }),
+  )
+}
+
 /**
  * OSPF에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 메타 데이터를 삭제
  * 만약 OSPF 삭제에 실패하면 Error를 발생
@@ -79,6 +95,8 @@ function executeLibraryCommand(request: WorkerRequest): Promise<unknown> {
   switch (request.command) {
     case COMMAND.SAVE_BOOK:
       return saveBook(request)
+    case COMMAND.LIST_BOOKS:
+      return listLibraryBooks()
     case COMMAND.GET_BOOK:
       return getBook(request)
     case COMMAND.DELETE_BOOK:

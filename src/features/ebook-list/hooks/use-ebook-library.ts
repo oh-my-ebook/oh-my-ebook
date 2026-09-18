@@ -21,7 +21,9 @@ function isStoredBook(value: unknown): value is StoredBook {
     'id' in value &&
     typeof value.id === 'string' &&
     'title' in value &&
-    typeof value.title === 'string'
+    typeof value.title === 'string' &&
+    'pdf_status' in value &&
+    (value.pdf_status === 'available' || value.pdf_status === 'missing')
   )
 }
 

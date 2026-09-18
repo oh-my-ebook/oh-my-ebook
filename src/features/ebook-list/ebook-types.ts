@@ -62,6 +62,7 @@ export interface StoredBook {
   cover_data: Uint8Array | null
   cover_mime: string | null
   cover_status: 'ready' | 'fallback'
+  pdf_status: 'available' | 'missing'
   last_page: number | null
   created_at: number
   updated_at: number

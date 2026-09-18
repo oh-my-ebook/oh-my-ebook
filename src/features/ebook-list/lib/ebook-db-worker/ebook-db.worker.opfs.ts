@@ -63,6 +63,19 @@ export async function readPdf(contentHash: string): Promise<Uint8Array> {
   return new Uint8Array(await (await file.getFile()).arrayBuffer())
 }
 
+export async function hasPdf(contentHash: string): Promise<boolean> {
+  const fileName = getPdfFileName(contentHash)
+
+  try {
+    const directory = await getPdfDirectory(false)
+    await directory.getFileHandle(fileName)
+    return true
+  } catch (error) {
+    if (isNotFoundError(error)) return false
+    throw error
+  }
+}
+
 export async function deletePdf(contentHash: string): Promise<void> {
   const fileName = getPdfFileName(contentHash)
 

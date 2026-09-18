@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   deletePdf,
   executeOpfsCommand,
+  hasPdf,
   isOpfsCommand,
   readPdf,
   writePdf,
@@ -13,6 +14,7 @@ vi.mock('./ebook-db.worker.opfs', () => ({
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
   deletePdf: vi.fn(),
+  hasPdf: vi.fn(),
   readPdf: vi.fn(),
   writePdf: vi.fn(),
 }))
@@ -143,6 +145,46 @@ describe('ebook-db.worker', () => {
     expect(schema).not.toContain('pdf_data BLOB')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
+  })
+
+  it('SQLite 책 목록에 OPFS 원본 유무를 표시한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+    vi.mocked(hasPdf).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+
+    class Database {
+      exec(sql: string) {
+        if (sql === 'PRAGMA user_version') return [1]
+        if (sql.includes('FROM books ORDER BY')) {
+          return [
+            { id: 'available-book', content_hash: 'a'.repeat(64), title: '읽을 수 있는 책' },
+            { id: 'missing-book', content_hash: 'b'.repeat(64), title: '원본이 없는 책' },
+          ]
+        }
+        return this
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(new MessageEvent('message', { data: { requestId: 20, command: 'listBooks' } }))
+
+    expect(hasPdf).toHaveBeenNthCalledWith(1, 'a'.repeat(64))
+    expect(hasPdf).toHaveBeenNthCalledWith(2, 'b'.repeat(64))
+    expect(responses).toHaveBeenCalledWith({
+      requestId: 20,
+      result: [
+        expect.objectContaining({ id: 'available-book', pdf_status: 'available' }),
+        expect.objectContaining({ id: 'missing-book', pdf_status: 'missing' }),
+      ],
+    })
   })
 
   it('삽입 중 오류가 나면 트랜잭션을 롤백하고 실패를 응답한다', async () => {
