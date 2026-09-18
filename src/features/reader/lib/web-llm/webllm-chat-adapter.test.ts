@@ -71,7 +71,7 @@ function createEngine(chunks: string[]) {
 }
 
 describe('createWebLlmChatModelAdapter', () => {
-  it('Qwen 모델을 한 번만 불러오고 전체 대화를 누적 스트리밍한다', async () => {
+  it('전체 대화를 누적 스트리밍하고, 시스템 컨텍스트와 대화 이력을 엔진에 전달한다', async () => {
     const { create, engine } = createEngine(['반갑', '습니다'])
     const loadEngine = vi.fn(async (modelId: string) => {
       expect(modelId).toBe(WEBLLM_MODEL_ID)
@@ -84,16 +84,12 @@ describe('createWebLlmChatModelAdapter', () => {
       createMessage('user', '질문'),
     ])
 
-    const firstTexts = []
+    const texts = []
     for await (const result of adapter.run(options)) {
-      firstTexts.push(getText(result))
-    }
-    for await (const _result of adapter.run(options)) {
-      // 두 번째 실행에서도 같은 엔진을 재사용하는지만 확인한다.
+      texts.push(getText(result))
     }
 
-    expect(firstTexts).toEqual(['반갑', '반갑습니다'])
-    expect(loadEngine).toHaveBeenCalledTimes(1)
+    expect(texts).toEqual(['반갑', '반갑습니다'])
     expect(create).toHaveBeenCalledWith({
       messages: [
         { role: 'system', content: '현재 PDF 5페이지를 읽고 있습니다.' },
@@ -151,7 +147,7 @@ describe('createWebLlmChatModelAdapter', () => {
     expect(loadEngine).toHaveBeenCalledTimes(2)
   })
 
-  it('생성 중 실패하면 캐시된 엔진을 버리고 다음 요청에서 엔진을 다시 불러온다', async () => {
+  it('생성 중 실패하면 onEngineFailure를 호출하고, 이후 요청은 정상적으로 이어진다', async () => {
     const failingEngine: WebLlmEngine = {
       chat: {
         completions: {
@@ -167,7 +163,8 @@ describe('createWebLlmChatModelAdapter', () => {
       .fn<(modelId: string) => Promise<WebLlmEngine>>()
       .mockResolvedValueOnce(failingEngine)
       .mockResolvedValueOnce(workingEngine)
-    const adapter = createWebLlmChatModelAdapter(loadEngine)
+    const onEngineFailure = vi.fn()
+    const adapter = createWebLlmChatModelAdapter(loadEngine, onEngineFailure)
     const options = createRunOptions([createMessage('user', '질문')])
 
     await expect(
@@ -178,13 +175,14 @@ describe('createWebLlmChatModelAdapter', () => {
       })(),
     ).rejects.toThrow('생성 실패')
 
+    expect(onEngineFailure).toHaveBeenCalledExactlyOnceWith(new Error('생성 실패'))
+
     const texts = []
     for await (const result of adapter.run(options)) {
       texts.push(getText(result))
     }
 
     expect(texts).toEqual(['답변'])
-    expect(loadEngine).toHaveBeenCalledTimes(2)
   })
 })
 

@@ -187,19 +187,16 @@ export async function prepareWebLlmModel() {
   await loadDefaultEngine(WEBLLM_MODEL_ID)
 }
 
+// 엔진을 불러오고 캐싱하는 책임은
+// loadEngine(프로덕션에서는 loadDefaultEngine의 싱글턴)에 온전히 맡긴다.
+// 어댑터가 여기서 또 자체 캐시를 두면 두 캐시의 생명주기(특히 실패 시 초기화)를 따로 맞춰야 해서 어긋나기 쉽다.
 export function createWebLlmChatModelAdapter(
   loadEngine: LoadEngine,
   onEngineFailure?: (error: unknown) => void,
 ): WebLlmChatModelAdapter {
-  let enginePromise: Promise<WebLlmEngine> | undefined
-
   return {
     async *run(options) {
-      enginePromise ??= loadEngine(WEBLLM_MODEL_ID).catch((error: unknown) => {
-        enginePromise = undefined
-        throw error
-      })
-      const engine = await enginePromise
+      const engine = await loadEngine(WEBLLM_MODEL_ID)
 
       if (options.abortSignal.aborted) {
         throw new DOMException('중단된 요청입니다.', 'AbortError')
@@ -225,10 +222,9 @@ export function createWebLlmChatModelAdapter(
           }
         }
       } catch (error) {
-        // 로딩 이후(생성 도중) 엔진이 죽으면(워커 크래시, GPU device lost 등) 캐시된 엔진을 계속
-        // 재사용하면 이후 모든 요청이 같은 이유로 영구히 실패한다. 다음 요청이 엔진을 다시
-        // 불러오도록 캐시를 버리고, 프로덕션 싱글턴 상태도 함께 무효화한다.
-        enginePromise = undefined
+        // 로딩 이후(생성 도중) 엔진이 죽으면(워커 크래시, GPU device lost 등)
+        // loadEngine의 캐시에 고장난 엔진이 남아 이후 모든 요청이 같은 이유로 영구히 실패한다.
+        // 프로덕션 싱글턴(loadDefaultEngine)이 캐시를 비우도록 알린다.
         onEngineFailure?.(error)
         throw error
       } finally {
