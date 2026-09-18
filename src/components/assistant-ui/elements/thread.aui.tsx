@@ -144,7 +144,7 @@ const ThreadHistorySkeleton: FC = () => (
     role="status"
     className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
   >
-    <span className="sr-only">Loading conversation</span>
+    <span className="sr-only">대화 불러오는 중</span>
     <Skeleton className="ml-auto h-9 w-2/5 rounded-xl motion-reduce:animate-none" />
     <div className="flex flex-col gap-y-2">
       <Skeleton className="h-4 w-11/12 motion-reduce:animate-none" />
@@ -290,7 +290,7 @@ const SpokenMessage: FC = () => {
           className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs"
         >
           <PhoneIcon className="size-3" aria-hidden />
-          <span>Voice conversation</span>
+          <span>음성 대화</span>
         </div>
       )}
       <div
@@ -305,7 +305,7 @@ const SpokenMessage: FC = () => {
           )}
         </span>
         <span className="sr-only">
-          {role === "user" ? "You said" : "Assistant said"}
+          {role === "user" ? "내가 말한 내용" : "어시스턴트가 말한 내용"}
         </span>
         <div className="min-w-0 flex-1 wrap-break-word">
           <MessagePrimitive.Parts components={{ Text: SpokenText }} />
@@ -314,7 +314,7 @@ const SpokenMessage: FC = () => {
               data-slot="aui_spoken-message-indicator"
               role="status"
               className="text-muted-foreground ms-1 animate-pulse font-sans"
-              aria-label="Assistant is speaking"
+              aria-label="어시스턴트가 말하는 중"
             >
               ●
             </span>
@@ -333,7 +333,7 @@ const SpokenActionBar: FC = () => {
       autohide="always"
       className="aui-spoken-action-bar text-muted-foreground flex shrink-0 gap-1"
     >
-      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" className="size-6" />}><AuiIf condition={(s) => s.message.isCopied}>
+      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="복사" className="size-6" />}><AuiIf condition={(s) => s.message.isCopied}>
                       <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
                     </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
                       <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
@@ -344,7 +344,7 @@ const SpokenActionBar: FC = () => {
 
 const ThreadScrollToBottom: FC = () => {
   return (
-    <ThreadPrimitive.ScrollToBottom render={<TooltipIconButton tooltip="Scroll to bottom" variant="outline" className="aui-thread-scroll-to-bottom dark:border-border dark:bg-background dark:hover:bg-accent absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible" />}><ArrowDownIcon /></ThreadPrimitive.ScrollToBottom>
+    <ThreadPrimitive.ScrollToBottom render={<TooltipIconButton tooltip="맨 아래로 이동" variant="outline" className="aui-thread-scroll-to-bottom dark:border-border dark:bg-background dark:hover:bg-accent absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible" />}><ArrowDownIcon /></ThreadPrimitive.ScrollToBottom>
   );
 };
 
@@ -366,12 +366,12 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         className="border-border/60 focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding)"
       >
         <ComposerPrimitive.Input
-          placeholder="Send a message..."
+          placeholder="질문을 입력하세요"
           className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
           rows={1}
           autoFocus={autoFocus}
           enterKeyHint="send"
-          aria-label="Message input"
+          aria-label="질문 입력"
         />
         <ComposerAction />
       </div>
@@ -385,17 +385,17 @@ const ComposerAction: FC = () => {
       <div className="flex items-center gap-1.5">
         <AuiIf condition={(s) => s.thread.capabilities.dictation}>
           <AuiIf condition={(s) => s.composer.dictation == null}>
-            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
+            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="음성 입력" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="음성 입력 시작" />}><MicIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
           </AuiIf>
           <AuiIf condition={(s) => s.composer.dictation != null}>
-            <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
+            <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="음성 입력 중지" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="음성 입력 중지" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
         <AuiIf condition={(s) => !s.thread.isRunning}>
-          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="질문 보내기" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="질문 보내기" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
         </AuiIf>
         <AuiIf condition={(s) => s.thread.isRunning}>
-          <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop generating" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="답변 중지" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
     </div>
@@ -498,7 +498,7 @@ const AssistantMessage: FC = () => {
                   <span
                     data-slot="aui_assistant-message-indicator"
                     className="animate-pulse font-sans"
-                    aria-label="Assistant is working"
+                    aria-label="답변 작성 중"
                   >
                     {"●"}
                   </span>
@@ -529,21 +529,21 @@ const AssistantActionBar: FC = () => {
       autohide="not-last"
       className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex gap-1 duration-200"
     >
-      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" />}><AuiIf condition={(s) => s.message.isCopied}>
+      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="복사" />}><AuiIf condition={(s) => s.message.isCopied}>
                       <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
                     </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
                       <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
                     </AuiIf></ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><RefreshCwIcon /></ActionBarPrimitive.Reload>
+      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="다시 답변받기" />}><RefreshCwIcon /></ActionBarPrimitive.Reload>
       <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><MoreHorizontalIcon /></ActionBarMorePrimitive.Trigger>
+        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="더 보기" className="data-[state=open]:bg-accent" />}><MoreHorizontalIcon /></ActionBarMorePrimitive.Trigger>
         <ActionBarMorePrimitive.Content
           side="bottom"
           align="start"
           sideOffset={6}
           className="aui-action-bar-more-content bg-popover text-popover-foreground data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border p-1.5"
         >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadIcon className="size-4" />Export as Markdown
+          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadIcon className="size-4" />Markdown으로 내보내기
                               </ActionBarPrimitive.ExportMarkdown>
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
@@ -596,7 +596,7 @@ const UserActionBar: FC = () => {
       autohide="not-last"
       className="aui-user-action-bar-root flex flex-col items-end"
     >
-      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
+      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="수정" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
     </ActionBarPrimitive.Root>
   );
 };
@@ -613,9 +613,9 @@ const EditComposer: FC = () => {
           autoFocus
         />
         <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
-          <ComposerPrimitive.Cancel render={<Button variant="ghost" size="sm" className="h-8 rounded-full px-3.5" />}>Cancel
+          <ComposerPrimitive.Cancel render={<Button variant="ghost" size="sm" className="h-8 rounded-full px-3.5" />}>취소
                               </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send render={<Button size="sm" className="h-8 rounded-full px-3.5" />}>Update
+          <ComposerPrimitive.Send render={<Button size="sm" className="h-8 rounded-full px-3.5" />}>다시 보내기
                               </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
@@ -636,11 +636,11 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
       )}
       {...rest}
     >
-      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><ChevronLeftIcon /></BranchPickerPrimitive.Previous>
+      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="이전 답변" />}><ChevronLeftIcon /></BranchPickerPrimitive.Previous>
       <span className="aui-branch-picker-state font-medium">
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
       </span>
-      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><ChevronRightIcon /></BranchPickerPrimitive.Next>
+      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="다음 답변" />}><ChevronRightIcon /></BranchPickerPrimitive.Next>
     </BranchPickerPrimitive.Root>
   );
 };

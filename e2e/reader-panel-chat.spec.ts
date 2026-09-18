@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 
 const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
 const PANEL_TITLE = '함께 읽기'
-const MESSAGE_INPUT_LABEL = 'Message input'
-const SEND_BUTTON_LABEL = 'Send message'
+const MESSAGE_INPUT_LABEL = '질문 입력'
+const SEND_BUTTON_LABEL = '질문 보내기'
 const MOCK_RESPONSE_TEXT =
   '질문을 확인했어요. 지금은 Mock 응답이라 실제 AI 답변은 아직 연결되지 않았어요.'
 

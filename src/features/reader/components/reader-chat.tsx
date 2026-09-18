@@ -4,8 +4,15 @@ import {
   useLocalRuntime,
   type ChatModelAdapter,
 } from '@assistant-ui/react'
-import { Thread } from '@/components/assistant-ui/elements/thread.aui'
+import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { mockChatModelAdapter } from '../lib/mock-chat-adapter'
+
+// 부모가 다시 렌더링될 때 메시지 영역까지 다시 그리지 않도록 모듈 범위에 둔다.
+const THREAD_COMPONENTS: ThreadComponents = {
+  Welcome: () => (
+    <p className="mb-6 px-4 text-center text-lg font-medium">어떤 것에 대해 알아볼까요?</p>
+  ),
+}
 
 interface ReaderChatProps {
   chatModel?: ChatModelAdapter
@@ -25,7 +32,7 @@ function ReaderChatContent({ currentPage }: ReaderChatContentProps) {
     disabled: currentPage === undefined,
   })
 
-  return <Thread />
+  return <Thread components={THREAD_COMPONENTS} />
 }
 
 export function ReaderChat({ chatModel = mockChatModelAdapter, currentPage }: ReaderChatProps) {

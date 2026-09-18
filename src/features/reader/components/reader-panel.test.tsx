@@ -8,7 +8,7 @@ import { ReaderPanel } from './reader-panel'
 const PANEL_TITLE = '함께 읽기'
 const OPEN_BUTTON_LABEL = '함께 읽기 패널 열기'
 const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
-const CHAT_INPUT_LABEL = 'Message input'
+const CHAT_INPUT_LABEL = '질문 입력'
 
 interface HarnessProps {
   chatSessionKey?: string
