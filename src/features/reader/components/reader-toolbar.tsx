@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sheet'
 import type { PageViewMode } from '../lib/page-spread'
 import { ViewModeControl } from './view-mode-control'
+import { useNavigate } from 'react-router'
 
 interface ReaderToolbarProps {
   onTogglePanel: () => void
@@ -42,6 +43,7 @@ export function ReaderToolbar({
 }: ReaderToolbarProps) {
   const [tocOpen, setTocOpen] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const navigation = useNavigate()
 
   const toggleTheme = () => {
     const nextDark = !dark
@@ -55,10 +57,15 @@ export function ReaderToolbar({
       className="grid min-h-12 min-w-0 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-card px-3 py-2 max-sm:grid-cols-[1fr_auto]"
     >
       <div className="flex items-center gap-1">
-        <Button aria-label="책장으로 돌아가기" size="icon-sm" variant="ghost">
+        <Button
+          aria-label="책장으로 돌아가기"
+          onClick={() => navigation('/')}
+          size="icon-sm"
+          variant="ghost"
+        >
           <ArrowLeftIcon />
         </Button>
-        <Separator className="h-5" orientation="vertical" />
+        <Separator className="h-5 data-vertical:self-center" orientation="vertical" />
         <Sheet onOpenChange={setTocOpen} open={tocOpen}>
           <SheetTrigger
             render={
@@ -86,7 +93,9 @@ export function ReaderToolbar({
         </Button>
       </div>
 
-      <h1 className="min-w-0 truncate text-center max-sm:col-span-2 max-sm:row-start-2">{title}</h1>
+      <h1 className="min-w-0 truncate text-center font-medium max-sm:col-span-2 max-sm:row-start-2">
+        {title}
+      </h1>
 
       <div className="flex items-center justify-end gap-1">
         <ViewModeControl
@@ -94,7 +103,7 @@ export function ReaderToolbar({
           onViewChange={onViewChange}
           preferredView={preferredView}
         />
-        <Separator className="h-5" orientation="vertical" />
+        <Separator className="h-5 data-vertical:self-center" orientation="vertical" />
         <Button
           aria-label={dark ? '밝은 테마' : '어두운 테마'}
           onClick={toggleTheme}
