@@ -100,6 +100,42 @@ describe('ebook-db.worker', () => {
     )
   })
 
+  it('새 DB는 PDF BLOB 없이 메타데이터 스키마를 만든다', async () => {
+    const statements: string[] = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string) {
+        statements.push(sql)
+        if (sql === 'PRAGMA user_version') return [0]
+        return this
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(new MessageEvent('message', { data: { requestId: 6, command: 'initialize' } }))
+
+    const schema = statements.find((statement) => statement.includes('CREATE TABLE books'))
+    expect(schema).toContain('author TEXT')
+    expect(schema).toContain('pdf_title TEXT')
+    expect(schema).toContain('pdf_subject TEXT')
+    expect(schema).toContain('pdf_keywords TEXT')
+    expect(schema).toContain('publisher TEXT')
+    expect(schema).toContain('pdf_size INTEGER NOT NULL CHECK (pdf_size >= 0)')
+    expect(schema).not.toContain('pdf_data BLOB')
+    expect(schema).toContain('PRAGMA user_version = 1')
+    expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
+  })
+
   it('삽입 중 오류가 나면 트랜잭션을 롤백하고 실패를 응답한다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
@@ -136,6 +172,12 @@ describe('ebook-db.worker', () => {
             contentHash: 'hash',
             fileName: 'a.pdf',
             title: 'A',
+            author: '저자',
+            pdfTitle: '원본 제목',
+            pdfSubject: '주제',
+            pdfKeywords: '키워드',
+            publisher: '출판사',
+            pdfSize: 2,
             pageCount: 1,
             coverData: null,
             coverMime: null,
@@ -149,6 +191,64 @@ describe('ebook-db.worker', () => {
     expect(statements).toContain('ROLLBACK')
     expect(statements).not.toContain('COMMIT')
     expect(responses).toHaveBeenCalledWith({ requestId: 7, error: { code: 'storage-failed' } })
+  })
+
+  it('PDF BLOB 없이 분석 메타데이터를 저장한다', async () => {
+    const calls: Array<{ sql: string; bind?: unknown[] }> = []
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    class Database {
+      exec(sql: string, options?: { bind?: unknown[] }) {
+        calls.push({ sql, bind: options?.bind })
+        if (sql === 'PRAGMA user_version') return [1]
+        return this
+      }
+      selectValue() {
+        return undefined
+      }
+    }
+
+    vi.mocked(sqlite3InitModule).mockResolvedValue({
+      capi: { sqlite3_vfs_find: () => true },
+      oo1: { OpfsDb: Database },
+    } as never)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(
+      new MessageEvent('message', {
+        data: {
+          requestId: 18,
+          command: 'addBook',
+          payload: {
+            pdfData: new ArrayBuffer(123),
+            contentHash: 'hash',
+            fileName: 'book.pdf',
+            title: '서재 제목',
+            author: '저자',
+            pdfTitle: 'PDF 제목',
+            pdfSubject: null,
+            pdfKeywords: 'pdf, metadata',
+            publisher: '출판사',
+            pdfSize: 123,
+            pageCount: 1,
+            coverData: null,
+            coverMime: null,
+            coverStatus: 'fallback',
+          },
+        },
+      }),
+    )
+
+    const insert = calls.find((call) => call.sql.includes('INSERT INTO books'))
+    expect(insert?.sql).not.toContain('pdf_data')
+    expect(insert?.bind).toEqual(
+      expect.arrayContaining(['저자', 'PDF 제목', null, 'pdf, metadata', '출판사', 123]),
+    )
+    expect(responses).toHaveBeenCalledWith({ requestId: 18, result: expect.any(String) })
   })
 
   it('지원하는 명령의 잘못된 payload는 명령별 원인을 기록한다', async () => {
@@ -218,7 +318,7 @@ describe('ebook-db.worker', () => {
     ])
   })
 
-  it('빈 PDF와 공백 콘텐츠 해시는 저장하지 않고 잘못된 payload로 처리한다', async () => {
+  it('음수 PDF 크기와 공백 콘텐츠 해시는 저장하지 않고 잘못된 payload로 처리한다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
@@ -252,6 +352,12 @@ describe('ebook-db.worker', () => {
             contentHash: 'hash',
             fileName: 'empty.pdf',
             title: '빈 PDF',
+            author: null,
+            pdfTitle: null,
+            pdfSubject: null,
+            pdfKeywords: null,
+            publisher: null,
+            pdfSize: -1,
             pageCount: 1,
             coverData: null,
             coverMime: null,
@@ -270,6 +376,12 @@ describe('ebook-db.worker', () => {
             contentHash: '   ',
             fileName: 'empty-hash.pdf',
             title: '빈 해시',
+            author: null,
+            pdfTitle: null,
+            pdfSubject: null,
+            pdfKeywords: null,
+            publisher: null,
+            pdfSize: 1,
             pageCount: 1,
             coverData: null,
             coverMime: null,

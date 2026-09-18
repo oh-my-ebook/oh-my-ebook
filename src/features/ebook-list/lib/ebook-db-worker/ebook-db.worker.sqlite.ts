@@ -40,17 +40,22 @@ function addBook(database: Database, input: AddBookInput): string {
   try {
     database.exec(
       `INSERT INTO books (
-        id, content_hash, file_name, title, page_count,
-        pdf_data, cover_data, cover_mime, cover_status, last_page, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        id, content_hash, file_name, title, author, pdf_title, pdf_subject, pdf_keywords, publisher,
+        pdf_size, page_count, cover_data, cover_mime, cover_status, last_page, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
       {
         bind: [
           id,
           input.contentHash,
           input.fileName,
           input.title,
+          input.author,
+          input.pdfTitle,
+          input.pdfSubject,
+          input.pdfKeywords,
+          input.publisher,
+          input.pdfSize,
           input.pageCount,
-          new Uint8Array(input.pdfData),
           input.coverData ? new Uint8Array(input.coverData) : null,
           input.coverMime,
           input.coverStatus,
@@ -86,8 +91,13 @@ async function openDatabase(): Promise<Database> {
             content_hash TEXT NOT NULL UNIQUE,
             file_name TEXT NOT NULL,
             title TEXT NOT NULL,
+            author TEXT,
+            pdf_title TEXT,
+            pdf_subject TEXT,
+            pdf_keywords TEXT,
+            publisher TEXT,
+            pdf_size INTEGER NOT NULL CHECK (pdf_size >= 0),
             page_count INTEGER NOT NULL CHECK (page_count > 0),
-            pdf_data BLOB NOT NULL,
             cover_data BLOB,
             cover_mime TEXT,
             cover_status TEXT NOT NULL CHECK (cover_status IN ('ready', 'fallback')),
@@ -134,6 +144,7 @@ function getBookId(request: WorkerRequest): string {
 function listBooks(database: Database): unknown {
   return database.exec(
     `SELECT id, content_hash, file_name, title,
+            author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
             page_count, cover_data, cover_mime, cover_status,
             last_page, created_at, updated_at
      FROM books ORDER BY created_at DESC, id DESC`,
@@ -152,7 +163,10 @@ function hasBook(database: Database, request: WorkerRequest): undefined {
 function getBook(database: Database, request: WorkerRequest): Record<string, unknown> {
   const id = getBookId(request)
   const book = database.selectObject(
-    'SELECT id, file_name, title, page_count, pdf_data, last_page FROM books WHERE id = ?',
+    `SELECT id, content_hash, file_name, title,
+            author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
+            page_count, last_page
+     FROM books WHERE id = ?`,
     [id],
   )
   if (!book) throw new NotFoundBookError()
