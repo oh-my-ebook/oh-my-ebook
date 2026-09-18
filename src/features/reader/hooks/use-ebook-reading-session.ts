@@ -10,41 +10,49 @@ interface ReaderBook {
   title: string
 }
 
-type EbookReaderBookState =
+type EbookReaderState =
   | { status: 'loading' }
   | { status: 'ready'; book: ReaderBook }
   | { status: 'error'; message: string }
 
-function isReaderBook(value: unknown): value is {
-  file_name: string
-  last_page: number | null
-  pdf_data: Uint8Array
-  title?: string
-} {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'file_name' in value &&
-    typeof value.file_name === 'string' &&
-    'last_page' in value &&
-    (value.last_page === null || Number.isSafeInteger(value.last_page)) &&
-    'pdf_data' in value &&
-    value.pdf_data instanceof Uint8Array &&
-    (!('title' in value) || typeof value.title === 'string')
-  )
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
-export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
-  const [state, setState] = useState<EbookReaderBookState>({ status: 'loading' })
+function parseReaderBook(value: unknown): ReaderBook | null {
+  if (!isRecord(value)) return null
+
+  const fileName = value.file_name
+  const lastPage = value.last_page
+  const pdfData = value.pdf_data
+  const hasTitle = 'title' in value
+  const title = value.title
+
+  if (typeof fileName !== 'string') return null
+  if (lastPage !== null && (typeof lastPage !== 'number' || !Number.isSafeInteger(lastPage))) {
+    return null
+  }
+  if (!(pdfData instanceof Uint8Array)) return null
+  if (hasTitle && typeof title !== 'string') return null
+
+  return {
+    lastPage,
+    pdfData,
+    title: typeof title === 'string' ? title : fileName,
+  }
+}
+
+export function useEbookReadingSession(bookId: string, store: EbookReaderStore) {
+  const [state, setState] = useState<EbookReaderState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const pendingPageRef = useRef<number | null>(null)
-  const dbSavingRef = useRef(false)
+  const isSavingRef = useRef(false)
 
   async function flushProgress() {
-    if (dbSavingRef.current || pendingPageRef.current === null) return
+    if (isSavingRef.current || pendingPageRef.current === null) return
     const page = pendingPageRef.current
     pendingPageRef.current = null
-    dbSavingRef.current = true
+    isSavingRef.current = true
     let saved = false
 
     try {
@@ -53,12 +61,12 @@ export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
     } catch {
       pendingPageRef.current ??= page
     } finally {
-      dbSavingRef.current = false
+      isSavingRef.current = false
       if (saved && pendingPageRef.current !== null) void flushProgress()
     }
   }
 
-  function saveProgress(page: number) {
+  function saveReadingPosition(page: number) {
     pendingPageRef.current = page
     void flushProgress()
   }
@@ -74,18 +82,12 @@ export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
           setState({ status: 'error', message: '책을 찾을 수 없습니다.' })
           return
         }
-        if (!isReaderBook(result)) {
+        const book = parseReaderBook(result)
+        if (book === null) {
           setState({ status: 'error', message: '저장된 PDF 원본을 읽지 못했습니다.' })
           return
         }
-        setState({
-          status: 'ready',
-          book: {
-            lastPage: result.last_page,
-            pdfData: result.pdf_data,
-            title: result.title || result.file_name,
-          },
-        })
+        setState({ status: 'ready', book })
       } catch {
         if (active) setState({ status: 'error', message: '저장된 PDF 원본을 읽지 못했습니다.' })
       }
@@ -111,5 +113,5 @@ export function useEbookReaderBook(bookId: string, store: EbookReaderStore) {
     setAttempt((current) => current + 1)
   }
 
-  return { retry, saveProgress, state }
+  return { retry, saveReadingPosition, state }
 }
