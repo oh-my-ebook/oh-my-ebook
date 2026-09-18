@@ -74,17 +74,6 @@ function WideReaderPanel({
           className="flex h-full min-w-0 flex-col bg-card"
           role="region"
         >
-          <div className="flex min-h-12 shrink-0 items-center justify-between border-b px-4 py-2">
-            <h2 className="text-sm font-medium">{PANEL_TITLE}</h2>
-            <Button
-              aria-label={CLOSE_BUTTON_LABEL}
-              onClick={() => onOpenChange(false)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <XIcon />
-            </Button>
-          </div>
           <div className="min-h-0 flex-1">
             <ReaderChat currentPage={currentPage} key={chatSessionKey} />
           </div>
