@@ -18,10 +18,13 @@ async function openReader(page: import('@playwright/test').Page) {
   })
   await page.goto('/')
   await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
-  await page
-    .getByLabel('PDF 파일 선택')
-    .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
-  await page.getByRole('button', { name: '책 열기' }).click()
+  await page.getByRole('button', { name: 'PDF 업로드' }).click()
+  await expect(page.getByRole('dialog', { name: '도서 추가' })).toBeVisible()
+  const fileChooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: '컴퓨터에서 파일 선택' }).click()
+  await (await fileChooser).setFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
+  await expect(page.getByRole('article', { name: 'The Local Library' })).toBeVisible()
+  await page.getByRole('button', { name: 'The Local Library 열기' }).click()
   await expect(page).toHaveURL(/\/books\//)
 }
 
