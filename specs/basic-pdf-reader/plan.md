@@ -46,7 +46,7 @@ PDF.js 본체와 같은 패키지의 `build/pdf.worker.min.mjs?url`을 import해
 | `currentPage`         | 마지막으로 선택한 PDF 페이지 번호. 두 페이지 보기에서 오른쪽 페이지를 선택해도 유지 |
 | `preferredView`       | 사용자가 선택한 한 페이지·두 페이지 보기                                            |
 | `zoom`                | `fit-height` 또는 수동 배율의 구분된 상태                                           |
-| `panelOpen`           | 빈 보조 패널 열림 여부                                                              |
+| `panelOpen`           | 함께 읽기 패널 열림 여부                                                            |
 | 문서·페이지 표시 상태 | 준비 중·표시 중·완료·오류를 구분                                                    |
 
 화면에 표시할 페이지 번호와 앞뒤 이동 가능 여부는 페이지 정보, `currentPage`, `preferredView`, 화면·읽기 영역 폭으로 계산한다. 파생값을 별도 상태로 중복 저장하지 않는다. 화면 폭이 부족하거나 가로 페이지여도 `preferredView`를 바꾸지 않는다.
@@ -68,6 +68,14 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 문서 파일을 불러오지 못한 경우에는 문서 로딩을 다시 시도하고, 특정 페이지를 그리지 못한 경우에는 해당 페이지를 다시 그린다. 페이지 이동 등으로 취소한 작업은 오류로 안내하지 않는다. 암호가 필요한 문서는 지원하지 않는다는 안내를 표시하고 로딩 상태를 끝낸다. 문서 로딩·페이지 그리기·작업 정리에서 발생하는 비동기 오류를 모두 명시적으로 처리한다.
 
 ## 크기 계산과 UI 구성
+
+### Reader UI 개선
+
+- 기존 의미 색상 토큰의 라이트·다크 값을 그대로 사용하고 `<html class="dark">`만 전환한다. PDF Canvas에는 색상 필터를 적용하지 않는다.
+- 상단에는 독서 도구와 문서명을, 하단에는 페이지 탐색과 배율 조절을 배치한다. 아직 연결할 기능이 없는 돌아가기·책갈피 버튼은 별도 상태나 알림 없이 Button으로만 제공한다.
+- 목차는 기존 Sheet를 왼쪽에서 열고 제목과 닫기 조작만 제공한다. 목차 항목이나 임시 데이터를 만들지 않는다.
+- 넓은 화면의 읽기 영역과 함께 읽기 패널은 shadcn Resizable로 조합한다. 패널을 닫으면 구분선과 패널을 제거하며 기존 열기 버튼 포커스 복원을 유지한다. 좁은 화면은 기존 Sheet를 재사용한다.
+- 확대 조절은 기존 `ZoomControls` 동작을 유지한 채 하단 독서 위치 바로 옮긴다. 페이지·보기·채팅 상태와 계산 로직은 바꾸지 않는다.
 
 ### 스타일링 원칙
 
@@ -122,14 +130,14 @@ UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 �
 | `src/features/reader/components/view-mode-control.tsx` | 한 페이지·두 페이지 보기 전환                                          |
 | `src/features/reader/components/zoom-controls.tsx`     | 확대·축소·확대율·높이 맞춤 조작                                        |
 | `src/features/reader/components/pdf-viewport.tsx`      | Canvas 렌더링과 표시 완료·오류 처리                                    |
-| `src/features/reader/components/reader-panel.tsx`      | 반응형 빈 패널과 포커스 복원                                           |
+| `src/features/reader/components/reader-panel.tsx`      | 반응형 함께 읽기 패널, 너비 조절과 포커스 복원                         |
 | `src/features/reader/lib/pdf-document.ts`              | PDF.js worker 설정과 문서·페이지 정보 조회                             |
 | `src/features/reader/lib/page-navigation.ts`           | 페이지 범위·첫/앞뒤/마지막 이동의 순수 계산                            |
 | `src/features/reader/lib/page-spread.ts`               | 방향·함께 표시할 페이지·두 페이지 이동의 순수 계산                     |
 | `src/features/reader/lib/reader-zoom.ts`               | 높이 맞춤·수동 배율의 순수 계산                                        |
 | `src/features/reader/hooks/use-pdf-document.ts`        | 문서 로딩·재시도·수명 관리                                             |
 | `src/features/reader/hooks/use-reader-layout.ts`       | 화면·읽기 영역 측정과 정리                                             |
-| `src/components/ui/`                                   | 필요한 기본 컴포넌트와 의존 컴포넌트를 CLI로 추가                      |
+| `src/components/ui/`                                   | 필요한 기본 컴포넌트와 Resizable 의존 컴포넌트를 CLI로 추가            |
 | `src/index.css`                                        | Tailwind 설정·공통 테마 토큰·전역 기본 스타일 유지, 필요한 토큰만 추가 |
 | `public/samples/basic-reader.pdf`                      | 기본 세로 텍스트 PDF                                                   |
 | `e2e/fixtures/pdf/`                                    | 스캔·가로·혼합·한 장·회전·정사각형 검증 파일                           |
