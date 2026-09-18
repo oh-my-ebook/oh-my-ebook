@@ -16,6 +16,10 @@
     }
   },
   "scripts": {
+    "ocr:prepare": "bash scripts/prepare-ocr-assets.sh",
+    "kiwi:clean": "bash scripts/clean-kiwi-assets.sh",
+    "prebuild": "pnpm ocr:prepare",
+    "predev": "pnpm ocr:prepare",
     "dev": "vite",
     "ui:add": "shadcn add",
     "build": "pnpm typecheck && vite build",
@@ -40,9 +44,11 @@
     "@assistant-ui/react": "0.15.20",
     "@assistant-ui/react-markdown": "0.14.15",
     "@base-ui/react": "1.8.0",
+    "@paddleocr/paddleocr-js": "0.4.2",
     "@sqlite.org/sqlite-wasm": "3.53.4-build1",
     "class-variance-authority": "0.7.1",
     "cn": "0.2.6",
+    "kiwi-nlp": "0.24.0",
     "lucide-react": "1.46.0",
     "pdfjs-dist": "6.3.289",
     "react": "^19.2.8",
