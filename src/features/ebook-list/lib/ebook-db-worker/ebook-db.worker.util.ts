@@ -37,8 +37,10 @@ export function isAddBookInput(value: unknown): value is AddBookInput {
   return (
     'pdfData' in value &&
     value.pdfData instanceof ArrayBuffer &&
+    value.pdfData.byteLength > 0 &&
     'contentHash' in value &&
     typeof value.contentHash === 'string' &&
+    value.contentHash.trim().length > 0 &&
     'fileName' in value &&
     typeof value.fileName === 'string' &&
     'title' in value &&
