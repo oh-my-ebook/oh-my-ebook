@@ -7,6 +7,7 @@ import {
   type PdfDocumentHandle,
   type PdfDocumentLoader,
   type PdfPageHandle,
+  type PdfDocumentSource,
 } from '../lib/pdf-document'
 import { usePdfDocument } from './use-pdf-document'
 
@@ -47,19 +48,19 @@ function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
 }
 
 function createControlledLoader(loads: readonly PromiseController<LoadedPdfDocument>[]) {
-  const requestedUrls: string[] = []
+  const requestedSources: PdfDocumentSource[] = []
   const requestSignals: AbortSignal[] = []
   const pendingLoads = [...loads]
-  const loadDocument: PdfDocumentLoader = (url, signal) => {
-    requestedUrls.push(url)
+  const loadDocument: PdfDocumentLoader = (source, signal) => {
+    requestedSources.push(source)
     requestSignals.push(signal)
     const load = pendingLoads.shift()
     if (!load) {
-      return Promise.reject(new Error(`No document load for ${url}`))
+      return Promise.reject(new Error('No document load'))
     }
     return load.promise
   }
-  return { loadDocument, requestedUrls, requestSignals }
+  return { loadDocument, requestedSources, requestSignals }
 }
 
 function createNamedError(name: string) {
@@ -95,6 +96,16 @@ describe('usePdfDocument', () => {
     })
   })
 
+  it('저장된 Uint8Array 원본을 로더에 그대로 전달한다', () => {
+    const documentLoad = createPromiseController<LoadedPdfDocument>()
+    const { loadDocument, requestedSources } = createControlledLoader([documentLoad])
+    const source = new Uint8Array([1, 2, 3])
+
+    renderHook(() => usePdfDocument(source, loadDocument))
+
+    expect(requestedSources).toEqual([source])
+  })
+
   it.each([
     ['PasswordException', 'password-required', '암호가 필요한 PDF는 열 수 없습니다.'],
     ['InvalidPDFException', 'invalid-document', '손상되었거나 올바르지 않은 PDF입니다.'],
@@ -118,7 +129,7 @@ describe('usePdfDocument', () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const retryLoad = createPromiseController<LoadedPdfDocument>()
     const loaded = createLoadedDocument()
-    const { loadDocument, requestedUrls, requestSignals } = createControlledLoader([
+    const { loadDocument, requestedSources, requestSignals } = createControlledLoader([
       firstLoad,
       retryLoad,
     ])
@@ -132,7 +143,7 @@ describe('usePdfDocument', () => {
 
     act(() => result.current.retry())
     expect(result.current.status).toBe('loading')
-    expect(requestedUrls).toEqual(['/sample.pdf', '/sample.pdf'])
+    expect(requestedSources).toEqual(['/sample.pdf', '/sample.pdf'])
 
     await act(async () => {
       retryLoad.resolve(loaded)
@@ -142,35 +153,41 @@ describe('usePdfDocument', () => {
     expect(requestSignals[0]?.aborted).toBe(true)
   })
 
-  it('URL이 바뀌면 이전 작업을 해제하고 새 문서를 불러온다', () => {
+  it('문서가 바뀌면 이전 작업을 해제하고 새 문서를 불러온다', () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoad = createPromiseController<LoadedPdfDocument>()
-    const { loadDocument, requestedUrls, requestSignals } = createControlledLoader([
+    const { loadDocument, requestedSources, requestSignals } = createControlledLoader([
       firstLoad,
       secondLoad,
     ])
-    const { result, rerender } = renderHook(({ url }) => usePdfDocument(url, loadDocument), {
-      initialProps: { url: '/first.pdf' },
-    })
+    const { result, rerender } = renderHook(
+      ({ dataSource }) => usePdfDocument(dataSource, loadDocument),
+      {
+        initialProps: { dataSource: '/first.pdf' },
+      },
+    )
 
-    rerender({ url: '/second.pdf' })
+    rerender({ dataSource: '/second.pdf' })
 
     expect(result.current.status).toBe('loading')
-    expect(requestedUrls).toEqual(['/first.pdf', '/second.pdf'])
+    expect(requestedSources).toEqual(['/first.pdf', '/second.pdf'])
     expect(requestSignals[0]?.aborted).toBe(true)
   })
 
-  it('이전 URL의 늦은 완료가 최신 문서를 덮어쓰지 않는다', async () => {
+  it('이전 문서의 늦은 완료가 최신 문서를 덮어쓰지 않는다', async () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoad = createPromiseController<LoadedPdfDocument>()
     const firstLoaded = createLoadedDocument(1)
     const secondLoaded = createLoadedDocument(2)
     const { loadDocument } = createControlledLoader([firstLoad, secondLoad])
-    const { result, rerender } = renderHook(({ url }) => usePdfDocument(url, loadDocument), {
-      initialProps: { url: '/first.pdf' },
-    })
+    const { result, rerender } = renderHook(
+      ({ dataSource }) => usePdfDocument(dataSource, loadDocument),
+      {
+        initialProps: { dataSource: '/first.pdf' },
+      },
+    )
 
-    rerender({ url: '/second.pdf' })
+    rerender({ dataSource: '/second.pdf' })
     await act(async () => {
       secondLoad.resolve(secondLoaded)
       await secondLoad.promise
@@ -187,16 +204,19 @@ describe('usePdfDocument', () => {
     })
   })
 
-  it('이전 URL의 늦은 오류가 최신 문서를 덮어쓰지 않는다', async () => {
+  it('이전 문서의 늦은 오류가 최신 문서를 덮어쓰지 않는다', async () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoaded = createLoadedDocument(2)
     const { loadDocument } = createControlledLoader([firstLoad, secondLoad])
-    const { result, rerender } = renderHook(({ url }) => usePdfDocument(url, loadDocument), {
-      initialProps: { url: '/first.pdf' },
-    })
+    const { result, rerender } = renderHook(
+      ({ dataSource }) => usePdfDocument(dataSource, loadDocument),
+      {
+        initialProps: { dataSource: '/first.pdf' },
+      },
+    )
 
-    rerender({ url: '/second.pdf' })
+    rerender({ dataSource: '/second.pdf' })
     await act(async () => {
       secondLoad.resolve(secondLoaded)
       await secondLoad.promise
@@ -214,30 +234,33 @@ describe('usePdfDocument', () => {
     })
   })
 
-  it('이전 URL로 돌아가도 해제된 문서 상태를 재사용하지 않는다', async () => {
+  it('이전 문서로 돌아가도 해제된 문서 상태를 재사용하지 않는다', async () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoad = createPromiseController<LoadedPdfDocument>()
     const thirdLoad = createPromiseController<LoadedPdfDocument>()
     const firstLoaded = createLoadedDocument(1)
     const thirdLoaded = createLoadedDocument(3)
-    const { loadDocument, requestedUrls, requestSignals } = createControlledLoader([
+    const { loadDocument, requestedSources, requestSignals } = createControlledLoader([
       firstLoad,
       secondLoad,
       thirdLoad,
     ])
-    const { result, rerender } = renderHook(({ url }) => usePdfDocument(url, loadDocument), {
-      initialProps: { url: '/first.pdf' },
-    })
+    const { result, rerender } = renderHook(
+      ({ dataSource }) => usePdfDocument(dataSource, loadDocument),
+      {
+        initialProps: { dataSource: '/first.pdf' },
+      },
+    )
 
     await act(async () => {
       firstLoad.resolve(firstLoaded)
       await firstLoad.promise
     })
-    rerender({ url: '/second.pdf' })
-    rerender({ url: '/first.pdf' })
+    rerender({ dataSource: '/second.pdf' })
+    rerender({ dataSource: '/first.pdf' })
 
     expect(result.current.status).toBe('loading')
-    expect(requestedUrls).toEqual(['/first.pdf', '/second.pdf', '/first.pdf'])
+    expect(requestedSources).toEqual(['/first.pdf', '/second.pdf', '/first.pdf'])
     expect(requestSignals[0]?.aborted).toBe(true)
     expect(requestSignals[1]?.aborted).toBe(true)
 
@@ -255,7 +278,7 @@ describe('usePdfDocument', () => {
     const firstLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoad = createPromiseController<LoadedPdfDocument>()
     const secondLoaded = createLoadedDocument()
-    const { loadDocument, requestedUrls, requestSignals } = createControlledLoader([
+    const { loadDocument, requestedSources, requestSignals } = createControlledLoader([
       firstLoad,
       secondLoad,
     ])
@@ -263,7 +286,7 @@ describe('usePdfDocument', () => {
       wrapper: StrictMode,
     })
 
-    expect(requestedUrls).toEqual(['/sample.pdf', '/sample.pdf'])
+    expect(requestedSources).toEqual(['/sample.pdf', '/sample.pdf'])
     expect(requestSignals[0]?.aborted).toBe(true)
 
     await act(async () => {

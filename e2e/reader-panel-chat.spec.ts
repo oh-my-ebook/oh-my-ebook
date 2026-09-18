@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { resolve } from 'node:path'
 
 const PANEL_OPEN_LABEL = '보조 패널 열기'
 const PANEL_TITLE = '보조 패널'
@@ -9,9 +10,25 @@ async function hasHorizontalOverflow(page: import('@playwright/test').Page) {
   return page.locator('html').evaluate((root) => root.scrollWidth > root.clientWidth)
 }
 
+async function openReader(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => true
+  })
+  await page.goto('/')
+  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await page.getByRole('button', { name: 'PDF 업로드' }).click()
+  await expect(page.getByRole('dialog', { name: '도서 추가' })).toBeVisible()
+  const fileChooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: '컴퓨터에서 파일 선택' }).click()
+  await (await fileChooser).setFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
+  await expect(page.getByRole('article', { name: 'The Local Library' })).toBeVisible()
+  await page.getByRole('button', { name: 'The Local Library 열기' }).click()
+  await expect(page).toHaveURL(/\/books\//)
+}
+
 test.describe('보조 패널 채팅', () => {
   test('넓은 화면에서 질문을 입력할 수 있다', async ({ page }) => {
-    await page.goto('/')
+    await openReader(page)
     await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
     await expect(page.getByRole('region', { name: PANEL_TITLE })).toBeVisible()
     await expect(page.getByRole('button', { name: '모델 다운로드' })).toBeVisible()
@@ -27,7 +44,7 @@ test.describe('보조 패널 채팅', () => {
     test.use({ viewport: { width: 320, height: 700 } })
 
     test('Sheet에서 채팅 조작부가 화면 밖으로 잘리지 않는다', async ({ page }) => {
-      await page.goto('/')
+      await openReader(page)
       await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
       const panel = page.getByRole('dialog', { name: PANEL_TITLE })
       await expect(panel).toBeVisible()

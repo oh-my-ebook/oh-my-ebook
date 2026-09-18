@@ -68,6 +68,23 @@ describe('loadPdfDocument', () => {
     ])
   })
 
+  it('저장된 Uint8Array 원본을 PDF.js 데이터로 전달한다', async () => {
+    const document = createDocument([createPage(600, 900)])
+    getDocumentMock.mockReturnValue({
+      promise: Promise.resolve(document),
+      destroy: vi.fn(async () => undefined),
+    })
+    const controller = new AbortController()
+    const data = new Uint8Array([1, 2, 3])
+
+    await loadPdfDocument(data, controller.signal)
+
+    const documentData = getDocumentMock.mock.calls[0][0]
+
+    expect(documentData.data).not.toBe(data)
+    expect(documentData.data).toEqual(data)
+  })
+
   it('페이지 크기 조회가 실패하면 페이지 정보 오류로 변환한다', async () => {
     const document: PdfDocumentHandle = {
       numPages: 1,

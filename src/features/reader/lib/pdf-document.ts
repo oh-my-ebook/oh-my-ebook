@@ -61,7 +61,12 @@ export interface LoadedPdfDocument {
   pages: readonly PdfPageInfo[]
 }
 
-export type PdfDocumentLoader = (url: string, signal: AbortSignal) => Promise<LoadedPdfDocument>
+export type PdfDocumentSource = string | Uint8Array
+
+export type PdfDocumentLoader = (
+  source: PdfDocumentSource,
+  signal: AbortSignal,
+) => Promise<LoadedPdfDocument>
 
 /** `instanceof` 대신 오류 객체의 `name`이 예상한 PDF.js 오류 이름과 일치하는지 안전하게 확인한다. */
 function hasErrorName(error: unknown, expectedName: string) {
@@ -117,9 +122,12 @@ async function preparePdfDocument(document: PdfDocumentHandle): Promise<LoadedPd
 }
 
 /** URL의 PDF를 불러오고 취소 신호에 맞춰 로딩 작업과 자원을 정리한다. */
-export const loadPdfDocument: PdfDocumentLoader = async (url, signal) => {
+export const loadPdfDocument: PdfDocumentLoader = async (source, signal) => {
   signal.throwIfAborted()
-  const loadingTask = getDocument({ url })
+  // PDF.js는 자체 Worker로 Uint8Array 버퍼를 전송한다. 개발 모드의 effect 재실행과
+  // 재시도에서도 같은 원본을 안전하게 사용할 수 있도록 전송용 사본을 만든다.
+  const documentSource = typeof source === 'string' ? { url: source } : { data: source.slice() }
+  const loadingTask = getDocument(documentSource)
   let destroyPromise: Promise<void> | undefined
   // 취소와 오류 처리가 겹쳐도 PDF.js 로딩 작업은 한 번만 정리한다.
   const destroy = async () => {

@@ -3,3 +3,4 @@ saveExact: true
 allowBuilds:
   esbuild: true
   lefthook: true
+  protobufjs: false
