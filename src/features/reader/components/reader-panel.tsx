@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, type RefObject } from 'react'
 import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel } from '@/components/ui/resizable'
@@ -46,7 +46,10 @@ function WideReaderPanel({ chatSessionKey, currentPage, onOpenChange, open }: Pa
 
   return (
     <>
-      <ResizableHandle aria-label={RESIZE_HANDLE_LABEL} />
+      <ResizableHandle
+        aria-label={RESIZE_HANDLE_LABEL}
+        className="data-[separator=active]:bg-primary/40 data-[separator=active]:ring-[1.5px] data-[separator=active]:ring-primary/15 data-[separator=hover]:bg-primary/40 data-[separator=hover]:ring-[1.5px] data-[separator=hover]:ring-primary/15"
+      />
       <ResizablePanel defaultSize="30%" id="reader-chat" maxSize="45%" minSize="400px">
         <aside
           aria-label={PANEL_TITLE}
