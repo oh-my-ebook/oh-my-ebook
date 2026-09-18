@@ -6,7 +6,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ReaderChat } from './reader-chat'
 
 const PANEL_TITLE = '보조 패널'
-const CLOSE_BUTTON_LABEL = '보조 패널 닫기'
 
 interface ReaderPanelProps {
   chatSessionKey?: string
@@ -68,17 +67,6 @@ function WideReaderPanel({
           className="flex h-full w-80 shrink-0 flex-col border-l"
           role="region"
         >
-          <div className="flex min-h-12 shrink-0 items-center justify-between border-b px-4 py-2">
-            <h2 className="text-sm font-medium">{PANEL_TITLE}</h2>
-            <Button
-              aria-label={CLOSE_BUTTON_LABEL}
-              onClick={() => onOpenChange(false)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <XIcon />
-            </Button>
-          </div>
           <div className="min-h-0 flex-1">
             <ReaderChat currentPage={currentPage} key={chatSessionKey} />
           </div>
@@ -98,9 +86,6 @@ function NarrowReaderPanel({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent aria-label={PANEL_TITLE} finalFocus={openButtonRef}>
-        <SheetHeader>
-          <SheetTitle>{PANEL_TITLE}</SheetTitle>
-        </SheetHeader>
         <div className="min-h-0 flex-1">
           <ReaderChat currentPage={currentPage} key={chatSessionKey} />
         </div>
