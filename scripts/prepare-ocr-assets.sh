@@ -19,7 +19,10 @@ download() {
   local temporary_output="${output}.part"
   if [[ ! -s "$output" ]]; then
     rm -f "$temporary_output"
-    curl --fail --location --retry 3 "$url" --output "$temporary_output"
+    curl --fail --location --retry 3 "$url" --output "$temporary_output" || {
+      rm -f "$temporary_output"
+      return 1
+    }
     mv "$temporary_output" "$output"
   fi
 }
