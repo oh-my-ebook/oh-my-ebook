@@ -45,6 +45,15 @@ function createStore(book: unknown = createBook()) {
 }
 
 describe('EbookReaderPage', () => {
+  it('책을 불러오는 동안 스피너로 로딩 상태를 알린다', () => {
+    const pendingBook = createPromiseController<unknown>()
+    const store = { request: vi.fn(() => pendingBook.promise) }
+    render(<EbookReaderPage bookId="book-id" store={store} />)
+
+    expect(screen.getByRole('status', { name: '책을 불러오는 중' })).toBeInTheDocument()
+    expect(screen.queryByText('책을 불러오는 중')).not.toBeInTheDocument()
+  })
+
   it('책 원본과 저장된 마지막 페이지를 Reader에 전달한다', async () => {
     const store = createStore()
     render(<EbookReaderPage bookId="book-id" store={store} />)

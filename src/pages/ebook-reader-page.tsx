@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Reader } from '@/features/reader/components/reader'
 import { BookOpen, RefreshCw, TriangleAlert } from 'lucide-react'
 import {
@@ -18,7 +19,11 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   const { retry, saveReadingPosition, state } = useEbookReadingSession(bookId, store)
 
   if (state.status === 'loading') {
-    return <p role="status">책을 불러오는 중</p>
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <Spinner aria-label="책을 불러오는 중" className="size-6" />
+      </div>
+    )
   }
 
   if (state.status === 'error') {
