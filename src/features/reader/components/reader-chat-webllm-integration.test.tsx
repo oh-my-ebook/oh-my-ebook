@@ -66,5 +66,8 @@ describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
       role: 'user',
       content: '실제 질문 내용',
     })
+    // 엔진에 요청이 실린 것만으로는 화면에 답변이 그려지는지 보장되지 않는다.
+    // 실제 스트리밍 응답이 Thread UI까지 렌더링되는지 끝까지 확인한다.
+    expect(await screen.findByText('답변')).toBeInTheDocument()
   })
 })
