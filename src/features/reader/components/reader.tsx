@@ -211,7 +211,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
   const readerMain = (
     <main
       aria-label="PDF 읽기 영역"
-      className="h-full min-h-0 min-w-0 flex-1 p-3"
+      className="m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
       ref={containerRef}
     >
       {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}

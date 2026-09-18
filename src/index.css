@@ -193,7 +193,14 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/50 scrollbar-thin scrollbar-thumb-transparent scrollbar-track-transparent;
+    /* scrollbar-color를 직접 전환하면 Chrome이 투명→oklch 사이를 검은색으로 보간해 색 변수를 전환한다. */
+    transition: --tw-scrollbar-thumb 0.2s;
+  }
+
+  /* 스크롤 막대는 평소에 숨기고, 스크롤할 수 있는 영역에 마우스를 올렸을 때만 경계선 색으로 보인다. */
+  *:hover {
+    @apply scrollbar-thumb-border;
   }
 
   html {
