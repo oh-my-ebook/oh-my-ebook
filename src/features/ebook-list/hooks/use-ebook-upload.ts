@@ -49,8 +49,8 @@ export function useEbookUpload({
             type: 'error',
           })
         } finally {
-          await refreshCapacity()
           try {
+            await refreshCapacity()
             await refreshBooks()
           } catch {
             /* 다음 파일은 계속 처리한다. */
