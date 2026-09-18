@@ -82,4 +82,16 @@ describe('BookCard', () => {
     await user.click(screen.getByRole('button', { name: '삭제' }))
     expect(onDelete).toHaveBeenCalledOnce()
   })
+
+  it('메뉴에서 삭제를 취소하면 메뉴 버튼으로 포커스를 복원한다', async () => {
+    const user = userEvent.setup()
+    render(<BookCard book={book} onDelete={vi.fn(async () => undefined)} onOpen={vi.fn()} />)
+
+    const menuButton = screen.getByRole('button', { name: `${book.title} 메뉴` })
+    await user.click(menuButton)
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(menuButton).toHaveFocus()
+  })
 })
