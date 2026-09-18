@@ -62,10 +62,12 @@ test.describe('기본 PDF 리더', () => {
     await expect(page.locator('html')).toHaveClass(/dark/)
 
     await page.getByRole('button', { name: '목차 열기' }).click()
-    const toc = page.getByRole('dialog', { name: '목차' })
+    // 넓은 화면에서는 본문을 덮는 dialog가 아니라 읽기 영역 옆 패널로 열린다.
+    const toc = page.getByRole('region', { name: '목차' })
     await expect(toc).toBeVisible()
     await expect(toc.getByRole('link')).toHaveCount(0)
-    await toc.getByRole('button', { name: '목차 닫기' }).click()
+    // 넓은 화면의 목차 패널에는 헤더가 없어 툴바의 목차 버튼으로 닫는다.
+    await page.getByRole('button', { name: '목차 닫기' }).click()
 
     await expect(page.getByRole('button', { name: '목차 열기' })).toBeFocused()
   })

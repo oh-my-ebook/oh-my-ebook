@@ -21,6 +21,7 @@ import {
 import { PageNavigator } from './page-navigator'
 import { PdfViewport } from './pdf-viewport'
 import { ReaderPanel } from './reader-panel'
+import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
@@ -106,6 +107,8 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
   const [zoom, setZoom] = useState<ReaderZoom>(FIT_HEIGHT_ZOOM)
   const [panelOpen, setPanelOpen] = useState(false)
   const panelButtonRef = useRef<HTMLButtonElement>(null)
+  const [tocOpen, setTocOpen] = useState(false)
+  const tocButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (documentState.status !== 'ready') return
@@ -199,14 +202,23 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
       <ReaderToolbar
         isSpreadAvailable={isSpreadAvailable}
         onTogglePanel={() => setPanelOpen((open) => !open)}
+        onToggleToc={() => setTocOpen((open) => !open)}
         onViewChange={setPreferredView}
         panelButtonRef={panelButtonRef}
         panelOpen={panelOpen}
         preferredView={preferredView}
         title={getReaderTitle(source, title)}
+        tocButtonRef={tocButtonRef}
+        tocOpen={tocOpen}
       />
 
       <div className="flex min-h-0 flex-1">
+        <ReaderToc
+          isWideScreen={isWideScreen}
+          onOpenChange={setTocOpen}
+          open={tocOpen}
+          openButtonRef={tocButtonRef}
+        />
         <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize="70%" id="reader" minSize="45%">
             {readerMain}

@@ -4,19 +4,22 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReaderToolbar } from './reader-toolbar'
 
-function renderToolbar() {
-  const panelButtonRef = { current: null }
-
+function renderToolbar({ tocOpen = false, onToggleToc = vi.fn() } = {}) {
   render(
-    <ReaderToolbar
-      isSpreadAvailable
-      onTogglePanel={vi.fn()}
-      onViewChange={vi.fn()}
-      panelButtonRef={panelButtonRef}
-      panelOpen={false}
-      preferredView="single"
-      title="리더 UI 테스트"
-    />,
+    <MemoryRouter>
+      <ReaderToolbar
+        isSpreadAvailable
+        onTogglePanel={vi.fn()}
+        onToggleToc={onToggleToc}
+        onViewChange={vi.fn()}
+        panelButtonRef={{ current: null }}
+        panelOpen={false}
+        preferredView="single"
+        title="리더 UI 테스트"
+        tocButtonRef={{ current: null }}
+        tocOpen={tocOpen}
+      />
+    </MemoryRouter>,
   )
 }
 
@@ -37,16 +40,23 @@ describe('ReaderToolbar', () => {
     expect(screen.getByRole('button', { name: '함께 읽기 패널 열기' })).toBeEnabled()
   })
 
-  it('목차 버튼을 누르면 항목이 없는 왼쪽 패널을 연다', async () => {
+  it('목차 버튼은 목차 열기·닫기를 요청하고 열린 상태를 표시한다', async () => {
     const user = userEvent.setup()
-    renderToolbar()
+    const onToggleToc = vi.fn()
+    renderToolbar({ onToggleToc })
 
     await user.click(screen.getByRole('button', { name: '목차 열기' }))
 
-    const toc = screen.getByRole('dialog', { name: '목차' })
-    expect(toc).toBeInTheDocument()
-    expect(within(toc).queryByRole('link')).not.toBeInTheDocument()
-    expect(within(toc).getByRole('button', { name: '목차 닫기' })).toBeInTheDocument()
+    expect(onToggleToc).toHaveBeenCalledOnce()
+  })
+
+  it('목차가 열려 있으면 버튼이 닫기 조작으로 눌린 상태를 표시한다', () => {
+    renderToolbar({ tocOpen: true })
+
+    expect(screen.getByRole('button', { name: '목차 닫기' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('테마 버튼을 누르면 다크 모드와 라이트 모드를 전환한다', async () => {
@@ -67,10 +77,13 @@ describe('ReaderToolbar', () => {
           isSpreadAvailable={isSpreadAvailable}
           onTogglePanel={vi.fn()}
           onViewChange={vi.fn()}
+          onToggleToc={vi.fn()}
           panelButtonRef={{ current: null }}
           panelOpen={false}
           preferredView="single"
           title="리더 UI 테스트"
+          tocButtonRef={{ current: null }}
+          tocOpen={false}
         />
       </MemoryRouter>
     )

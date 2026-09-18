@@ -6,23 +6,17 @@ import {
   MoonIcon,
   PanelRightIcon,
   SunIcon,
-  XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
 import type { PageViewMode } from '../lib/page-spread'
 import { ViewModeControl } from './view-mode-control'
 import { useNavigate } from 'react-router'
 
 interface ReaderToolbarProps {
+  onToggleToc: () => void
+  tocButtonRef: RefObject<HTMLButtonElement | null>
+  tocOpen: boolean
   onTogglePanel: () => void
   panelButtonRef: RefObject<HTMLButtonElement | null>
   panelOpen: boolean
@@ -33,6 +27,9 @@ interface ReaderToolbarProps {
 }
 
 export function ReaderToolbar({
+  onToggleToc,
+  tocButtonRef,
+  tocOpen,
   onTogglePanel,
   panelButtonRef,
   panelOpen,
@@ -41,7 +38,6 @@ export function ReaderToolbar({
   isSpreadAvailable,
   onViewChange,
 }: ReaderToolbarProps) {
-  const [tocOpen, setTocOpen] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   const navigation = useNavigate()
 
@@ -69,28 +65,16 @@ export function ReaderToolbar({
           className="h-5 data-vertical:w-[1.5px] data-vertical:self-center"
           orientation="vertical"
         />
-        <Sheet onOpenChange={setTocOpen} open={tocOpen}>
-          <SheetTrigger
-            render={
-              <Button
-                aria-label={tocOpen ? '목차 닫기' : '목차 열기'}
-                aria-pressed={tocOpen}
-                size="icon-sm"
-                variant={tocOpen ? 'secondary' : 'ghost'}
-              />
-            }
-          >
-            <ListIcon />
-          </SheetTrigger>
-          <SheetContent aria-label="목차" showCloseButton={false} side="left">
-            <SheetHeader className="flex-row items-center justify-between">
-              <SheetTitle>목차</SheetTitle>
-              <SheetClose render={<Button aria-label="목차 닫기" size="icon-sm" variant="ghost" />}>
-                <XIcon />
-              </SheetClose>
-            </SheetHeader>
-          </SheetContent>
-        </Sheet>
+        <Button
+          aria-label={tocOpen ? '목차 닫기' : '목차 열기'}
+          aria-pressed={tocOpen}
+          onClick={onToggleToc}
+          ref={tocButtonRef}
+          size="icon-sm"
+          variant={tocOpen ? 'secondary' : 'ghost'}
+        >
+          <ListIcon />
+        </Button>
         <Button aria-label="책갈피" size="icon-sm" variant="ghost">
           <BookmarkIcon />
         </Button>
