@@ -8,7 +8,8 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
