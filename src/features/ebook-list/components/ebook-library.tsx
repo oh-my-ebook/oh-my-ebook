@@ -1,21 +1,11 @@
-import { BookOpen } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { toast } from '@/components/ui/toast'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
 import { LibrarySummary } from './library-summary'
-import { PdfUpload } from './pdf-upload'
 
 interface EbookLibraryProps {
   store: EbookLibraryStore
@@ -83,13 +73,6 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             >
               새로고침
             </Button>
-            <PdfUpload
-              isUploading={isUploading}
-              disabled={state.status !== 'ready'}
-              onFilesSelected={(files) => {
-                void addFiles(files)
-              }}
-            />
           </div>
         </header>
         {state.status === 'loading' && <EbookShelfLoading />}
@@ -105,28 +88,16 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
           </Alert>
         )}
 
-        {state.status === 'ready' && state.books.length === 0 && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <BookOpen />
-              </EmptyMedia>
-              <EmptyTitle>아직 저장한 책이 없습니다.</EmptyTitle>
-              <EmptyDescription>
-                PDF는 이 브라우저에만 저장됩니다. 브라우저 데이터를 삭제하면 책도 사라질 수
-                있습니다.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>위의 PDF 업로드 버튼으로 책을 선택하세요.</EmptyContent>
-          </Empty>
-        )}
-
-        {state.status === 'ready' && state.books.length > 0 && (
+        {state.status === 'ready' && (
           <section aria-label="저장된 책" className="flex flex-col gap-3">
-            <p>저장된 책 {state.books.length}권</p>
+            {state.books.length > 0 && <p>저장된 책 {state.books.length}권</p>}
             <EbookShelf
               books={state.books}
               coverErrors={coverErrors}
+              isUploading={isUploading}
+              onFilesSelected={(files) => {
+                void addFiles(files)
+              }}
               onOpenBook={(bookId) => {
                 void openBook(bookId)
               }}

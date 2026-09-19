@@ -1,9 +1,13 @@
 import type { StoredBook } from '../ebook-types'
+import { AddBookCard } from './add-book-card'
 import { BookCard } from './book-card'
 
 interface EbookShelfProps {
   books: readonly StoredBook[]
   coverErrors: Readonly<Record<string, string>>
+  disabled?: boolean
+  isUploading?: boolean
+  onFilesSelected(files: File[]): void
   onOpenBook(bookId: string): void
   onRegenerate(book: StoredBook): void
   regeneratingCover: string | null
@@ -14,6 +18,9 @@ interface EbookShelfProps {
 export function EbookShelf({
   books,
   coverErrors,
+  disabled,
+  isUploading,
+  onFilesSelected,
   onOpenBook,
   onRegenerate,
   regeneratingCover,
@@ -22,6 +29,13 @@ export function EbookShelf({
 }: EbookShelfProps) {
   return (
     <ul className="ebook-shelf" role="list">
+      <li>
+        <AddBookCard
+          disabled={disabled}
+          isUploading={isUploading}
+          onFilesSelected={onFilesSelected}
+        />
+      </li>
       {books.map((book) => (
         <li key={book.id}>
           <BookCard

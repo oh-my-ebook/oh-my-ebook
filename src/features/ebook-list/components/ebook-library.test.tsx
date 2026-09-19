@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
@@ -45,7 +45,7 @@ function createStoredBook(title: string) {
 
 describe('EbookLibrary', () => {
   afterEach(() => vi.restoreAllMocks())
-  it('초기화 중 책장 조작을 비활성화하고 완료 후 빈 상태를 알린다', async () => {
+  it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const initialization = createPromiseController<unknown>()
     const store = createStore()
     store.request.mockImplementationOnce(() => initialization.promise)
@@ -54,13 +54,12 @@ describe('EbookLibrary', () => {
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('서재를 불러오고 있습니다.')
     expect(screen.getByText('책 표지를 준비하고 있어요.')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '책 추가' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
     initialization.resolve(null)
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
-    expect(screen.getByText(/이 브라우저에만 저장/)).toBeInTheDocument()
-    expect(screen.getByText(/브라우저 데이터를 삭제하면/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(store.request).toHaveBeenCalledWith('listBooks')
   })
 
@@ -73,7 +72,7 @@ describe('EbookLibrary', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(store.request).toHaveBeenCalledTimes(3)
   })
 
@@ -103,14 +102,14 @@ describe('EbookLibrary', () => {
       </Toaster>,
     )
 
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
     await user.upload(
       screen.getByLabelText('PDF 파일 선택'),
       new File(['pdf'], 'first.pdf', { type: 'application/pdf' }),
     )
 
     expect(store.saveBook).toHaveBeenCalledOnce()
-    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent('확인 불가')
   })
@@ -136,7 +135,7 @@ describe('EbookLibrary', () => {
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
     render(<EbookLibrary store={store} />)
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
 
     await user.upload(screen.getByLabelText('PDF 파일 선택'), [
       new File(['one'], 'one.pdf', { type: 'application/pdf' }),
@@ -299,7 +298,7 @@ describe('EbookLibrary', () => {
       </Toaster>,
     )
 
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
     await user.upload(
       screen.getByLabelText('PDF 파일 선택'),
       new File(['pdf'], 'new-book.pdf', { type: 'application/pdf' }),
@@ -315,7 +314,8 @@ describe('EbookLibrary', () => {
     await user.click(screen.getByRole('button', { name: '새 책 메뉴' }))
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '삭제' }))
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(savedBook.title)).not.toBeInTheDocument())
+    expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
       '소장 도서 0권 (0 B)',
     )

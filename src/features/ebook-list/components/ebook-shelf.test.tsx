@@ -31,13 +31,14 @@ function createBook(id: string, title: string): StoredBook {
 }
 
 describe('EbookShelf', () => {
-  it('책마다 식별 가능한 카드 단위를 만들고 목록 순서로 연다', async () => {
+  it('책 추가 카드를 목록 맨 앞에 두고 책마다 식별 가능한 카드 단위를 만들어 목록 순서로 연다', async () => {
     const user = userEvent.setup()
     const onOpenBook = vi.fn()
     render(
       <EbookShelf
         books={[createBook('first', '첫 번째 책'), createBook('second', '두 번째 책')]}
         coverErrors={{}}
+        onFilesSelected={vi.fn()}
         onOpenBook={onOpenBook}
         onDelete={vi.fn()}
         onRegenerate={vi.fn()}
@@ -46,10 +47,12 @@ describe('EbookShelf', () => {
       />,
     )
 
-    expect(screen.getAllByRole('article')).toHaveLength(2)
+    expect(screen.getAllByRole('article')).toHaveLength(3)
     expect(screen.getByRole('article', { name: '첫 번째 책' })).toBeInTheDocument()
     expect(screen.getByRole('article', { name: '두 번째 책' })).toBeInTheDocument()
 
+    await user.tab()
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: '첫 번째 책 열기' })).toHaveFocus()
     await user.keyboard('{Enter}')
@@ -61,5 +64,37 @@ describe('EbookShelf', () => {
 
     expect(onOpenBook).toHaveBeenNthCalledWith(1, 'first')
     expect(onOpenBook).toHaveBeenNthCalledWith(2, 'second')
+  })
+
+  it('업로드 중이거나 비활성화된 경우 책 추가 카드의 선택을 막는다', () => {
+    const { rerender } = render(
+      <EbookShelf
+        books={[]}
+        coverErrors={{}}
+        disabled
+        onFilesSelected={vi.fn()}
+        onOpenBook={vi.fn()}
+        onDelete={vi.fn()}
+        onRegenerate={vi.fn()}
+        onRename={vi.fn()}
+        regeneratingCover={null}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeDisabled()
+
+    rerender(
+      <EbookShelf
+        books={[]}
+        coverErrors={{}}
+        isUploading
+        onFilesSelected={vi.fn()}
+        onOpenBook={vi.fn()}
+        onDelete={vi.fn()}
+        onRegenerate={vi.fn()}
+        onRename={vi.fn()}
+        regeneratingCover={null}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeDisabled()
   })
 })
