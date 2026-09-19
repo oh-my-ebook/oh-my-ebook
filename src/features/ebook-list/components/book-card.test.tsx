@@ -59,6 +59,18 @@ describe('BookCard', () => {
     expect(screen.getByText('12 / 100페이지')).toBeVisible()
   })
 
+  it('분석 상태에 맞는 딱지를 표시한다', () => {
+    const { rerender } = render(<BookCard book={book} onOpen={vi.fn()} />)
+
+    expect(screen.getByText('분석 중')).toHaveAttribute('data-variant', 'secondary')
+
+    rerender(<BookCard book={{ ...book, analysis_status: 'ready' }} onOpen={vi.fn()} />)
+    expect(screen.getByText('분석 완료')).toHaveAttribute('data-variant', 'default')
+
+    rerender(<BookCard book={{ ...book, analysis_status: 'failed' }} onOpen={vi.fn()} />)
+    expect(screen.getByText('분석 실패')).toHaveAttribute('data-variant', 'destructive')
+  })
+
   it('긴 제목의 전체 텍스트를 제공하고 키보드로 책을 연다', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()
