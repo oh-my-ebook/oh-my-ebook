@@ -48,14 +48,17 @@ function parseReaderBook(value: unknown): ReaderBook | null {
   if (!isOptionalMetadataValue(keywords)) return null
   if (!isOptionalMetadataValue(publisher)) return null
 
-  const metadata: BookMetadata = { title: typeof title === 'string' ? title : fileName }
-
-  if (author !== null && author !== undefined) metadata.author = author
-  if (subject !== null && subject !== undefined) metadata.subject = subject
-  if (keywords !== null && keywords !== undefined) metadata.keywords = keywords
-  if (publisher !== null && publisher !== undefined) metadata.publisher = publisher
-
-  return { lastPage, metadata, pdfData }
+  return {
+    lastPage,
+    metadata: {
+      title: typeof title === 'string' ? title : fileName,
+      author: author ?? undefined,
+      subject: subject ?? undefined,
+      keywords: keywords ?? undefined,
+      publisher: publisher ?? undefined,
+    },
+    pdfData,
+  }
 }
 
 export function useEbookReadingSession(bookId: string, store: EbookReaderStore) {

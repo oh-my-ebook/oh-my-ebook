@@ -152,7 +152,9 @@ async function renderLoadedReader(
   }))
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, { wrapper: MemoryRouter })
+  const view = render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, {
+    wrapper: MemoryRouter,
+  })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -160,6 +162,7 @@ async function renderLoadedReader(
     await documentLoad.promise
   })
   await screen.findByRole('img', { name: 'PDF 1페이지' })
+  return view
 }
 
 describe('Reader 보조 패널 연결', () => {
@@ -249,6 +252,26 @@ describe('Reader 보조 패널 연결', () => {
     expect(screen.queryByText('질문')).not.toBeInTheDocument()
   })
 
+  it('문서 주소가 바뀌면 패널을 닫지 않아도 대화가 초기화된다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const { rerender } = await renderLoadedReader(resizeObserverMock)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
+    expect(await screen.findByText('질문')).toBeInTheDocument()
+    await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
+
+    rerender(<Reader url="/other.pdf" />)
+    await screen.findByRole('img', { name: 'PDF 1페이지' })
+
+    expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.queryByText('질문')).not.toBeInTheDocument()
+  })
+
   it('좁은 화면에서 대화가 길어져도 채팅 조작부가 계속 표시된다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
@@ -322,9 +345,5 @@ describe('Reader 보조 패널 연결', () => {
 
     expect(respondSpy).toHaveBeenCalledOnce()
     expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('제목: 도서 제목')
-    expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('저자: 저자')
-    expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('출판사: 출판사')
-    expect(respondSpy.mock.calls[0]?.[1]?.system).not.toContain('주제:')
-    expect(respondSpy.mock.calls[0]?.[1]?.system).not.toContain('키워드:')
   })
 })

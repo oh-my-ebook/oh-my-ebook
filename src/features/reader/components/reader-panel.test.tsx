@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
+import { ReaderChat } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 
 const PANEL_TITLE = '함께 읽기'
@@ -12,12 +13,11 @@ const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
 const CHAT_INPUT_LABEL = '질문 입력'
 
 interface HarnessProps {
-  chatSessionKey?: string
   initialOpen?: boolean
   isWideScreen: boolean
 }
 
-function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen }: HarnessProps) {
+function ReaderPanelHarness({ initialOpen = false, isWideScreen }: HarnessProps) {
   const openButtonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(initialOpen)
 
@@ -28,13 +28,13 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
   )
   const readerPanel = (
     <ReaderPanel
-      chatSessionKey={chatSessionKey}
-      currentPageText={null}
       isWideScreen={isWideScreen}
       onOpenChange={setOpen}
       open={open}
       openButtonRef={openButtonRef}
-    />
+    >
+      <ReaderChat />
+    </ReaderPanel>
   )
 
   if (!isWideScreen) {
@@ -155,23 +155,5 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
     expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
-  })
-
-  it('chatSessionKey가 바뀌면(문서 변경) 패널을 닫지 않아도 대화가 초기화된다', async () => {
-    const user = userEvent.setup()
-    useWebLlmModelStore.setState({ status: 'ready' })
-    const { rerender } = render(
-      <ReaderPanelHarness chatSessionKey="doc-a" initialOpen isWideScreen />,
-    )
-
-    // jsdom에서는 요소 크기가 모두 0이라 react-resizable-panels가 모든 클릭을 구분선 드래그로
-    // 판정해 포커스 이동을 막는다. 클릭 없이 입력하도록 포커스만 옮긴다.
-    screen.getByRole('textbox', { name: CHAT_INPUT_LABEL }).focus()
-    await user.keyboard('질문{Enter}')
-    expect(await screen.findByText('질문')).toBeInTheDocument()
-
-    rerender(<ReaderPanelHarness chatSessionKey="doc-b" initialOpen isWideScreen />)
-
-    expect(screen.queryByText('질문')).not.toBeInTheDocument()
   })
 })

@@ -161,7 +161,10 @@ describe('PdfViewport', () => {
     const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
     expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
-    expect(onOcrTextChange).toHaveBeenCalledWith(new Map([[1, '형태소로 다듬은 문장']]))
+    expect(onOcrTextChange).toHaveBeenCalledWith({
+      document,
+      textByPage: new Map([[1, '형태소로 다듬은 문장']]),
+    })
   })
 
   it('OCR에 실패한 페이지는 빈 본문으로 전달한다', async () => {
@@ -180,7 +183,9 @@ describe('PdfViewport', () => {
       />,
     )
 
-    await waitFor(() => expect(onOcrTextChange).toHaveBeenCalledWith(new Map([[1, '']])))
+    await waitFor(() =>
+      expect(onOcrTextChange).toHaveBeenCalledWith({ document, textByPage: new Map([[1, '']]) }),
+    )
   })
 
   it('표시 크기가 바뀌면 이전 작업을 취소하고 늦은 완료를 무시한다', async () => {

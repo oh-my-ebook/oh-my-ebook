@@ -35,11 +35,11 @@
 
 ## 페이지 번호 전달 (FR-005)
 
-`Reader`가 소유한 `currentPage`를 `Reader → ReaderPanel → ReaderChat`로 전달하고, 메시지 전송 시점의 값을 어댑터 호출의 컨텍스트에 싣는다. 페이지를 이동해도 같은 배선으로 최신 값이 전달된다.
+`Reader`가 소유한 `currentPage`를 `ReaderPanel`의 children으로 조합한 `ReaderChat`에 직접 전달하고, 메시지 전송 시점의 값을 어댑터 호출의 컨텍스트에 싣는다. 페이지를 이동해도 같은 배선으로 최신 값이 전달된다.
 
 ## 도서 메타데이터와 현재 페이지 본문 전달 (FR-009)
 
-`PdfViewport`가 페이지를 표시할 때 이미 수행하는 PaddleOCR·Kiwi 후처리 결과를 재사용한다. 별도 OCR을 실행하지 않고 `lines[].text`를 줄바꿈으로 연결해 `Reader → ReaderPanel → ReaderChat`로 전달한다. `Reader`는 결과와 문서가 일치할 때만 현재 페이지 본문을 선택해, 늦게 끝난 이전 문서나 페이지 결과가 섞이지 않게 한다.
+`PdfViewport`가 페이지를 표시할 때 이미 수행하는 PaddleOCR·Kiwi 후처리 결과를 재사용한다. 별도 OCR을 실행하지 않고 `lines[].text`를 줄바꿈으로 연결해 `Reader`가 `ReaderChat`에 전달한다. `Reader`는 결과와 문서가 일치할 때만 현재 페이지 본문을 선택해, 늦게 끝난 이전 문서나 페이지 결과가 섞이지 않게 한다.
 
 리더가 이미 `getBook`으로 불러온 제목·저자·주제·키워드·출판사를 재사용하고, 값을 저장하지 않은 항목은 제외한다. 메타데이터를 다시 조회하지 않는다.
 

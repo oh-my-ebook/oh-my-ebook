@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -8,7 +8,7 @@ import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { BookMetadata } from '../lib/book-metadata'
-import type { PdfDocumentHandle, PdfDocumentSource } from '../lib/pdf-document'
+import type { PdfDocumentSource } from '../lib/pdf-document'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -20,7 +20,8 @@ import {
   type ReaderZoom,
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
-import { PdfViewport } from './pdf-viewport'
+import { PdfViewport, type OcrText } from './pdf-viewport'
+import { ReaderChat } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
@@ -45,11 +46,6 @@ interface ReaderLoadingProps {
 }
 
 const READER_SPREAD_GAP = 16
-
-interface OcrText {
-  document: PdfDocumentHandle
-  textByPage: ReadonlyMap<number, string>
-}
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -137,15 +133,6 @@ export function Reader({ bookMetadata, data, initialPage, onPageChange, title, u
     // oxlint-disable-next-line react/set-state-in-effect
     setCurrentPage(getInitialPage(initialPage, documentState.pages.length))
   }, [documentState.pages, documentState.status, initialPage, source])
-
-  const handleOcrTextChange = useCallback(
-    (textByPage: ReadonlyMap<number, string>) => {
-      if (documentState.status === 'ready') {
-        setOcrText({ document: documentState.document, textByPage })
-      }
-    },
-    [documentState.document, documentState.status],
-  )
 
   const selectedPage = documentState.pages[currentPage - 1]
   const pageSpread = calculatePageSpread(
@@ -251,7 +238,7 @@ export function Reader({ bookMetadata, data, initialPage, onPageChange, title, u
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
-          onOcrTextChange={handleOcrTextChange}
+          onOcrTextChange={setOcrText}
           pages={pageSpread.pages}
           scale={displayScale}
         />
@@ -259,23 +246,23 @@ export function Reader({ bookMetadata, data, initialPage, onPageChange, title, u
     </main>
   )
 
-  const ocrTextForCurrentDocument =
-    documentState.status === 'ready' && ocrText?.document === documentState.document
-      ? ocrText
-      : null
-  const currentPageText = ocrTextForCurrentDocument?.textByPage.get(currentPage) ?? null
+  const currentPageText =
+    ocrText?.document === documentState.document ? ocrText.textByPage.get(currentPage) : undefined
 
   const readerPanel = (
     <ReaderPanel
-      bookMetadata={bookMetadata}
-      chatSessionKey={url}
-      currentPage={currentPage}
-      currentPageText={currentPageText}
       isWideScreen={isWideScreen}
       onOpenChange={setPanelOpen}
       open={panelOpen}
       openButtonRef={panelButtonRef}
-    />
+    >
+      <ReaderChat
+        bookMetadata={bookMetadata}
+        currentPage={currentPage}
+        currentPageText={currentPageText}
+        key={url}
+      />
+    </ReaderPanel>
   )
 
   return (

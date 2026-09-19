@@ -11,10 +11,16 @@ import {
 } from '../lib/pdf-document'
 import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognition'
 
+// 어떤 문서의 결과인지 함께 넘겨, 받는 쪽이 문서가 바뀐 뒤 남은 이전 결과를 걸러낼 수 있게 한다.
+export interface OcrText {
+  document: PdfDocumentHandle
+  textByPage: ReadonlyMap<number, string>
+}
+
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
   scale: number
-  onOcrTextChange?: (textByPage: ReadonlyMap<number, string>) => void
+  onOcrTextChange?: (ocrText: OcrText) => void
   onStatusChange?: (status: PdfViewportStatus) => void
 }
 
@@ -198,7 +204,7 @@ export function PdfViewport(props: PdfViewportProps) {
 
     const controller = new AbortController()
     const recognizePages = async () => {
-      const recognizedPages: (readonly [number, OcrPageResult] | null)[] = await Promise.all(
+      const recognizedPages = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
             const page = await document.getPage(pageNumber)
@@ -209,31 +215,17 @@ export function PdfViewport(props: PdfViewportProps) {
           }
         }),
       )
-      if (!controller.signal.aborted) {
-        const successfulOcrResults: (readonly [number, OcrPageResult])[] = recognizedPages.filter(
-          (recognizedPage) => recognizedPage !== null,
-        )
-        // key는 PDF 페이지 번호, value는 좌표와 텍스트 줄을 포함한 OCR 결과다.
-        const ocrResultsByPageNumber = new Map(successfulOcrResults)
-        const pageTextEntries: (readonly [number, string])[] = requestedPageNumbers.map(
-          (pageNumber) => {
-            const ocrResult = ocrResultsByPageNumber.get(pageNumber)
-            const recognizedLines = ocrResult?.lines ?? []
-            const pageText = recognizedLines.map((line) => line.text).join('\n')
+      if (controller.signal.aborted) return
 
-            return [pageNumber, pageText] as const
-          },
-        )
-        // key는 PDF 페이지 번호, value는 해당 페이지의 OCR 줄을 합친 본문이다.
-        const ocrTextByPageNumber = new Map(pageTextEntries)
-
-        setOcrOutcome({
-          document,
-          pageNumbers,
-          pages: ocrResultsByPageNumber,
-        })
-        onOcrTextChange?.(ocrTextByPageNumber)
-      }
+      const resultsByPage = new Map(recognizedPages.filter((page) => page !== null))
+      const textByPage = new Map(
+        requestedPageNumbers.map((pageNumber) => {
+          const lines = resultsByPage.get(pageNumber)?.lines ?? []
+          return [pageNumber, lines.map((line) => line.text).join('\n')] as const
+        }),
+      )
+      setOcrOutcome({ document, pageNumbers, pages: resultsByPage })
+      onOcrTextChange?.({ document, textByPage })
     }
 
     void recognizePages()
