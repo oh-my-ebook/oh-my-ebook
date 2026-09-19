@@ -3,66 +3,27 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
 import { createMockChatModelAdapter, type MockResponder } from '../lib/mock-chat-adapter'
+import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { ReaderChat } from './reader-chat'
 
-const webLlmModelMock = vi.hoisted(() => {
-  let status = 'idle'
-  let progress = 0
-  let error: string | undefined
-  const listeners = new Set<() => void>()
-  const setStatus = (nextStatus: string) => {
-    status = nextStatus
-    listeners.forEach((listener) => listener())
-  }
-  const setProgress = (nextProgress: number) => {
-    progress = nextProgress
-    listeners.forEach((listener) => listener())
-  }
-  const setError = (nextError: string | undefined) => {
-    error = nextError
-    listeners.forEach((listener) => listener())
-  }
+const prepareWebLlmModelMock = vi.hoisted(() => vi.fn(async () => undefined))
 
-  return {
-    getError: () => error,
-    getProgress: () => progress,
-    getStatus: () => status,
-    prepare: vi.fn(async () => undefined),
-    reset: () => {
-      error = undefined
-      progress = 0
-      status = 'idle'
-    },
-    setError,
-    setProgress,
-    setStatus,
-    subscribe: (listener: () => void) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-  }
-})
+// 다운로드 버튼이 jsdom에 없는 navigator.gpu 등 실제 WebGPU 경로를 타지 않도록 준비 함수만 바꾼다.
+// 상태 store는 실제 것을 쓰고 테스트에서 setState로 원하는 상태를 만든다.
+vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
+  prepareWebLlmModel: prepareWebLlmModelMock,
+}))
 
-vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
-  const webLlmChatAdapter =
-    await importOriginal<typeof import('../lib/web-llm/webllm-chat-adapter')>()
-  const mockChatAdapter = await import('../lib/mock-chat-adapter')
-  // 실제 테스트는 전부 ReaderChat에 chatModel prop을 명시하므로 이 기본값은 쓰이지 않아야 한다.
-  // 그래도 real webLlmChatModelAdapter를 그대로 두면, 누군가 prop 지정을 깜빡한 새 테스트를
-  // 추가했을 때 jsdom에 없는 navigator.gpu 등 실제 WebGPU 경로를 의도치 않게 타게 된다.
+// 실제 테스트는 전부 ReaderChat에 chatModel prop을 명시하므로 이 기본값은 쓰이지 않아야 한다.
+// 누군가 prop 지정을 깜빡하면 실제 WebGPU 경로 대신 이 오류로 바로 드러나게 한다.
+vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
+  const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   // oxlint-disable-next-line require-yield
   async function* unexpectedRespond(): AsyncGenerator<string, void> {
     throw new Error('이 테스트는 ReaderChat에 chatModel prop을 지정하지 않았습니다.')
   }
-  return {
-    ...webLlmChatAdapter,
-    getWebLlmModelError: webLlmModelMock.getError,
-    getWebLlmModelProgress: webLlmModelMock.getProgress,
-    getWebLlmModelStatus: webLlmModelMock.getStatus,
-    prepareWebLlmModel: webLlmModelMock.prepare,
-    subscribeWebLlmModelStatus: webLlmModelMock.subscribe,
-    webLlmChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(unexpectedRespond),
-  }
+  return { webLlmChatModelAdapter: createMockChatModelAdapter(unexpectedRespond) }
 })
 
 // Thread가 내부적으로 ResizeObserver를 사용해 뷰포트 크기를 관찰하므로 jsdom에 없는 API를 채워준다.
@@ -94,8 +55,8 @@ const RETRY_BUTTON_NAME = '다시 답변받기'
 
 describe('ReaderChat', () => {
   afterEach(() => {
-    webLlmModelMock.prepare.mockReset()
-    webLlmModelMock.reset()
+    prepareWebLlmModelMock.mockReset()
+    useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true)
     vi.unstubAllGlobals()
   })
 
@@ -114,10 +75,10 @@ describe('ReaderChat', () => {
     setupResizeObserverMock()
     const user = userEvent.setup()
     const controller = createPromiseController<void>()
-    webLlmModelMock.prepare.mockImplementation(async () => {
-      webLlmModelMock.setStatus('loading')
+    prepareWebLlmModelMock.mockImplementation(async () => {
+      useWebLlmModelStore.setState({ status: 'loading' })
       await controller.promise
-      webLlmModelMock.setStatus('ready')
+      useWebLlmModelStore.setState({ status: 'ready' })
     })
     const { respond } = createControllableRespond(0)
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
@@ -130,14 +91,14 @@ describe('ReaderChat', () => {
 
     controller.resolve()
     expect(await screen.findByText('준비 완료')).toBeInTheDocument()
-    expect(webLlmModelMock.prepare).toHaveBeenCalledOnce()
+    expect(prepareWebLlmModelMock).toHaveBeenCalledOnce()
   })
 
   it('다운로드 버튼 클릭이 예상치 못하게 실패하면 콘솔에 원인을 남긴다', async () => {
     setupResizeObserverMock()
     const user = userEvent.setup()
     const unexpectedError = new Error('예상치 못한 오류')
-    webLlmModelMock.prepare.mockRejectedValue(unexpectedError)
+    prepareWebLlmModelMock.mockRejectedValue(unexpectedError)
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const { respond } = createControllableRespond(0)
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
@@ -152,8 +113,7 @@ describe('ReaderChat', () => {
 
   it('모델 다운로드 진행률을 표시한다', () => {
     setupResizeObserverMock()
-    webLlmModelMock.setStatus('loading')
-    webLlmModelMock.setProgress(37)
+    useWebLlmModelStore.setState({ status: 'loading', progress: 37 })
     const { respond } = createControllableRespond(0)
 
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
@@ -163,10 +123,11 @@ describe('ReaderChat', () => {
 
   it('모델 다운로드 실패 원인을 표시한다', () => {
     setupResizeObserverMock()
-    webLlmModelMock.setStatus('error')
-    webLlmModelMock.setError(
-      '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
-    )
+    useWebLlmModelStore.setState({
+      status: 'error',
+      error:
+        '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
+    })
     const { respond } = createControllableRespond(0)
 
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
@@ -177,7 +138,7 @@ describe('ReaderChat', () => {
 
   it('모델 다운로드 중에는 버튼의 접근 가능한 이름도 진행 상태를 알려준다', () => {
     setupResizeObserverMock()
-    webLlmModelMock.setStatus('loading')
+    useWebLlmModelStore.setState({ status: 'loading' })
     const { respond } = createControllableRespond(0)
 
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)

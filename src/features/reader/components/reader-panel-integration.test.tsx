@@ -10,17 +10,6 @@ import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
-// ModelDownloadAlert가 이 화면에도 함께 렌더링되므로, real getWebLlmModelStatus 등을 그대로 두면
-// 이 테스트가 다운로드 버튼을 누르는 시나리오를 추가했을 때 jsdom에 없는 navigator.gpu 등
-// 실제 WebGPU 경로를 의도치 않게 타게 된다. 상태를 항상 'idle'로 고정해 원천 차단한다.
-const webLlmModelMock = vi.hoisted(() => ({
-  getError: () => undefined,
-  getProgress: () => 0,
-  getStatus: () => 'idle' as const,
-  prepare: vi.fn(async () => undefined),
-  subscribe: () => () => undefined,
-}))
-
 vi.mock('../lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
@@ -39,24 +28,20 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
-vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
-  const webLlmChatAdapter =
-    await importOriginal<typeof import('../lib/web-llm/webllm-chat-adapter')>()
-  const mockChatAdapter = await import('../lib/mock-chat-adapter')
+vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
+  const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
     yield '답변'
   }
-  return {
-    ...webLlmChatAdapter,
-    getWebLlmModelError: webLlmModelMock.getError,
-    getWebLlmModelProgress: webLlmModelMock.getProgress,
-    getWebLlmModelStatus: webLlmModelMock.getStatus,
-    prepareWebLlmModel: webLlmModelMock.prepare,
-    subscribeWebLlmModelStatus: webLlmModelMock.subscribe,
-    webLlmChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
-  }
+  return { webLlmChatModelAdapter: createMockChatModelAdapter(spyingRespond) }
 })
+
+// 다운로드 버튼을 누르는 시나리오가 추가돼도 jsdom에 없는 실제 WebGPU 경로를 타지 않게 한다.
+vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
+  prepareWebLlmModel: vi.fn(async () => undefined),
+}))
 
 const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
 const PANEL_TITLE = '함께 읽기'
@@ -161,7 +146,6 @@ describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
     respondSpy.mockReset()
-    webLlmModelMock.prepare.mockReset()
     vi.unstubAllGlobals()
   })
 

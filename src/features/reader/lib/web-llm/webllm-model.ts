@@ -1,0 +1,129 @@
+import type { ChatCompletionRequestStreaming } from '@mlc-ai/web-llm'
+import { create } from 'zustand'
+
+export const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
+
+// 어댑터가 실제로 쓰는 부분만 정의한다. 라이브러리의 ChatCompletionChunk를 그대로 쓰면
+// 테스트 대역이 id·created 등 사용하지 않는 필드까지 모두 채워야 한다.
+interface WebLlmChunk {
+  choices: { delta: { content?: string | null } }[]
+}
+
+export interface WebLlmEngine {
+  chat: {
+    completions: {
+      create(request: ChatCompletionRequestStreaming): Promise<AsyncIterable<WebLlmChunk>>
+    }
+  }
+  interruptGenerate(): void
+}
+
+export type WebLlmModelStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+interface WebLlmModelState {
+  status: WebLlmModelStatus
+  progress: number
+  error?: string
+}
+
+export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
+  status: 'idle',
+  progress: 0,
+}))
+
+// 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
+// "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
+function getModelErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+
+  if (/WebGPU|shader-f16|compatible GPU/i.test(message)) {
+    return '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.'
+  }
+  // "GPU에서 메모리 부족으로 모델 다운로드 실패"처럼 메모리·네트워크 단어가 함께 나올 수 있어,
+  // 더 구체적인 메모리 판별을 네트워크보다 먼저 검사한다.
+  // 또한 "GPU"만 단독으로 들어간 메시지는 메모리와 무관한 경우가 많아(예: GPU 어댑터 조회 실패) 판별에서 제외한다.
+  if (/memory|allocation|device lost/i.test(message)) {
+    return 'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
+  }
+  if (/fetch|network|download|ERR_FAILED|failed to load resource/i.test(message)) {
+    return '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
+  }
+
+  return 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
+}
+
+async function assertWebGpuSupport() {
+  const gpu = (
+    navigator as Navigator & {
+      gpu?: { requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null> }
+    }
+  ).gpu
+  if (!gpu) {
+    throw new Error('WebGPU를 지원하지 않는 브라우저입니다.')
+  }
+
+  const adapter = await gpu.requestAdapter()
+  if (!adapter || !adapter.features.has('shader-f16')) {
+    throw new Error('필요한 GPU 기능(shader-f16)을 사용할 수 없습니다.')
+  }
+}
+
+let enginePromise: Promise<WebLlmEngine> | undefined
+let worker: Worker | undefined
+
+async function createEngine(): Promise<WebLlmEngine> {
+  await assertWebGpuSupport()
+
+  const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm')
+  const currentWorker = new Worker(new URL('./webllm.worker.ts', import.meta.url), {
+    type: 'module',
+  })
+  worker = currentWorker
+  const workerFailed = new Promise<never>((_, reject) => {
+    currentWorker.addEventListener(
+      'error',
+      () => reject(new Error('AI 실행 파일을 불러오지 못했습니다.')),
+      { once: true },
+    )
+  })
+
+  return Promise.race([
+    CreateWebWorkerMLCEngine(currentWorker, WEBLLM_MODEL_ID, {
+      initProgressCallback: ({ progress }) => {
+        useWebLlmModelStore.setState({
+          progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
+        })
+      },
+    }),
+    workerFailed,
+  ])
+}
+
+export function invalidateDefaultEngine(error: unknown) {
+  worker?.terminate()
+  worker = undefined
+  enginePromise = undefined
+  useWebLlmModelStore.setState({ status: 'error', error: getModelErrorMessage(error) })
+}
+
+export function loadDefaultEngine() {
+  if (!enginePromise) {
+    useWebLlmModelStore.setState({ status: 'loading', progress: 0, error: undefined })
+    enginePromise = createEngine().then(
+      (engine) => {
+        useWebLlmModelStore.setState({ status: 'ready', progress: 100 })
+        return engine
+      },
+      (error: unknown) => {
+        invalidateDefaultEngine(error)
+        throw error
+      },
+    )
+  }
+
+  return enginePromise
+}
+
+export async function prepareWebLlmModel() {
+  await loadDefaultEngine()
+}

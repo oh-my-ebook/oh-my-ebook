@@ -4,18 +4,9 @@ import {
   useLocalRuntime,
   type ChatModelAdapter,
 } from '@assistant-ui/react'
-import { useSyncExternalStore } from 'react'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import {
-  getWebLlmModelError,
-  getWebLlmModelProgress,
-  getWebLlmModelStatus,
-  prepareWebLlmModel,
-  subscribeWebLlmModelStatus,
-  webLlmChatModelAdapter,
-} from '../lib/web-llm/webllm-chat-adapter'
+import { webLlmChatModelAdapter } from '../lib/web-llm/webllm-chat-adapter'
+import { ModelDownloadAlert } from './model-download-alert'
 
 // 부모가 다시 렌더링될 때 메시지 영역까지 다시 그리지 않도록 모듈 범위에 둔다.
 const THREAD_COMPONENTS: ThreadComponents = {
@@ -35,80 +26,6 @@ interface ReaderChatProps {
 
 interface ReaderChatContentProps {
   currentPage?: number
-}
-
-const MODEL_STATUS_TEXT = {
-  idle: '채팅 전에 로컬 모델을 준비하세요.',
-  ready: '준비 완료',
-}
-
-function ModelDownloadAlert() {
-  const status = useSyncExternalStore(
-    subscribeWebLlmModelStatus,
-    getWebLlmModelStatus,
-    getWebLlmModelStatus,
-  )
-  const progress = useSyncExternalStore(
-    subscribeWebLlmModelStatus,
-    getWebLlmModelProgress,
-    getWebLlmModelProgress,
-  )
-  const error = useSyncExternalStore(
-    subscribeWebLlmModelStatus,
-    getWebLlmModelError,
-    getWebLlmModelError,
-  )
-  const isLoading = status === 'loading'
-  const isReady = status === 'ready'
-  const statusText = isLoading
-    ? `모델을 다운로드하고 있습니다. ${progress}%`
-    : status === 'error'
-      ? (error ?? '모델 다운로드에 실패했습니다.')
-      : MODEL_STATUS_TEXT[status]
-  const buttonText = isLoading
-    ? '다운로드 중'
-    : isReady
-      ? '완료'
-      : status === 'error'
-        ? '재시도'
-        : '다운로드'
-
-  return (
-    <Alert
-      className="shrink-0"
-      role="status"
-      variant={status === 'error' ? 'destructive' : 'default'}
-    >
-      <AlertTitle>Qwen2.5 1.5B</AlertTitle>
-      <AlertDescription>{statusText}</AlertDescription>
-      <AlertAction>
-        <Button
-          aria-label={
-            isReady
-              ? '모델 준비 완료'
-              : isLoading
-                ? '모델 다운로드 중'
-                : status === 'error'
-                  ? '모델 다운로드 재시도'
-                  : '모델 다운로드'
-          }
-          disabled={isLoading || isReady}
-          onClick={() =>
-            prepareWebLlmModel().catch((error: unknown) => {
-              // 화면에는 defaultModelError의 사용자용 안내 문구만 보이므로, 원인 파악을 위해
-              // 실제 에러는 콘솔에 남긴다.
-              console.error('모델을 준비하는 중 오류가 발생했습니다.', error)
-            })
-          }
-          size="xs"
-          type="button"
-          variant="outline"
-        >
-          {buttonText}
-        </Button>
-      </AlertAction>
-    </Alert>
-  )
 }
 
 // AssistantRuntimeProvider의 자식이어야 useAssistantInstructions가 런타임 컨텍스트를 읽을 수 있어
