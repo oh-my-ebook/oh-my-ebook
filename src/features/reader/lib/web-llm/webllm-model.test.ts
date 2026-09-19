@@ -291,6 +291,24 @@ describe('WebLLM 모델 로딩과 상태', () => {
     expect(getState().error).toBe(expectedMessage)
   })
 
+  it('메시지에 다운로드 관련 단어가 섞인 GPU 메모리 오류는 재시도하지 않고 즉시 반환한다', async () => {
+    // "out of memory while downloading model shard"처럼 메모리 오류에도 네트워크 오류
+    // 패턴(download)이 함께 들어갈 수 있다. 복구 불가능한 메모리 오류를 재시도로 낭비하지
+    // 않도록, 안내 문구 분류와 재시도 여부 분류가 같은 기준을 써야 한다.
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const createWebWorkerMLCEngine = vi
+      .fn()
+      .mockRejectedValue(new Error('out of memory while downloading model shard'))
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel, getState } = await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getState().error).toBe(GPU_MEMORY_ERROR_MESSAGE)
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledOnce()
+  })
+
   it('워커 로딩 중 오류가 발생하면 안내 메시지를 남긴다', async () => {
     restoreGpu.push(stubSupportedGpu())
     const workerInstances = stubWorker()

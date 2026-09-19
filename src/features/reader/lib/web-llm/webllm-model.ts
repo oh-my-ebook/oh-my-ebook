@@ -31,34 +31,49 @@ export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
   progress: 0,
 }))
 
-// 네트워크·다운로드 연결 문제로 보이는 오류는 일시적일 가능성이 있어 자동 재시도 대상으로도 함께 쓴다.
-const NETWORK_ERROR_PATTERN = /fetch|network|download|ERR_FAILED|failed to load resource/i
+type ModelErrorKind = 'webgpu' | 'memory' | 'network' | 'unknown'
+
+// 순서가 분류를 결정한다. "GPU에서 메모리 부족으로 모델 다운로드 실패"처럼 메모리·네트워크
+// 단어가 함께 나올 수 있어, 더 구체적인 메모리 판별을 네트워크보다 먼저 검사한다.
+// 또한 "GPU"만 단독으로 들어간 메시지는 메모리와 무관한 경우가 많아(예: GPU 어댑터 조회 실패) 판별에서 제외한다.
+//
+// 안내 문구(getModelErrorMessage)와 자동 재시도 여부(isRetryableLoadError) 모두 이 분류
+// 하나로 결정한다. 각자 따로 패턴을 검사하면, "메모리 부족 중 다운로드 실패"처럼 두 단어가
+// 섞인 메시지를 서로 다르게 분류해 복구 불가능한 오류를 재시도해버릴 수 있다.
+function classifyModelError(error: unknown): ModelErrorKind {
+  const message = error instanceof Error ? error.message : String(error)
+
+  if (/WebGPU|shader-f16|compatible GPU/i.test(message)) {
+    return 'webgpu'
+  }
+  if (/memory|allocation|device lost/i.test(message)) {
+    return 'memory'
+  }
+  if (/fetch|network|download|ERR_FAILED|failed to load resource/i.test(message)) {
+    return 'network'
+  }
+
+  return 'unknown'
+}
 
 // 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
 // "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
 function getModelErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
-
-  if (/WebGPU|shader-f16|compatible GPU/i.test(message)) {
-    return '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.'
+  switch (classifyModelError(error)) {
+    case 'webgpu':
+      return '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.'
+    case 'memory':
+      return 'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
+    case 'network':
+      return '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
+    case 'unknown':
+      return 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
   }
-  // "GPU에서 메모리 부족으로 모델 다운로드 실패"처럼 메모리·네트워크 단어가 함께 나올 수 있어,
-  // 더 구체적인 메모리 판별을 네트워크보다 먼저 검사한다.
-  // 또한 "GPU"만 단독으로 들어간 메시지는 메모리와 무관한 경우가 많아(예: GPU 어댑터 조회 실패) 판별에서 제외한다.
-  if (/memory|allocation|device lost/i.test(message)) {
-    return 'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
-  }
-  if (NETWORK_ERROR_PATTERN.test(message)) {
-    return '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
-  }
-
-  return 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
 }
 
-// GPU 미지원처럼 다시 시도해도 똑같이 실패하는 오류는 자동 재시도 대상에서 제외한다.
+// GPU 미지원·메모리 부족처럼 다시 시도해도 똑같이 실패하는 오류는 자동 재시도 대상에서 제외한다.
 function isRetryableLoadError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
-  return NETWORK_ERROR_PATTERN.test(message)
+  return classifyModelError(error) === 'network'
 }
 
 async function assertWebGpuSupport() {
