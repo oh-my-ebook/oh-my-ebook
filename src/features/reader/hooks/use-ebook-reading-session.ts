@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 
 export interface EbookReaderStore {
-  request(command: 'getBook' | 'updateProgress', payload?: unknown): Promise<unknown>
+  request(
+    command: 'getBook' | 'getStoredOcrPage' | 'updateProgress',
+    payload?: unknown,
+  ): Promise<unknown>
 }
 
 interface ReaderBook {
