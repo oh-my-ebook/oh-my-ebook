@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,6 +7,30 @@ import {
   useWebLlmModelStore,
   type WebLlmModelStatus,
 } from '../lib/web-llm/webllm-model'
+
+// 모델 가중치는 Hugging Face에서, wasm 런타임 라이브러리는 raw.githubusercontent.com에서 받아온다.
+// 다운로드 버튼을 누르기 전에 미리 연결(DNS+TCP+TLS)해 두면, 실제 클릭 시점의 연결 설정
+// 지연과 그 사이의 실패 가능성을 줄일 수 있다.
+const PRECONNECT_ORIGINS = ['https://huggingface.co', 'https://raw.githubusercontent.com']
+
+function usePreconnectModelOrigins() {
+  useEffect(() => {
+    const addedLinks = PRECONNECT_ORIGINS.filter(
+      (origin) => !document.head.querySelector(`link[rel="preconnect"][href="${origin}"]`),
+    ).map((origin) => {
+      const link = document.createElement('link')
+      link.rel = 'preconnect'
+      link.href = origin
+      link.crossOrigin = 'anonymous'
+      document.head.appendChild(link)
+      return link
+    })
+
+    return () => {
+      addedLinks.forEach((link) => link.remove())
+    }
+  }, [])
+}
 
 const BUTTON = {
   idle: { text: '다운로드', label: '모델 다운로드' },
@@ -40,6 +65,7 @@ function handleDownload(status: WebLlmModelStatus) {
 export function ModelDownloadAlert() {
   const { status, progress, error } = useWebLlmModelStore()
   const button = BUTTON[status]
+  usePreconnectModelOrigins()
 
   return (
     <Alert

@@ -124,6 +124,21 @@ describe('ReaderChat', () => {
     expect(screen.getByText('모델을 다운로드하고 있습니다. 37%')).toBeInTheDocument()
   })
 
+  it('페이지에 진입하면 모델을 받아올 오리진에 미리 연결한다', () => {
+    setupResizeObserverMock()
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    const preconnectHrefs = Array.from(
+      document.head.querySelectorAll('link[rel="preconnect"]'),
+    ).map((link) => link.getAttribute('href'))
+
+    expect(preconnectHrefs).toEqual(
+      expect.arrayContaining(['https://huggingface.co', 'https://raw.githubusercontent.com']),
+    )
+  })
+
   it('모델 다운로드 실패 원인을 표시한다', () => {
     setupResizeObserverMock()
     useWebLlmModelStore.setState({
