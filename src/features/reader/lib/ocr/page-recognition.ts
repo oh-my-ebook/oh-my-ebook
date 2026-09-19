@@ -76,7 +76,7 @@ async function renderPdfPageForOcr(page: PdfPageHandle, signal: AbortSignal) {
   }
 }
 
-async function getPaddle() {
+function getPaddle() {
   // 큰 모델을 페이지마다 다시 불러오지 않도록 초기화 Promise를 재사용한다.
   paddle ??= import('@paddleocr/paddleocr-js')
     .then(({ PaddleOCR }) =>
@@ -106,21 +106,59 @@ async function getPaddle() {
   return paddle
 }
 
+// PaddleOCR worker 인스턴스에는 predict() 취소 API가 없어, 중단된 인스턴스는 캐시에서
+// 즉시 떼어내 다음 페이지가 새 인스턴스로 바로 시작하게 한다. 인스턴스가 이미 만들어져
+// 있었다면 dispose()가 그 자리에서 Worker를 종료시켜 진행 중이던 predict()도 함께
+// 끊어지고, 아직 초기화 중이었다면 초기화가 끝난 뒤에 정리된다.
+function abandonPaddle(instancePromise: Promise<PaddleOcr>) {
+  if (paddle === instancePromise) {
+    paddle = undefined
+  }
+  instancePromise.then((instance) => instance.dispose()).catch(() => {})
+}
+
+function raceWithAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+  onAbort: () => void,
+): Promise<T> {
+  if (signal.aborted) {
+    onAbort()
+    // abandonPaddle()의 dispose()가 이 promise를 거부시킬 수 있으므로, 아무도
+    // 구독하지 않는 unhandled rejection이 되지 않도록 미리 처리해 둔다.
+    promise.catch(() => {})
+    return Promise.reject(signal.reason)
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => {
+      onAbort()
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', handleAbort, { once: true })
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', handleAbort))
+  })
+}
+
 async function recognizeWithPaddleOcr(
   canvas: HTMLCanvasElement,
   signal: AbortSignal,
 ): Promise<OcrLine[]> {
+  const instancePromise = getPaddle()
   // 작은 글자까지 탐지하되 신뢰도가 낮은 상자와 인식 결과는 제외한다.
-  const [recognized] = await (
-    await getPaddle()
-  ).predict(canvas, {
-    textDetLimitSideLen: 1_600,
-    textDetLimitType: 'max',
-    textDetMaxSideLimit: 3_000,
-    textDetBoxThresh: 0.45,
-    textRecScoreThresh: 0.25,
-  })
-  signal.throwIfAborted()
+  const [recognized] = await raceWithAbort(
+    instancePromise.then((instance) =>
+      instance.predict(canvas, {
+        textDetLimitSideLen: 1_600,
+        textDetLimitType: 'max',
+        textDetMaxSideLimit: 3_000,
+        textDetBoxThresh: 0.45,
+        textRecScoreThresh: 0.25,
+      }),
+    ),
+    signal,
+    () => abandonPaddle(instancePromise),
+  )
 
   // PaddleOCR의 사각형 꼭짓점을 텍스트 레이어가 사용할 축 정렬 좌표로 바꾼다.
   return recognized.items
