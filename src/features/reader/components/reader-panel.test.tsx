@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { ReaderPanel } from './reader-panel'
 
 const PANEL_TITLE = '함께 읽기'
@@ -67,6 +68,7 @@ describe('ReaderPanel', () => {
   })
 
   afterEach(() => {
+    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -119,6 +121,19 @@ describe('ReaderPanel', () => {
     expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
   })
 
+  it('넓은 화면에서 패널 안에 포커스가 있을 때 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
+    const user = userEvent.setup()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    render(<ReaderPanelHarness initialOpen isWideScreen />)
+    await user.click(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL }))
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
+  })
+
   it('좁은 화면에서 Escape를 누르면 Sheet를 닫고 열기 버튼으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     render(<ReaderPanelHarness initialOpen isWideScreen={false} />)
@@ -143,6 +158,7 @@ describe('ReaderPanel', () => {
 
   it('chatSessionKey가 바뀌면(문서 변경) 패널을 닫지 않아도 대화가 초기화된다', async () => {
     const user = userEvent.setup()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const { rerender } = render(
       <ReaderPanelHarness chatSessionKey="doc-a" initialOpen isWideScreen />,
     )
