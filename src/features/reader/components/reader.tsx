@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
-import type { PdfDocumentSource } from '../lib/pdf-document'
+import type { BookMetadata } from '../lib/book-metadata'
+import type { PdfDocumentHandle, PdfDocumentSource } from '../lib/pdf-document'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -26,6 +27,7 @@ import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
 interface ReaderProps {
+  bookMetadata?: BookMetadata
   url?: string
   data?: Uint8Array
   title?: string
@@ -43,6 +45,11 @@ interface ReaderLoadingProps {
 }
 
 const READER_SPREAD_GAP = 16
+
+interface OcrText {
+  document: PdfDocumentHandle
+  textByPage: ReadonlyMap<number, string>
+}
 
 function getPdfFilename(url: string) {
   const path = url.split(/[?#]/, 1)[0]
@@ -110,7 +117,7 @@ const ARROW_KEY_OWNER_SELECTOR = [
   '[data-slot="toggle-group"]',
 ].join(', ')
 
-export function Reader({ data, initialPage, onPageChange, title, url }: ReaderProps) {
+export function Reader({ bookMetadata, data, initialPage, onPageChange, title, url }: ReaderProps) {
   const source = data ?? url ?? ''
   const [currentPage, setCurrentPage] = useState(1)
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
@@ -122,6 +129,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
   const panelButtonRef = useRef<HTMLButtonElement>(null)
   const [tocOpen, setTocOpen] = useState(false)
   const tocButtonRef = useRef<HTMLButtonElement>(null)
+  const [ocrText, setOcrText] = useState<OcrText | null>(null)
 
   useEffect(() => {
     if (documentState.status !== 'ready') return
@@ -129,6 +137,15 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
     // oxlint-disable-next-line react/set-state-in-effect
     setCurrentPage(getInitialPage(initialPage, documentState.pages.length))
   }, [documentState.pages, documentState.status, initialPage, source])
+
+  const handleOcrTextChange = useCallback(
+    (textByPage: ReadonlyMap<number, string>) => {
+      if (documentState.status === 'ready') {
+        setOcrText({ document: documentState.document, textByPage })
+      }
+    },
+    [documentState.document, documentState.status],
+  )
 
   const selectedPage = documentState.pages[currentPage - 1]
   const pageSpread = calculatePageSpread(
@@ -234,6 +251,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
+          onOcrTextChange={handleOcrTextChange}
           pages={pageSpread.pages}
           scale={displayScale}
         />
@@ -241,10 +259,18 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
     </main>
   )
 
+  const ocrTextForCurrentDocument =
+    documentState.status === 'ready' && ocrText?.document === documentState.document
+      ? ocrText
+      : null
+  const currentPageText = ocrTextForCurrentDocument?.textByPage.get(currentPage) ?? null
+
   const readerPanel = (
     <ReaderPanel
+      bookMetadata={bookMetadata}
       chatSessionKey={url}
       currentPage={currentPage}
+      currentPageText={currentPageText}
       isWideScreen={isWideScreen}
       onOpenChange={setPanelOpen}
       open={panelOpen}

@@ -3,6 +3,7 @@ import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel } from '@/components/ui/resizable'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import type { BookMetadata } from '../lib/book-metadata'
 import { ReaderChat } from './reader-chat'
 
 const PANEL_TITLE = '함께 읽기'
@@ -10,8 +11,10 @@ const CLOSE_BUTTON_LABEL = '함께 읽기 패널 닫기'
 const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
 
 interface ReaderPanelProps {
+  bookMetadata?: BookMetadata
   chatSessionKey?: string
   currentPage?: number
+  currentPageText: string | null
   isWideScreen: boolean
   onOpenChange: (open: boolean) => void
   open: boolean
@@ -21,8 +24,10 @@ interface ReaderPanelProps {
 type PanelSectionProps = Omit<ReaderPanelProps, 'isWideScreen'>
 
 function WideReaderPanel({
+  bookMetadata,
   chatSessionKey,
   currentPage,
+  currentPageText,
   onOpenChange,
   open,
   openButtonRef,
@@ -73,7 +78,12 @@ function WideReaderPanel({
           role="region"
         >
           <div className="min-h-0 flex-1">
-            <ReaderChat currentPage={currentPage} key={chatSessionKey} />
+            <ReaderChat
+              bookMetadata={bookMetadata}
+              currentPage={currentPage}
+              currentPageText={currentPageText}
+              key={chatSessionKey}
+            />
           </div>
         </aside>
       </ResizablePanel>
@@ -82,8 +92,10 @@ function WideReaderPanel({
 }
 
 function NarrowReaderPanel({
+  bookMetadata,
   chatSessionKey,
   currentPage,
+  currentPageText,
   onOpenChange,
   open,
   openButtonRef,
@@ -100,7 +112,12 @@ function NarrowReaderPanel({
           </SheetClose>
         </SheetHeader>
         <div className="min-h-0 flex-1">
-          <ReaderChat currentPage={currentPage} key={chatSessionKey} />
+          <ReaderChat
+            bookMetadata={bookMetadata}
+            currentPage={currentPage}
+            currentPageText={currentPageText}
+            key={chatSessionKey}
+          />
         </div>
       </SheetContent>
     </Sheet>

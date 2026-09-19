@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { BookMetadata } from '../lib/book-metadata'
 
 export interface EbookReaderStore {
   request(command: 'getBook' | 'updateProgress', payload?: unknown): Promise<unknown>
@@ -6,8 +7,8 @@ export interface EbookReaderStore {
 
 interface ReaderBook {
   lastPage: number | null
+  metadata: BookMetadata
   pdfData: Uint8Array
-  title: string
 }
 
 type EbookReaderState =
@@ -19,6 +20,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isOptionalMetadataValue(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === 'string'
+}
+
 function parseReaderBook(value: unknown): ReaderBook | null {
   if (!isRecord(value)) return null
 
@@ -27,6 +32,10 @@ function parseReaderBook(value: unknown): ReaderBook | null {
   const pdfData = value.pdf_data
   const hasTitle = 'title' in value
   const title = value.title
+  const author = value.author
+  const subject = value.pdf_subject
+  const keywords = value.pdf_keywords
+  const publisher = value.publisher
 
   if (typeof fileName !== 'string') return null
   if (lastPage !== null && (typeof lastPage !== 'number' || !Number.isSafeInteger(lastPage))) {
@@ -34,12 +43,19 @@ function parseReaderBook(value: unknown): ReaderBook | null {
   }
   if (!(pdfData instanceof Uint8Array)) return null
   if (hasTitle && typeof title !== 'string') return null
+  if (!isOptionalMetadataValue(author)) return null
+  if (!isOptionalMetadataValue(subject)) return null
+  if (!isOptionalMetadataValue(keywords)) return null
+  if (!isOptionalMetadataValue(publisher)) return null
 
-  return {
-    lastPage,
-    pdfData,
-    title: typeof title === 'string' ? title : fileName,
-  }
+  const metadata: BookMetadata = { title: typeof title === 'string' ? title : fileName }
+
+  if (author !== null && author !== undefined) metadata.author = author
+  if (subject !== null && subject !== undefined) metadata.subject = subject
+  if (keywords !== null && keywords !== undefined) metadata.keywords = keywords
+  if (publisher !== null && publisher !== undefined) metadata.publisher = publisher
+
+  return { lastPage, metadata, pdfData }
 }
 
 export function useEbookReadingSession(bookId: string, store: EbookReaderStore) {

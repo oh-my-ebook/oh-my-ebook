@@ -29,6 +29,7 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
   const readerPanel = (
     <ReaderPanel
       chatSessionKey={chatSessionKey}
+      currentPageText={null}
       isWideScreen={isWideScreen}
       onOpenChange={setOpen}
       open={open}

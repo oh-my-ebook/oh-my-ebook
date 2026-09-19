@@ -333,6 +333,68 @@ describe('ReaderChat', () => {
     expect(receivedContexts[0]?.system).toContain('5')
   })
 
+  it('전송한 질문에 현재 페이지 본문이 함께 전달된다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const receivedContexts: Parameters<MockResponder>[1][] = []
+    const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
+      receivedContexts.push(context)
+      yield '답변'
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(
+      <ReaderChat chatModel={adapter} currentPage={5} currentPageText={'첫 문장.\n둘째 문장.'} />,
+    )
+
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(receivedContexts).toHaveLength(1))
+    expect(receivedContexts[0]?.system).toContain('<page_context>')
+    expect(receivedContexts[0]?.system).toContain('첫 문장.\n둘째 문장.')
+    expect(receivedContexts[0]?.system).toMatch(
+      /핵심부터 간결하게 400토큰 이내로 답변하세요\. 분량이 부족하면 세부사항을 생략하더라도 마지막 문장을 완결하세요\.$/,
+    )
+  })
+
+  it('값이 있는 도서 메타데이터만 컨텍스트에 함께 전달한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const receivedContexts: Parameters<MockResponder>[1][] = []
+    const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
+      receivedContexts.push(context)
+      yield '답변'
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(
+      <ReaderChat
+        bookMetadata={{
+          author: '저자',
+          publisher: '출판사',
+          title: '도서 제목',
+        }}
+        chatModel={adapter}
+        currentPage={5}
+        currentPageText="페이지 본문"
+      />,
+    )
+
+    await user.type(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME }), '질문')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(receivedContexts).toHaveLength(1))
+    expect(receivedContexts[0]?.system).toContain('<book_metadata>')
+    expect(receivedContexts[0]?.system).toContain('제목: 도서 제목')
+    expect(receivedContexts[0]?.system).toContain('저자: 저자')
+    expect(receivedContexts[0]?.system).toContain('출판사: 출판사')
+    expect(receivedContexts[0]?.system).not.toContain('주제:')
+    expect(receivedContexts[0]?.system).not.toContain('키워드:')
+    expect(receivedContexts[0]?.system).not.toContain('null')
+  })
+
   it('Tab으로 입력 중인 질문에서 전송 조작부로 이동할 수 있다', async () => {
     setupResizeObserverMock()
     useWebLlmModelStore.setState({ status: 'ready' })
