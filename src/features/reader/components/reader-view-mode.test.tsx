@@ -1,5 +1,7 @@
+import type { PropsWithChildren } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
@@ -10,6 +12,11 @@ const useReaderLayoutMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../hooks/use-pdf-document', () => ({ usePdfDocument: usePdfDocumentMock }))
 vi.mock('../hooks/use-reader-layout', () => ({ useReaderLayout: useReaderLayoutMock }))
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: () => <div role="separator" />,
+}))
 
 function createReadyDocument() {
   const renderPage = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }))
@@ -61,7 +68,7 @@ describe('Reader 보기 전환', () => {
 
   it('한 페이지 보기에서 두 페이지 보기로 전환하고 표시 범위를 갱신한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="보기 전환 샘플" url="/sample.pdf" />)
+    render(<Reader title="보기 전환 샘플" url="/sample.pdf" />, { wrapper: MemoryRouter })
 
     expect(screen.getByRole('group', { name: '보기 방식' })).toBeInTheDocument()
     expect(await screen.findAllByRole('img')).toHaveLength(1)

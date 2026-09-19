@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)'
-const MIN_SPREAD_WIDTH = 1000
 
 export interface ReaderLayout {
   availableHeight: number
@@ -41,7 +40,9 @@ export function useReaderLayout(): ReaderLayout {
   const [isWideScreen, setIsWideScreen] = useState(
     () => window.matchMedia(WIDE_SCREEN_QUERY).matches,
   )
-  const isSpreadAvailable = isWideScreen && availableSize.availableWidth >= MIN_SPREAD_WIDTH
+  // 패널을 여닫을 때 보기 방식이 바뀌지 않도록 읽기 영역이 아닌 브라우저 창 너비로만 판단한다.
+  // 좁아진 읽기 영역에서는 높이 맞춤이 두 페이지를 너비에 맞게 축소한다.
+  const isSpreadAvailable = isWideScreen
 
   // 이 훅이 연결되는 컨테이너는 조건부로 사라지거나 다른 DOM 노드로 바뀌지 않으므로 일반 ref로 충분하다.
   // paint 전에 측정해 잘못된 크기가 잠깐이라도 그려지지 않도록 useLayoutEffect를 사용한다.

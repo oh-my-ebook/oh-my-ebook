@@ -39,7 +39,7 @@
 **담당 범위:** `page-spread.*`, `view-mode-control.*`, `pdf-viewport.*`, 방향별 PDF fixture, 보기용 shadcn UI, 보기 전환 화면 연결. **완료 기준:** 방향·배치·앞뒤 범위와 최대 두 Canvas의 완료·실패 처리를 다른 미완료 섹션 없이 검증하고 개발 서버에서 한 페이지·두 페이지 보기를 전환할 수 있다.
 
 - [x] [T014] `e2e/fixtures/pdf/`에 가로 3장·세로/세로/가로/세로/세로 5장·회전·정사각형 PDF를 준비하고 페이지별 크기·번호·도형을 확인한다. 세로 홀수 검증에는 기존 기본 샘플 5장을 재사용한다. `src/components/ui/`에 ToggleGroup과 의존 컴포넌트를 추가하고 현재 Base UI의 배열 값과 `multiple` API를 확인한다.
-- [x] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·화면 폭과 읽기 영역 폭의 독립적인 경계 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리와 두 페이지 허용 조건을 구현한다. 화면 폭 1024px 이상과 읽기 영역 1000px 이상을 모두 만족해야 두 페이지를 허용한다. (FR-006부터 FR-011, FR-016)
+- [x] [T015] `src/features/reader/lib/page-spread.test.ts`에 방향·함께 표시할 페이지·이전과 다음·오른쪽 페이지 선택 유지·두 페이지 허용 여부에 따른 단독 표시와 보기 선호 복원 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/lib/page-spread.ts`에 세로 두 장, 가로와 홀로 남은 세로 단독, 표지 일반 처리를 구현하고 두 페이지 허용 여부는 입력으로 받는다. 허용 여부는 화면 폭 1024px 이상만으로 판단하며, 읽기 영역 폭은 두 페이지의 배율 조정에만 사용한다. (FR-006부터 FR-011, FR-016)
 - [x] [T016] `src/features/reader/components/pdf-viewport.test.tsx`에 최대 두 페이지의 완료 대기·한쪽 실패·작업 취소·늦은 결과·보기 변경 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/pdf-viewport.tsx`는 새 `pages` prop으로 한 페이지 또는 두 페이지 목록과 공통 배율을 받아 Canvas를 최대 두 개만 만들고 표시 상태를 콜백으로 알린다. 전환 기간에는 기존 단일 `page` prop도 지원하되 `page`와 `pages` 중 하나만 전달하도록 props 타입을 정의하고, 단일 페이지는 내부에서 페이지 목록으로 정규화한다. 기존 `page` 호출도 테스트하며 T025에서 화면 연결 병합을 완료할 때까지 지원한다. 모든 페이지가 준비된 뒤 본문을 표시하며 가로 분할이나 마지막 페이지 옆의 가상 지면은 만들지 않는다. (FR-005, FR-007, FR-009, FR-018)
 - [x] [T017] `src/features/reader/components/view-mode-control.test.tsx`에 보기 전환·빈 배열 선택 유지·제한 사유·키보드 조작 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/view-mode-control.tsx`는 보기 선호·적용 가능 여부와 변경 콜백만 받고, 제한 사유를 hover 없이 확인할 수 있게 한다. (FR-003, FR-010, FR-016, FR-019)
 - [x] [T017B] `src/features/reader/components/view-mode-control.test.tsx`에서 두 페이지 보기 제한 문구를 제거하고 버튼 비활성화와 제한 전환 toast를 먼저 검증한다. `src/features/reader/components/view-mode-control.tsx`는 두 페이지 보기 중 공간이 부족해질 때만 간단한 toast를 표시한다. (FR-016)
@@ -60,7 +60,7 @@
 **담당 범위:** `reader-panel.*`, `use-reader-layout.*`, 패널용 shadcn UI, 패널 화면 연결. **완료 기준:** 패널 열림 여부·화면 경계·읽기 영역 측정값과 변경 콜백만으로 통합할 수 있고, 넓은 화면과 좁은 화면의 패널 동작 및 포커스 복원을 독립 검증하며 개발 서버에서도 패널을 조작할 수 있다.
 
 - [x] [T022] `src/components/ui/`에 Collapsible·Sheet와 의존 컴포넌트를 추가한다. `src/index.css`의 기존 토큰을 사용하고 현재 Base UI의 포커스 API와 생성 코드의 키보드 동작을 확인한다. 다른 UI를 재설치하거나 프리셋을 변경하지 않는다.
-- [x] [T023] `src/features/reader/hooks/use-reader-layout.test.ts`에 `ResizeObserver`와 `matchMedia`의 최초 측정·변경·정리, 화면 폭 1023/1024px와 읽기 영역 999/1000px 경계를 먼저 작성해 실패를 확인한다. `src/features/reader/hooks/use-reader-layout.ts`가 화면 폭과 읽기 영역의 가용 너비·높이를 구분해 제공하도록 구현한다. (FR-015부터 FR-017)
+- [x] [T023] `src/features/reader/hooks/use-reader-layout.test.ts`에 `ResizeObserver`와 `matchMedia`의 최초 측정·변경·정리, 화면 폭 1023/1024px 경계, 읽기 영역 크기가 바뀌어도 두 페이지 허용 여부가 유지되는지를 먼저 작성해 실패를 확인한다. `src/features/reader/hooks/use-reader-layout.ts`가 화면 폭과 읽기 영역의 가용 너비·높이를 구분해 제공하도록 구현한다. (FR-015부터 FR-017)
 - [x] [T024] `src/features/reader/components/reader-panel.test.tsx`에 패널 열기·닫기·화면 경계 전환·Escape·포커스 복원 테스트를 먼저 작성해 실패를 확인한다. `src/features/reader/components/reader-panel.tsx`는 화면 폭·열림 여부·변경 콜백·열기 버튼 ref만 받는다. 화면 폭 1024px 이상은 본문 옆 320px 영역, 미만은 본문 위 Sheet를 사용하고 제목과 닫기 조작만 제공한다. `pnpm test -- src/features/reader/hooks/use-reader-layout.test.ts src/features/reader/components/reader-panel.test.tsx`와 `pnpm typecheck`를 통과시킨 뒤 레이아웃과 포커스 처리 방식을 정리한다. (FR-017, FR-019)
 - [x] [T024A] `src/features/reader/components/reader-panel-integration.test.tsx`에 패널 조작이 화면에 표시되고 열기·닫기·포커스 복원과 읽기 영역 변화가 반영되는 최소 연결 테스트를 먼저 작성한다. `src/features/reader/components/reader-toolbar.tsx`와 `src/features/reader/components/reader.tsx`에 패널과 레이아웃 측정만 연결한다. 기능 구현 변경과 화면 연결 변경을 별도 커밋으로 남기고 `pnpm dev`에서 넓은 화면의 옆 패널과 좁은 화면의 Sheet를 직접 확인한 뒤 통합 담당자에게 인계한다. (FR-003, FR-015부터 FR-017, FR-019)
 
@@ -69,9 +69,13 @@
 **선행 단계:** 섹션 1~4의 기능 구현과 화면 연결 변경을 순서대로 병합. **담당 범위:** 병렬 진행 규칙에서 제외한 앱 조합 파일과 전체 E2E, 공용 조합 파일의 충돌 해결. **완료 기준:** 병렬 섹션의 공개 props와 화면 연결을 하나의 Reader로 정리해 SC-001부터 SC-006까지 만족한다. 이 단계에는 병렬 섹션의 남은 기능 구현을 미루지 않고 연결 조정, 통합 회귀 테스트와 검증에서 발견한 결함 수정만 포함한다.
 
 - [ ] [T025] 페이지 탐색 → 보기 전환 → 크기 조절 → 보조 패널 순서로 화면 연결 변경을 병합하고 `src/features/reader/components/reader.tsx`, `src/features/reader/components/reader-toolbar.tsx`의 충돌을 섹션별 공개 props와 순수 함수 사용 방식에 맞춰 해결한다. 화면 연결 병합 후 `PdfViewport`의 임시 `page` prop과 이를 검증하는 테스트를 제거하고 모든 호출을 `pages` prop으로 통일한다. `src/features/reader/components/reader.test.tsx`에는 탐색·보기 선호·배율·패널 상태를 함께 사용하는 흐름을 먼저 작성하고, `src/app.tsx`까지 최종 연결한다. 현재 페이지를 유지하고 탐색 이동 뒤 본문 상단을 표시하며, 페이지·보기·창·패널 변경에 맞춰 표시 범위와 높이 맞춤을 갱신한다. 수동 배율은 유지하고 확대된 본문의 모든 가장자리까지 스크롤할 수 있게 한다. 섹션별 Reader 연결 테스트와 같은 세부 동작은 반복하지 않는다. (FR-001, FR-003, FR-005, FR-010부터 FR-017, FR-020)
-- [ ] [T026] `src/app.test.tsx`, `src/features/reader/components/reader.test.tsx`, `e2e/app.spec.ts`, `e2e/basic-pdf-reader.spec.ts`에서 텍스트·스캔·한 장·세로 홀수·가로·혼합·회전·정사각형 PDF의 탐색·보기·확대·패널과 새로고침 초기화를 검증한다. 빠른 이동과 배율 변경, 페이지 실패·재시도·늦은 결과, 슬라이더 드래그, 화면 1023/1024px와 읽기 영역 999/1000px, 320px 키보드 흐름을 확인한다. 대표 두 페이지 스냅샷을 직접 검토한다. 목차·검색·북마크·설정·AI 도구와 영구 저장은 추가하지 않는다. (SC-001부터 SC-004, SC-006)
+- [ ] [T026] `src/app.test.tsx`, `src/features/reader/components/reader.test.tsx`, `e2e/app.spec.ts`, `e2e/basic-pdf-reader.spec.ts`에서 텍스트·스캔·한 장·세로 홀수·가로·혼합·회전·정사각형 PDF의 탐색·보기·확대·패널과 새로고침 초기화를 검증한다. 빠른 이동과 배율 변경, 페이지 실패·재시도·늦은 결과, 슬라이더 드래그, 화면 폭 1023/1024px 경계와 패널을 여닫거나 너비를 조절해 읽기 영역이 바뀌어도 보기 방식이 유지되는지, 320px 키보드 흐름을 확인한다. 대표 두 페이지 스냅샷을 직접 검토한다. 목차·검색·북마크·설정·AI 도구와 영구 저장은 추가하지 않는다. (SC-001부터 SC-004, SC-006)
 - [ ] [T027] `e2e/basic-pdf-reader.spec.ts`의 키보드 흐름을 기준으로 브라우저 메뉴에서 실제 200% 확대 후 전체 조작부·긴 제목·높이 맞춤의 스크롤 없음·수동 확대 본문의 스크롤·패널 포커스를 직접 확인한다. viewport 축소나 DPR 변경으로 대체하지 않는다. 수정이 필요하면 재현 가능한 회귀 테스트를 먼저 추가하고 다시 확인한다. (SC-005)
 - [ ] [T028] `package.json`의 `pnpm check`, `pnpm build`, `pnpm test:e2e`를 실행하고 `pnpm preview`에서 PDF·worker·필요 자원과 실제 독서 흐름을 확인한다. `specs/basic-pdf-reader/spec.md`의 SC-001부터 SC-006까지 아래 대응표로 점검하고, `specs/basic-pdf-reader/tasks.md`에는 실제 완료한 항목만 체크한다. 실행 결과와 미실행 검증이 있다면 그 이유를 보고한다.
+
+## Reader UI 개선
+
+- [x] [T029] 상단 독서 도구, 빈 목차 Sheet, 라이트·다크 모드, 하단 페이지·배율 조작, 넓은 화면의 너비 조절 가능한 함께 읽기 패널을 테스트 우선으로 구현한다. 좁은 화면의 기존 Sheet, 채팅 동작, PDF 표시·탐색·보기·배율 계산은 유지한다. 공식 shadcn Resizable을 설치하기 전에 `--dry-run`과 `--diff`를 확인하고, 컴포넌트·통합 테스트와 실제 브라우저에서 키보드·포인터 조절, 포커스 복원, 320px 레이아웃을 검증한다. (FR-003, FR-017, FR-019, FR-020, FR-022, FR-023, SC-005, SC-006)
 
 ## 완료 기준과 검증 작업
 
@@ -79,7 +83,7 @@
 | ---------------------------------------- | ------------------------------------------- |
 | SC-001: 텍스트·스캔 PDF 읽기와 크기 조절 | T008, T019부터 T021, T025, T026             |
 | SC-002: 방향별 배치와 페이지 이동        | T014부터 T018, T025, T026                   |
-| SC-003: 화면·읽기 영역 폭 경계           | T015, T023부터 T026                         |
+| SC-003: 화면 폭 경계와 패널 변경 후 유지 | T015, T023부터 T026                         |
 | SC-004: 실패·늦은 응답·빠른 탐색         | T004, T006, T008, T010부터 T012, T016, T026 |
 | SC-005: 키보드·좁은 화면·브라우저 확대   | 각 UI 구현·화면 연결 작업, T025부터 T027    |
 | SC-006: 제외 기능 없이 독서 완료         | T026                                        |

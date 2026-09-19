@@ -55,6 +55,23 @@ async function expectFirstPageToFitReader(page: Page) {
 }
 
 test.describe('기본 PDF 리더', () => {
+  test('상단 독서 도구에서 테마와 빈 목차 패널을 전환한다', async ({ page }) => {
+    await openPdf(page, textPdfPath)
+
+    await page.getByRole('button', { name: '어두운 테마' }).click()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await page.getByRole('button', { name: '목차 열기' }).click()
+    // 넓은 화면에서는 본문을 덮는 dialog가 아니라 읽기 영역 옆 패널로 열린다.
+    const toc = page.getByRole('region', { name: '목차' })
+    await expect(toc).toBeVisible()
+    await expect(toc.getByRole('link')).toHaveCount(0)
+    // 넓은 화면의 목차 패널에는 헤더가 없어 툴바의 목차 버튼으로 닫는다.
+    await page.getByRole('button', { name: '목차 닫기' }).click()
+
+    await expect(page.getByRole('button', { name: '목차 열기' })).toBeFocused()
+  })
+
   test('텍스트 PDF 첫 페이지 전체를 화면에 맞춰 표시한다', async ({ page }) => {
     await openPdf(page, textPdfPath)
 
@@ -85,7 +102,8 @@ test.describe('기본 PDF 리더', () => {
 
     await expect(page.getByRole('status', { name: '현재 확대율' })).toHaveText('300%')
 
-    const viewport = page.getByRole('region', { name: 'PDF 본문' })
+    // 읽기 영역을 감싼 ResizablePanel이 스크롤을 맡는다.
+    const viewport = page.getByRole('main', { name: 'PDF 읽기 영역' }).locator('..')
     await expect
       .poll(() =>
         viewport.evaluate((element) => ({
@@ -132,6 +150,23 @@ test.describe('기본 PDF 리더', () => {
     expect(scrollMetrics.startTop).toBeGreaterThanOrEqual(scrollMetrics.viewportTop - 1)
     expect(scrollMetrics.endRight).toBeLessThanOrEqual(scrollMetrics.viewportRight + 1)
     expect(scrollMetrics.endBottom).toBeLessThanOrEqual(scrollMetrics.viewportBottom + 1)
+  })
+
+  test('확대해 아래로 스크롤한 뒤 페이지를 넘기면 본문 상단을 표시한다', async ({ page }) => {
+    await openPdf(page, textPdfPath)
+
+    const zoomIn = page.getByRole('button', { name: '확대' })
+    while (await zoomIn.isEnabled()) {
+      await zoomIn.click()
+    }
+    const scroller = page.getByRole('main', { name: 'PDF 읽기 영역' }).locator('..')
+    await scroller.evaluate((element) => element.scrollTo({ top: element.scrollHeight }))
+    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+
+    await page.getByRole('button', { name: '다음 페이지' }).click()
+
+    await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('2 / 5')
+    await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBe(0)
   })
 
   test('PDF 요청이 실패하면 안내하고 다시 불러온다', async ({ page }) => {

@@ -26,18 +26,27 @@ describe('ZoomControls', () => {
 
     expect(screen.getByRole('group', { name: '크기 조절' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: '현재 확대율' })).toHaveTextContent('75%')
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
 
     await user.click(screen.getByRole('button', { name: '축소' }))
     await user.click(screen.getByRole('button', { name: '확대' }))
-    await user.click(screen.getByRole('button', { name: '높이 맞춤' }))
+    await user.click(screen.getByRole('button', { name: '화면에 맞춤' }))
 
     expect(props.onZoomOut).toHaveBeenCalledOnce()
     expect(props.onZoomIn).toHaveBeenCalledOnce()
     expect(props.onFitHeight).toHaveBeenCalledOnce()
+  })
+
+  it('화면에 맞춤 버튼에 마우스를 올리면 툴팁으로 동작을 알려준다', async () => {
+    const user = userEvent.setup()
+    renderZoomControls()
+
+    await user.hover(screen.getByRole('button', { name: '화면에 맞춤' }))
+
+    expect(await screen.findByText('화면에 맞춤')).toHaveAttribute('data-slot', 'tooltip-content')
   })
 
   it('버튼을 키보드로 차례대로 조작한다', async () => {
@@ -49,12 +58,12 @@ describe('ZoomControls', () => {
     await user.keyboard('{Enter}')
 
     await user.tab()
-    expect(screen.getByRole('button', { name: '확대' })).toHaveFocus()
-    await user.keyboard(' ')
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toHaveFocus()
+    await user.keyboard('{Enter}')
 
     await user.tab()
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toHaveFocus()
-    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: '확대' })).toHaveFocus()
+    await user.keyboard(' ')
 
     expect(props.onZoomOut).toHaveBeenCalledOnce()
     expect(props.onZoomIn).toHaveBeenCalledOnce()
@@ -66,7 +75,7 @@ describe('ZoomControls', () => {
 
     expect(screen.getByRole('button', { name: '축소' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '확대' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toBeEnabled()
   })
 
   it('크기 조절을 사용할 수 없으면 모든 조작을 비활성화한다', () => {
@@ -74,7 +83,7 @@ describe('ZoomControls', () => {
 
     expect(screen.getByRole('button', { name: '축소' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '확대' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toBeDisabled()
   })
 
   it('좁은 화면에서 조작부가 겹치지 않도록 줄바꿈할 수 있다', () => {

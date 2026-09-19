@@ -92,7 +92,7 @@ export function PageNavigator({
         <output
           aria-label="페이지 위치"
           aria-live="polite"
-          className="w-6 shrink-0 text-center tabular-nums"
+          className="w-6 shrink-0 text-center tabular-nums text-xs text-muted-foreground"
         >
           {sliderPage}
           <span className="sr-only"> / {totalPages}</span>
@@ -127,7 +127,10 @@ export function PageNavigator({
           step={1}
           value={[sliderPage]}
         />
-        <span aria-hidden="true" className="w-6 shrink-0 text-center tabular-nums">
+        <span
+          aria-hidden="true"
+          className="w-6 shrink-0 text-center tabular-nums text-xs text-muted-foreground"
+        >
           {totalPages}
         </span>
 

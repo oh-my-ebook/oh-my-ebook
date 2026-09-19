@@ -2,11 +2,13 @@ import { useRef, useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ReaderPanel } from './reader-panel'
 
-const PANEL_TITLE = '보조 패널'
-const OPEN_BUTTON_LABEL = '보조 패널 열기'
-const CHAT_INPUT_LABEL = 'Message input'
+const PANEL_TITLE = '함께 읽기'
+const OPEN_BUTTON_LABEL = '함께 읽기 패널 열기'
+const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
+const CHAT_INPUT_LABEL = '질문 입력'
 
 interface HarnessProps {
   chatSessionKey?: string
@@ -18,19 +20,37 @@ function ReaderPanelHarness({ chatSessionKey, initialOpen = false, isWideScreen 
   const openButtonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(initialOpen)
 
+  const openButton = (
+    <button onClick={() => setOpen(true)} ref={openButtonRef} type="button">
+      {OPEN_BUTTON_LABEL}
+    </button>
+  )
+  const readerPanel = (
+    <ReaderPanel
+      chatSessionKey={chatSessionKey}
+      isWideScreen={isWideScreen}
+      onOpenChange={setOpen}
+      open={open}
+      openButtonRef={openButtonRef}
+    />
+  )
+
+  if (!isWideScreen) {
+    return (
+      <>
+        {openButton}
+        {readerPanel}
+      </>
+    )
+  }
+
+  // react-resizable-panels는 Panel과 Separator가 Group의 직접 DOM 자식이어야 하므로
+  // reader.tsx처럼 ReaderPanel을 본문 Panel의 형제로 둔다.
   return (
-    <div>
-      <button onClick={() => setOpen(true)} ref={openButtonRef} type="button">
-        {OPEN_BUTTON_LABEL}
-      </button>
-      <ReaderPanel
-        chatSessionKey={chatSessionKey}
-        isWideScreen={isWideScreen}
-        onOpenChange={setOpen}
-        open={open}
-        openButtonRef={openButtonRef}
-      />
-    </div>
+    <ResizablePanelGroup orientation="horizontal">
+      <ResizablePanel defaultSize="70%">{openButton}</ResizablePanel>
+      {readerPanel}
+    </ResizablePanelGroup>
   )
 }
 
@@ -54,6 +74,7 @@ describe('ReaderPanel', () => {
     render(<ReaderPanelHarness initialOpen isWideScreen />)
 
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.getByRole('separator', { name: RESIZE_HANDLE_LABEL })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: PANEL_TITLE })).not.toBeInTheDocument()
   })
 
@@ -85,17 +106,7 @@ describe('ReaderPanel', () => {
     expect(screen.getByRole('dialog', { name: PANEL_TITLE })).toBeInTheDocument()
   })
 
-  it('넓은 화면에서 닫기 버튼을 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-
-    await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
-
-    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
-  })
-
-  it('넓은 화면에서 패널 안으로 포커스를 옮기지 않고 Escape를 눌러도 패널을 닫는다', async () => {
+  it('넓은 화면에서 열기 버튼으로 연 뒤 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     render(<ReaderPanelHarness isWideScreen />)
     await user.click(screen.getByRole('button', { name: OPEN_BUTTON_LABEL }))
@@ -104,17 +115,7 @@ describe('ReaderPanel', () => {
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
-  })
-
-  it('넓은 화면에서 패널 안에 포커스가 있을 때 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-    screen.getByRole('button', { name: '보조 패널 닫기' }).focus()
-
-    await user.keyboard('{Escape}')
-
-    expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: OPEN_BUTTON_LABEL })).toHaveFocus()
   })
 
@@ -140,25 +141,16 @@ describe('ReaderPanel', () => {
     expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
   })
 
-  it('패널을 닫으면 채팅 UI가 사라진다', async () => {
-    const user = userEvent.setup()
-    render(<ReaderPanelHarness initialOpen isWideScreen />)
-    expect(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '보조 패널 닫기' }))
-
-    expect(screen.queryByRole('textbox', { name: CHAT_INPUT_LABEL })).not.toBeInTheDocument()
-  })
-
   it('chatSessionKey가 바뀌면(문서 변경) 패널을 닫지 않아도 대화가 초기화된다', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
       <ReaderPanelHarness chatSessionKey="doc-a" initialOpen isWideScreen />,
     )
 
-    const input = screen.getByRole('textbox', { name: CHAT_INPUT_LABEL })
-    await user.type(input, '질문')
-    await user.keyboard('{Enter}')
+    // jsdom에서는 요소 크기가 모두 0이라 react-resizable-panels가 모든 클릭을 구분선 드래그로
+    // 판정해 포커스 이동을 막는다. 클릭 없이 입력하도록 포커스만 옮긴다.
+    screen.getByRole('textbox', { name: CHAT_INPUT_LABEL }).focus()
+    await user.keyboard('질문{Enter}')
     expect(await screen.findByText('질문')).toBeInTheDocument()
 
     rerender(<ReaderPanelHarness chatSessionKey="doc-b" initialOpen isWideScreen />)
