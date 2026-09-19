@@ -54,6 +54,27 @@ export const INITIAL_SCHEMA_SQL = `
   );
   CREATE UNIQUE INDEX ocr_lines_page_order_idx ON ocr_lines(ocr_page_id, line_index);
 
+  CREATE TABLE search_chunks (
+    id TEXT PRIMARY KEY,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    token_count INTEGER NOT NULL CHECK (token_count > 0),
+    created_at INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX search_chunks_book_order_idx ON search_chunks(book_id, ordinal);
+
+  CREATE TABLE chunk_sources (
+    id INTEGER PRIMARY KEY,
+    chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE,
+    ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE,
+    start_line_index INTEGER NOT NULL,
+    end_line_index INTEGER NOT NULL CHECK (end_line_index >= start_line_index),
+    source_order INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX chunk_sources_chunk_order_idx ON chunk_sources(chunk_id, source_order);
+  CREATE INDEX chunk_sources_page_line_idx ON chunk_sources(ocr_page_id, start_line_index);
+
   PRAGMA user_version = 1;
 `
 

@@ -111,7 +111,7 @@ describe('ebook-db.worker', () => {
     )
   })
 
-  it('새 DB는 PDF BLOB 없이 페이지 OCR 저장 스키마를 만든다', async () => {
+  it('새 DB는 PDF BLOB 없이 OCR과 검색 청크 저장 스키마를 만든다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
@@ -163,6 +163,24 @@ describe('ebook-db.worker', () => {
     expect(schema).toContain('CREATE UNIQUE INDEX ocr_pages_book_page_idx')
     expect(schema).toContain('CREATE INDEX ocr_pages_resume_idx')
     expect(schema).toContain('CREATE UNIQUE INDEX ocr_lines_page_order_idx')
+    expect(schema).toContain('CREATE TABLE search_chunks')
+    expect(schema).toContain('book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE')
+    expect(schema).toContain('ordinal INTEGER NOT NULL')
+    expect(schema).toContain('text TEXT NOT NULL')
+    expect(schema).toContain('token_count INTEGER NOT NULL CHECK (token_count > 0)')
+    expect(schema).toContain('CREATE UNIQUE INDEX search_chunks_book_order_idx')
+    expect(schema).toContain('CREATE TABLE chunk_sources')
+    expect(schema).toContain(
+      'chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE',
+    )
+    expect(schema).toContain('ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE')
+    expect(schema).toContain('start_line_index INTEGER NOT NULL')
+    expect(schema).toContain(
+      'end_line_index INTEGER NOT NULL CHECK (end_line_index >= start_line_index)',
+    )
+    expect(schema).toContain('source_order INTEGER NOT NULL')
+    expect(schema).toContain('CREATE UNIQUE INDEX chunk_sources_chunk_order_idx')
+    expect(schema).toContain('CREATE INDEX chunk_sources_page_line_idx')
     expect(statements).toContain('PRAGMA foreign_keys = ON')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
