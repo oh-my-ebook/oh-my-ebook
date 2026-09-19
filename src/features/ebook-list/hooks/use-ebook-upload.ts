@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
-import { runOcrAnalysis } from '../lib/ebook-analysis/ocr-analysis'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
 
 interface UseEbookUploadOptions {
@@ -10,6 +9,7 @@ interface UseEbookUploadOptions {
   isLibraryReady: boolean
   refreshBooks(): Promise<void>
   refreshUsage(): Promise<void>
+  startOcrAnalysis(bookId: string): Promise<void>
 }
 
 function failureMessage(error: unknown) {
@@ -25,6 +25,7 @@ export function useEbookUpload({
   isLibraryReady,
   refreshBooks,
   refreshUsage,
+  startOcrAnalysis,
 }: UseEbookUploadOptions) {
   const [isUploading, setIsUploading] = useState(false)
 
@@ -44,7 +45,7 @@ export function useEbookUpload({
 
           // 3. OCR 분석 파이프라인 실행
           if (typeof bookId === 'string') {
-            void runOcrAnalysis(bookId, store)
+            void startOcrAnalysis(bookId)
               .finally(() => refreshBooks())
               .catch(() => undefined)
           }

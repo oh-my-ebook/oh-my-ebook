@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
-import { runOcrAnalysis } from '../lib/ebook-analysis/ocr-analysis'
+import { createOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
@@ -51,6 +51,18 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [refreshing, setRefreshing] = useState(false)
   const storage = useLibraryStorage()
   const { refreshUsage } = storage
+  const ocrCoordinatorRef = useRef<ReturnType<typeof createOcrAnalysisCoordinator> | null>(null)
+  if (ocrCoordinatorRef.current === null) {
+    ocrCoordinatorRef.current = createOcrAnalysisCoordinator()
+  }
+  const ocrCoordinator = ocrCoordinatorRef.current
+
+  const startOcrAnalysis = useCallback(
+    async (bookId: string): Promise<void> => {
+      await ocrCoordinator.startOcrAnalysis(bookId, store)
+    },
+    [ocrCoordinator, store],
+  )
 
   async function refreshBooks() {
     const result = await store.request('listBooks')
@@ -116,12 +128,12 @@ export function useEbookLibrary(store: EbookLibraryStore) {
 
     async function resumeOcrAnalysis() {
       for (const book of pendingBooks) {
-        await runOcrAnalysis(book.id, store)
+        await startOcrAnalysis(book.id)
       }
     }
 
     void resumeOcrAnalysis().catch(() => undefined)
-  }, [state, store])
+  }, [state, startOcrAnalysis])
 
   function retry() {
     setState({ status: 'loading' })
@@ -133,6 +145,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     isLibraryReady: state.status === 'ready',
     refreshBooks,
     refreshUsage,
+    startOcrAnalysis,
   })
   const coverRegeneration = useCoverRegeneration({
     store,
