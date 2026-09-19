@@ -174,6 +174,14 @@ export function PdfViewport(props: PdfViewportProps) {
       controller.signal.throwIfAborted()
     }
 
+    // 페이지 순서대로 캔버스 슬롯을 비우거나(재검증 실패) 새 캔버스로 교체한다(렌더링 성공).
+    const replaceCanvasSlots = (nextCanvases: readonly HTMLCanvasElement[]) => {
+      const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
+      canvasSlots.forEach((slot, index) =>
+        slot.replaceChildren(...(nextCanvases[index] ? [nextCanvases[index]] : [])),
+      )
+    }
+
     const renderPages = async () => {
       try {
         await Promise.all(
@@ -183,8 +191,7 @@ export function PdfViewport(props: PdfViewportProps) {
           return
         }
         // 이전 결과가 화면에 남아 있다면 새 캔버스가 준비된 뒤에만 교체해 깜빡임을 막는다.
-        const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
-        canvasSlots.forEach((slot, index) => slot.replaceChildren(canvases[index]))
+        replaceCanvasSlots(canvases)
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'ready',
@@ -195,8 +202,7 @@ export function PdfViewport(props: PdfViewportProps) {
         }
         controller.abort()
         // 재검증 중 실패하면 숨겨질 이전 결과의 캔버스도 함께 비워 오래 남지 않게 한다.
-        const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
-        canvasSlots.forEach((slot) => slot.replaceChildren())
+        replaceCanvasSlots([])
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'error',

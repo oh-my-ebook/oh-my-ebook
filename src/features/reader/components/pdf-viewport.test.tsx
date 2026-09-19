@@ -222,6 +222,57 @@ describe('PdfViewport', () => {
     expect(updatedCanvas).toHaveStyle({ width: '100%', height: '100%' })
   })
 
+  it('두 페이지 스프레드에서 배율이 바뀌어도 각 페이지의 캔버스를 올바른 위치로 교체한다', async () => {
+    const firstRenderA = createRenderTask()
+    const firstRenderB = createRenderTask()
+    const latestRenderA = createRenderTask()
+    const latestRenderB = createRenderTask()
+    const pageA = createPdfPage([firstRenderA, latestRenderA])
+    const pageB = createPdfPage([firstRenderB, latestRenderB])
+    const { document } = createPdfDocument(
+      new Map([
+        [1, pageA.page],
+        [2, pageB.page],
+      ]),
+    )
+    const pages = [createPageInfo(1), createPageInfo(2)]
+    const { rerender } = render(<PdfViewport document={document} pages={pages} scale={1} />)
+
+    await waitFor(() => {
+      expect(pageA.render).toHaveBeenCalledTimes(1)
+      expect(pageB.render).toHaveBeenCalledTimes(1)
+    })
+    await act(async () => {
+      firstRenderA.completion.resolve(undefined)
+      firstRenderB.completion.resolve(undefined)
+      await Promise.all([firstRenderA.completion.promise, firstRenderB.completion.promise])
+    })
+    const readyCanvas1 = getRenderedCanvas(1)
+    const readyCanvas2 = getRenderedCanvas(2)
+
+    rerender(<PdfViewport document={document} pages={pages} scale={0.5} />)
+
+    await waitFor(() => {
+      expect(pageA.render).toHaveBeenCalledTimes(2)
+      expect(pageB.render).toHaveBeenCalledTimes(2)
+    })
+    // 재검증 중에는 각 페이지의 이전 캔버스가 서로 뒤섞이지 않고 자기 자리에 남아있다.
+    expect(getRenderedCanvas(1)).toBe(readyCanvas1)
+    expect(getRenderedCanvas(2)).toBe(readyCanvas2)
+
+    await act(async () => {
+      latestRenderA.completion.resolve(undefined)
+      latestRenderB.completion.resolve(undefined)
+      await Promise.all([latestRenderA.completion.promise, latestRenderB.completion.promise])
+    })
+
+    const updatedCanvas1 = getRenderedCanvas(1)
+    const updatedCanvas2 = getRenderedCanvas(2)
+    expect(updatedCanvas1).not.toBe(readyCanvas1)
+    expect(updatedCanvas2).not.toBe(readyCanvas2)
+    expect(updatedCanvas1).not.toBe(updatedCanvas2)
+  })
+
   it('배율만 바뀌어 재검증하다 실패하면 화면을 가린 채 이전 캔버스도 정리한다', async () => {
     const firstRender = createRenderTask()
     const revalidateRender = createRenderTask()
