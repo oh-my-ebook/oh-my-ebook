@@ -61,7 +61,7 @@ export function BookCard({
 
   return (
     <article aria-label={book.title} className="book-card">
-      <Card className="book-card-surface h-full gap-0 bg-transparent p-0 shadow-none ring-0">
+      <Card className="book-card-surface h-full gap-0 rounded-none bg-transparent p-0 shadow-none ring-0 overflow-visible">
         <CardContent className="flex flex-1 flex-col gap-3 px-0">
           <button
             aria-label={`${book.title} ${isPdfMissing ? '삭제' : '열기'}`}
@@ -98,7 +98,7 @@ export function BookCard({
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <h2
-                  className="line-clamp-2 leading-[1.55] font-semibold text-foreground hover:text-primary"
+                  className="line-clamp-2 leading-[1.55] font-semibold text-foreground [.book-card:hover_&]:text-primary"
                   title={book.title}
                 >
                   {book.title}
