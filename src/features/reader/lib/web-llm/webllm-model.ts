@@ -77,10 +77,16 @@ async function assertWebGpuSupport() {
   }
 }
 
-// 자동 재시도 횟수와 간격, 그리고 진행률이 멈춘 것으로 보는 기준 시간.
+// 자동 재시도 횟수와 간격.
 export const MAX_DOWNLOAD_ATTEMPTS = 3
 export const RETRY_DELAY_MS = 2000
-export const STALL_TIMEOUT_MS = 15000
+
+// 진행률이 멈춘 것으로 보는 기준 시간. web-llm은 모델 가중치를 샤드 4개씩 동시에 받으면서
+// 샤드 하나가 통째로 끝났을 때만 진행률을 갱신한다(중간 바이트 단위 진행률 없음). 느린
+// 회선에서는 샤드 하나(수십~100MB대)를 받는 데만 수십 초가 걸릴 수 있으므로, 너무 짧게
+// 잡으면 실제로는 진행 중인 다운로드를 정체로 오판해 재시도로 죽여버린다. 워커 크래시 등
+// 진짜로 끊긴 연결은 워커 error 이벤트로 바로 잡히므로, 이 값은 넉넉하게 잡아도 된다.
+export const STALL_TIMEOUT_MS = 60000
 
 let enginePromise: Promise<WebLlmEngine> | undefined
 let worker: Worker | undefined
@@ -124,14 +130,21 @@ async function attemptCreateEngine(): Promise<WebLlmEngine> {
     )
   })
   const stallWatcher = createStallWatcher(STALL_TIMEOUT_MS)
+  // 다운로드가 멈춰도 콜백 자체는 같은 값으로 반복 호출될 수 있어, 진행률이 실제로
+  // 늘어났을 때만 타이머를 늦춘다. 그러지 않으면 정체가 영원히 감지되지 않는다.
+  let lastProgress = -1
 
   try {
     return await Promise.race([
       CreateWebWorkerMLCEngine(currentWorker, WEBLLM_MODEL_ID, {
         initProgressCallback: ({ progress }) => {
-          stallWatcher.reset()
+          const normalizedProgress = Math.max(0, Math.min(1, progress))
+          if (normalizedProgress > lastProgress) {
+            lastProgress = normalizedProgress
+            stallWatcher.reset()
+          }
           useWebLlmModelStore.setState({
-            progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
+            progress: Math.round(normalizedProgress * 100),
           })
         },
       }),

@@ -192,6 +192,52 @@ describe('WebLLM 모델 로딩과 상태', () => {
     }
   })
 
+  it('진행률이 같은 값으로 반복 보고돼도 정체 타이머를 재설정하지 않는다', async () => {
+    // 다운로드가 멈춰도 initProgressCallback 자체는 같은 값으로 주기적으로 불릴 수 있다.
+    // 값이 실제로 늘어나지 않았는데도 매번 타이머를 재설정하면 정체가 영원히 감지되지 않는다.
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      stubWorker()
+      let callCount = 0
+      let reportProgress: ((report: { progress: number }) => void) | undefined
+      const createWebWorkerMLCEngine = vi.fn(
+        async (
+          _worker: unknown,
+          _modelId: string,
+          config: { initProgressCallback: (report: { progress: number }) => void },
+        ) => {
+          callCount += 1
+          if (callCount === 1) {
+            reportProgress = config.initProgressCallback
+            reportProgress({ progress: 0.2 })
+            return new Promise<never>(() => undefined)
+          }
+          return createIdleEngine()
+        },
+      )
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, STALL_TIMEOUT_MS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      await vi.advanceTimersByTimeAsync(0)
+
+      // 정체 기준 시간의 절반 지점에서 같은 진행률을 한 번 더 보고한다. 타이머가 이걸로
+      // 재설정되면 정체가 그만큼 늦게 감지돼야 하는데, 그러면 안 된다.
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS / 2)
+      reportProgress?.({ progress: 0.2 })
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS / 2)
+      await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      await preparePromise
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('resetWebLlmModelCache는 캐시를 지운 뒤 모델을 다시 불러온다', async () => {
     restoreGpu.push(stubSupportedGpu())
     stubWorker()
