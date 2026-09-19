@@ -46,7 +46,9 @@ export function ModelDownloadAlert() {
     >
       {status === 'error' && <TriangleAlert />}
       <AlertTitle>Qwen2.5 1.5B</AlertTitle>
-      <AlertDescription>{getStatusText(status, progress, error)}</AlertDescription>
+      <AlertDescription className={status === 'error' ? 'text-destructive/90' : undefined}>
+        {getStatusText(status, progress, error)}
+      </AlertDescription>
       <AlertAction>
         <Button
           aria-label={button.label}

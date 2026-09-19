@@ -97,6 +97,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             <EbookShelf
               books={state.books}
               coverErrors={coverErrors}
+              disabled={state.status !== 'ready'}
               dragActive={isDraggingFile}
               isUploading={isUploading}
               onFilesSelected={(files) => {

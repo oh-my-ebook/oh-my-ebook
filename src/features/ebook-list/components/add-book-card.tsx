@@ -24,7 +24,7 @@ export function AddBookCard({
   }
 
   return (
-    <article aria-label="책 추가" className="book-card">
+    <article aria-label="책 추가" className="book-card group">
       <input
         ref={inputRef}
         aria-label="PDF 파일 선택"
@@ -41,7 +41,7 @@ export function AddBookCard({
       />
       <button
         aria-label="책 추가"
-        className="book-card-cover h-full w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none transition-colors"
+        className="book-card-cover h-full w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none"
         data-dragging={dragActive}
         disabled={unavailable}
         onClick={() => inputRef.current?.click()}

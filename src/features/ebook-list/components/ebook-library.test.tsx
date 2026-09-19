@@ -154,6 +154,61 @@ describe('EbookLibrary', () => {
     expect(store.saveBook).toHaveBeenCalledOnce()
   })
 
+  it('파일이 아닌 항목을 페이지에 끌어다 놓아도 브라우저 기본 동작(이동)을 막는다', async () => {
+    const store = createStore()
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+
+    expect(fireEvent.dragOver(main, { dataTransfer: { types: ['text/plain'] } })).toBe(false)
+    expect(fireEvent.drop(main, { dataTransfer: { types: ['text/plain'] } })).toBe(false)
+    expect(store.saveBook).not.toHaveBeenCalled()
+  })
+
+  it('업로드 중 disabled로 바뀌어도 드래그를 벗어나면 강조 표시가 풀린다', async () => {
+    const store = createStore()
+    const upload = createPromiseController<string>()
+    store.saveBook.mockImplementationOnce(() => upload.promise)
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      pdfData: new ArrayBuffer(1),
+      contentHash: 'hash',
+      fileName: 'first.pdf',
+      title: '첫 번째 책',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 1,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+
+    fireEvent.dragEnter(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute('data-dragging', 'true')
+
+    await userEvent.upload(
+      screen.getByLabelText('PDF 파일 선택'),
+      new File(['pdf'], 'first.pdf', { type: 'application/pdf' }),
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeDisabled()
+
+    fireEvent.dragLeave(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute(
+      'data-dragging',
+      'false',
+    )
+
+    upload.resolve('saved-id')
+  })
+
   it('업로드 전에 quota 기반으로 파일을 차단하지 않고 일부 실패 후 다음 파일을 처리한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
