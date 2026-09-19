@@ -25,14 +25,11 @@ interface BookCardProps {
   onDelete?(): Promise<void>
 }
 
-const analysisStatusBadge: Record<
-  StoredBook['analysis_status'],
-  { label: string; variant: 'default' | 'secondary' | 'destructive' }
-> = {
+const analysisStatusBadge = {
   analyzing: { label: '분석 중', variant: 'secondary' },
   ready: { label: '분석 완료', variant: 'default' },
   failed: { label: '분석 실패', variant: 'destructive' },
-}
+} as const
 
 export function BookCard({
   book,
