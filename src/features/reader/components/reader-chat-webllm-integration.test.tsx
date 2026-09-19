@@ -1,17 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-type GpuStub = { requestAdapter: () => Promise<{ features: ReadonlySet<string> } | null> }
-
-function stubGpu(gpu: GpuStub) {
-  Object.defineProperty(navigator, 'gpu', { configurable: true, value: gpu })
-  return () => Reflect.deleteProperty(navigator, 'gpu')
-}
-
-class FakeWorker extends EventTarget {
-  terminate = vi.fn()
-}
+import { stubSupportedGpu, stubWorker } from '../../../test/web-llm-stubs'
 
 function setupResizeObserverMock() {
   class ResizeObserverMock {
@@ -32,8 +22,8 @@ describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
   beforeEach(() => {
     vi.resetModules()
     setupResizeObserverMock()
-    vi.stubGlobal('Worker', FakeWorker)
-    restoreGpu = stubGpu({ requestAdapter: async () => ({ features: new Set(['shader-f16']) }) })
+    stubWorker()
+    restoreGpu = stubSupportedGpu()
   })
 
   afterEach(() => {
