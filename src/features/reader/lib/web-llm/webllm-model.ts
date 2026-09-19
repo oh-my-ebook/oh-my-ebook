@@ -31,6 +31,9 @@ export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
   progress: 0,
 }))
 
+// 네트워크·다운로드 연결 문제로 보이는 오류는 일시적일 가능성이 있어 자동 재시도 대상으로도 함께 쓴다.
+const NETWORK_ERROR_PATTERN = /fetch|network|download|ERR_FAILED|failed to load resource/i
+
 // 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
 // "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
 function getModelErrorMessage(error: unknown) {
@@ -45,11 +48,17 @@ function getModelErrorMessage(error: unknown) {
   if (/memory|allocation|device lost/i.test(message)) {
     return 'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
   }
-  if (/fetch|network|download|ERR_FAILED|failed to load resource/i.test(message)) {
+  if (NETWORK_ERROR_PATTERN.test(message)) {
     return '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
   }
 
   return 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
+}
+
+// GPU 미지원처럼 다시 시도해도 똑같이 실패하는 오류는 자동 재시도 대상에서 제외한다.
+function isRetryableLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return NETWORK_ERROR_PATTERN.test(message)
 }
 
 async function assertWebGpuSupport() {
@@ -68,12 +77,40 @@ async function assertWebGpuSupport() {
   }
 }
 
+// 자동 재시도 횟수와 간격, 그리고 진행률이 멈춘 것으로 보는 기준 시간.
+export const MAX_DOWNLOAD_ATTEMPTS = 3
+export const RETRY_DELAY_MS = 2000
+export const STALL_TIMEOUT_MS = 15000
+
 let enginePromise: Promise<WebLlmEngine> | undefined
 let worker: Worker | undefined
 
-async function createEngine(): Promise<WebLlmEngine> {
-  await assertWebGpuSupport()
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
 
+// 진행률이 STALL_TIMEOUT_MS 이상 움직이지 않으면 연결이 조용히 끊긴 것으로 보고 실패 처리한다.
+// initProgressCallback이 호출될 때마다 reset()으로 타이머를 늦춘다.
+function createStallWatcher(timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout>
+  let rejectWatcher!: (error: Error) => void
+  const promise = new Promise<never>((_, reject) => {
+    rejectWatcher = reject
+  })
+
+  function reset() {
+    clearTimeout(timer)
+    timer = setTimeout(
+      () => rejectWatcher(new Error('모델 다운로드가 지연되어 다시 연결합니다(download stalled).')),
+      timeoutMs,
+    )
+  }
+
+  reset()
+  return { promise, reset, clear: () => clearTimeout(timer) }
+}
+
+async function attemptCreateEngine(): Promise<WebLlmEngine> {
   const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm')
   const currentWorker = new Worker(new URL('./webllm.worker.ts', import.meta.url), {
     type: 'module',
@@ -86,17 +123,45 @@ async function createEngine(): Promise<WebLlmEngine> {
       { once: true },
     )
   })
+  const stallWatcher = createStallWatcher(STALL_TIMEOUT_MS)
 
-  return Promise.race([
-    CreateWebWorkerMLCEngine(currentWorker, WEBLLM_MODEL_ID, {
-      initProgressCallback: ({ progress }) => {
-        useWebLlmModelStore.setState({
-          progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
-        })
-      },
-    }),
-    workerFailed,
-  ])
+  try {
+    return await Promise.race([
+      CreateWebWorkerMLCEngine(currentWorker, WEBLLM_MODEL_ID, {
+        initProgressCallback: ({ progress }) => {
+          stallWatcher.reset()
+          useWebLlmModelStore.setState({
+            progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
+          })
+        },
+      }),
+      workerFailed,
+      stallWatcher.promise,
+    ])
+  } finally {
+    stallWatcher.clear()
+  }
+}
+
+// 다운로드 연결이 일시적으로 끊긴 경우(네트워크 오류, 다운로드 정체)는 사용자가 매번 재시도
+// 버튼을 누르지 않아도 되도록 자동으로 다시 시도한다. WebGPU 미지원처럼 다시 시도해도
+// 똑같이 실패하는 오류는 바로 던진다.
+async function createEngine(): Promise<WebLlmEngine> {
+  await assertWebGpuSupport()
+
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await attemptCreateEngine()
+    } catch (error) {
+      worker?.terminate()
+      worker = undefined
+      if (attempt >= MAX_DOWNLOAD_ATTEMPTS || !isRetryableLoadError(error)) {
+        throw error
+      }
+      useWebLlmModelStore.setState({ progress: 0 })
+      await delay(RETRY_DELAY_MS)
+    }
+  }
 }
 
 export function invalidateDefaultEngine(error: unknown) {
@@ -126,6 +191,15 @@ function loadDefaultEngine() {
 
 export async function prepareWebLlmModel() {
   await loadDefaultEngine()
+}
+
+// 실패한 다운로드가 손상된 조각을 캐시에 남겼을 수 있으므로, 재시도 전에 해당 모델의
+// 캐시 항목을 모두 지운다. 정상적으로 완료된 모델까지 지우지 않도록 idle 상태의
+// 첫 다운로드가 아니라 error 상태에서 재시도할 때만 호출한다.
+export async function resetWebLlmModelCache() {
+  const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm')
+  await deleteModelAllInfoInCache(WEBLLM_MODEL_ID)
+  await prepareWebLlmModel()
 }
 
 // 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.

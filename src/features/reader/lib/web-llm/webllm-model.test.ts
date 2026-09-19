@@ -102,24 +102,111 @@ describe('WebLLM 모델 로딩과 상태', () => {
     expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(1)
   })
 
-  it('네트워크 오류로 로딩에 실패하면 재시도 안내를 남기고, 재시도하면 다시 불러온다', async () => {
+  it('네트워크 오류는 자동으로 재시도하다가, 계속 실패하면 안내를 남기고 재시도하면 다시 불러온다', async () => {
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      const workerInstances = stubWorker()
+      // mockRejectedValueOnce는 체이닝 시점에 즉시 거부된 Promise를 만들어, 실제로 호출되기까지
+      // (재시도 대기 동안) 처리되지 않은 상태로 남아 unhandled rejection 경고를 유발한다.
+      // 호출 시점에 던지는 mockImplementationOnce로 지연 생성한다.
+      const createWebWorkerMLCEngine = vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => createIdleEngine())
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, MAX_DOWNLOAD_ATTEMPTS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      // 가짜 타이머로 재시도를 진행하는 동안, 실패가 실제로 처리되기 전에 Node가 먼저
+      // "처리되지 않은 거부"로 판단하지 않도록 핸들러를 미리 붙여 둔다. 아래 rejects.toThrow()가
+      // 최종 검증을 맡으므로 여기서는 아무 것도 하지 않는다.
+      preparePromise.catch(() => undefined)
+      // 자동 재시도 사이의 대기 시간을 흘려보내 MAX_DOWNLOAD_ATTEMPTS번 모두 실패하게 한다.
+      for (let attempt = 1; attempt < MAX_DOWNLOAD_ATTEMPTS; attempt += 1) {
+        await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      }
+
+      await expect(preparePromise).rejects.toThrow()
+      expect(getState()).toMatchObject({ status: 'error', error: NETWORK_ERROR_MESSAGE })
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(MAX_DOWNLOAD_ATTEMPTS)
+      workerInstances
+        .slice(0, MAX_DOWNLOAD_ATTEMPTS)
+        .forEach((instance) => expect(instance.terminate).toHaveBeenCalledOnce())
+
+      await prepareWebLlmModel()
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(MAX_DOWNLOAD_ATTEMPTS + 1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('다운로드 진행률이 일정 시간 멈추면 정체로 보고 자동으로 다시 연결한다', async () => {
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      stubWorker()
+      let callCount = 0
+      const createWebWorkerMLCEngine = vi.fn(
+        async (
+          _worker: unknown,
+          _modelId: string,
+          config: { initProgressCallback: (report: { progress: number }) => void },
+        ) => {
+          callCount += 1
+          if (callCount === 1) {
+            config.initProgressCallback({ progress: 0.2 })
+            // 첫 시도는 진행률만 찍고 응답 없이 멈춘 상황을 흉내 낸다.
+            return new Promise<never>(() => undefined)
+          }
+          return createIdleEngine()
+        },
+      )
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, STALL_TIMEOUT_MS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(getState()).toMatchObject({ status: 'loading', progress: 20 })
+
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS)
+      await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      await preparePromise
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('resetWebLlmModelCache는 캐시를 지운 뒤 모델을 다시 불러온다', async () => {
     restoreGpu.push(stubSupportedGpu())
-    const workerInstances = stubWorker()
-    const createWebWorkerMLCEngine = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('failed to fetch model shard'))
-      .mockResolvedValueOnce(createIdleEngine())
-    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    stubWorker()
+    const deleteModelAllInfoInCache = vi.fn(async () => undefined)
+    const createWebWorkerMLCEngine = vi.fn(async () => createIdleEngine())
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: createWebWorkerMLCEngine,
+      deleteModelAllInfoInCache,
+    }))
+    const { resetWebLlmModelCache, getState } = await importFreshModule()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
-    expect(getState()).toMatchObject({ status: 'error', error: NETWORK_ERROR_MESSAGE })
-    expect(workerInstances[0]?.terminate).toHaveBeenCalledOnce()
+    await resetWebLlmModelCache()
 
-    await prepareWebLlmModel()
-
+    expect(deleteModelAllInfoInCache).toHaveBeenCalledWith('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
     expect(getState().status).toBe('ready')
-    expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
   })
 
   it.each([

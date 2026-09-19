@@ -7,12 +7,14 @@ import { useWebLlmModelStore, type WebLlmModelStatus } from '../lib/web-llm/webl
 import { ReaderChat } from './reader-chat'
 
 const prepareWebLlmModelMock = vi.hoisted(() => vi.fn(async () => undefined))
+const resetWebLlmModelCacheMock = vi.hoisted(() => vi.fn(async () => undefined))
 
 // 다운로드 버튼이 jsdom에 없는 navigator.gpu 등 실제 WebGPU 경로를 타지 않도록 준비 함수만 바꾼다.
 // 상태 store는 실제 것을 쓰고 테스트에서 setState로 원하는 상태를 만든다.
 vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
   prepareWebLlmModel: prepareWebLlmModelMock,
+  resetWebLlmModelCache: resetWebLlmModelCacheMock,
 }))
 
 // 실제 테스트는 전부 ReaderChat에 chatModel prop을 명시하므로 이 기본값은 쓰이지 않아야 한다.
@@ -56,6 +58,7 @@ const RETRY_BUTTON_NAME = '다시 답변받기'
 describe('ReaderChat', () => {
   afterEach(() => {
     prepareWebLlmModelMock.mockReset()
+    resetWebLlmModelCacheMock.mockReset()
     act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
@@ -134,6 +137,23 @@ describe('ReaderChat', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('모델 다운로드 연결에 실패했습니다.')
     expect(screen.getByRole('button', { name: '모델 다운로드 재시도' })).toBeInTheDocument()
+  })
+
+  it('다운로드 실패 후 재시도하면 손상됐을 수 있는 캐시를 지운 뒤 다시 불러온다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    useWebLlmModelStore.setState({
+      status: 'error',
+      error:
+        '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
+    })
+    const { respond } = createControllableRespond(0)
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    await user.click(screen.getByRole('button', { name: '모델 다운로드 재시도' }))
+
+    expect(resetWebLlmModelCacheMock).toHaveBeenCalledOnce()
+    expect(prepareWebLlmModelMock).not.toHaveBeenCalled()
   })
 
   it('모델 다운로드 중에는 버튼의 접근 가능한 이름도 진행 상태를 알려준다', () => {

@@ -214,25 +214,41 @@ describe('webLlmChatModelAdapter', () => {
   })
 
   it('모델 다운로드에 실패한 뒤 질문해도 다운로드를 다시 시작하지 않는다', async () => {
-    const createWebWorkerMLCEngine = vi
-      .fn()
-      .mockRejectedValue(new Error('failed to fetch model shard'))
-    vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
-    const { webLlmChatModelAdapter } = await import('./webllm-chat-adapter')
-    const { prepareWebLlmModel, useWebLlmModelStore } = await import('./webllm-model')
-    const options = createRunOptions([createMessage('user', '질문')])
-    await expect(prepareWebLlmModel()).rejects.toThrow()
+    vi.useFakeTimers()
+    try {
+      const createWebWorkerMLCEngine = vi
+        .fn()
+        .mockRejectedValue(new Error('failed to fetch model shard'))
+      vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
+      const { webLlmChatModelAdapter } = await import('./webllm-chat-adapter')
+      const { prepareWebLlmModel, useWebLlmModelStore, RETRY_DELAY_MS, MAX_DOWNLOAD_ATTEMPTS } =
+        await import('./webllm-model')
+      const options = createRunOptions([createMessage('user', '질문')])
 
-    await expect(
-      (async () => {
-        for await (const _result of webLlmChatModelAdapter.run(options)) {
-          // 모델이 준비되지 않았으므로 응답 없이 실패해야 한다.
-        }
-      })(),
-    ).rejects.toThrow('모델이 준비되지 않았습니다.')
+      const preparePromise = prepareWebLlmModel()
+      // 가짜 타이머로 재시도를 진행하는 동안 Node가 아직 처리 중인 거부를 미리 처리된 것으로
+      // 표시해 두어, 실제 처리 시점과의 시차로 생기는 오탐(unhandled rejection)을 막는다.
+      preparePromise.catch(() => undefined)
+      for (let attempt = 1; attempt < MAX_DOWNLOAD_ATTEMPTS; attempt += 1) {
+        await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      }
+      await expect(preparePromise).rejects.toThrow()
 
-    expect(createWebWorkerMLCEngine).toHaveBeenCalledOnce()
-    expect(useWebLlmModelStore.getState().status).toBe('error')
+      await expect(
+        (async () => {
+          for await (const _result of webLlmChatModelAdapter.run(options)) {
+            // 모델이 준비되지 않았으므로 응답 없이 실패해야 한다.
+          }
+        })(),
+      ).rejects.toThrow('모델이 준비되지 않았습니다.')
+
+      // 다운로드 연결 오류는 prepareWebLlmModel() 한 번 안에서 자동으로 MAX_DOWNLOAD_ATTEMPTS번
+      // 재시도되지만, 질문(run)이 새 다운로드를 추가로 시작하지는 않는다.
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(MAX_DOWNLOAD_ATTEMPTS)
+      expect(useWebLlmModelStore.getState().status).toBe('error')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('생성 중 엔진이 죽으면 상태가 초기화돼 재시도 시 모델을 다시 불러온다', async () => {
