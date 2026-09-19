@@ -5,7 +5,7 @@ import type {
   ThreadMessage,
 } from '@assistant-ui/react'
 import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
-import { invalidateDefaultEngine, loadDefaultEngine, type WebLlmEngine } from './webllm-model'
+import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './webllm-model'
 
 function isTextPart(part: { type: string }): part is TextMessagePart {
   return part.type === 'text'
@@ -28,7 +28,7 @@ function toWebLlmMessages({ context, messages }: ChatModelRunOptions) {
     : history
 }
 
-// 엔진을 불러오고 캐싱하는 책임은 loadEngine(프로덕션에서는 loadDefaultEngine의 싱글턴)에 온전히 맡긴다.
+// 엔진을 불러오고 캐싱하는 책임은 loadEngine(프로덕션에서는 getReadyEngine이 돌려주는 싱글턴)에 온전히 맡긴다.
 // 어댑터가 자체 캐시를 두면 두 캐시의 생명주기(특히 실패 시 초기화)를 따로 맞춰야 해서 어긋나기 쉽다.
 export function createWebLlmChatModelAdapter(
   loadEngine: () => Promise<WebLlmEngine>,
@@ -72,6 +72,6 @@ export function createWebLlmChatModelAdapter(
 }
 
 export const webLlmChatModelAdapter = createWebLlmChatModelAdapter(
-  loadDefaultEngine,
+  getReadyEngine,
   invalidateDefaultEngine,
 )

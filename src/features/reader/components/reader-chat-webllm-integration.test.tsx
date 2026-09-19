@@ -49,6 +49,8 @@ describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
     restoreGpu.push(stubSupportedGpu())
     const user = userEvent.setup()
     render(<ReaderChat />)
+    await user.click(screen.getByRole('button', { name: '모델 다운로드' }))
+    await screen.findByText('준비 완료')
 
     await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '실제 질문 내용')
     await user.keyboard('{Enter}')

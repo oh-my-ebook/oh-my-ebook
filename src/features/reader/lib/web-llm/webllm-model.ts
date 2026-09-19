@@ -106,7 +106,7 @@ export function invalidateDefaultEngine(error: unknown) {
   useWebLlmModelStore.setState({ status: 'error', error: getModelErrorMessage(error) })
 }
 
-export function loadDefaultEngine() {
+function loadDefaultEngine() {
   if (!enginePromise) {
     useWebLlmModelStore.setState({ status: 'loading', progress: 0, error: undefined })
     enginePromise = createEngine().then(
@@ -126,4 +126,14 @@ export function loadDefaultEngine() {
 
 export async function prepareWebLlmModel() {
   await loadDefaultEngine()
+}
+
+// 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
+// 채팅 요청이 로딩을 대신 시작하면 idle·error 상태에서 질문만 보내도 수백 MB 다운로드가 시작된다.
+export async function getReadyEngine() {
+  if (useWebLlmModelStore.getState().status !== 'ready' || !enginePromise) {
+    throw new Error('모델이 준비되지 않았습니다. 먼저 모델을 다운로드해 주세요.')
+  }
+
+  return enginePromise
 }

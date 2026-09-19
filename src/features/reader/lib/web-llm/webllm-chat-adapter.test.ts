@@ -194,6 +194,47 @@ describe('webLlmChatModelAdapter', () => {
     vi.doUnmock('@mlc-ai/web-llm')
   })
 
+  it('모델을 다운로드하기 전에 질문하면 모델을 불러오지 않고 실패한다', async () => {
+    const createWebWorkerMLCEngine = vi.fn()
+    vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
+    const { webLlmChatModelAdapter } = await import('./webllm-chat-adapter')
+    const { useWebLlmModelStore } = await import('./webllm-model')
+    const options = createRunOptions([createMessage('user', '질문')])
+
+    await expect(
+      (async () => {
+        for await (const _result of webLlmChatModelAdapter.run(options)) {
+          // 모델이 준비되지 않았으므로 응답 없이 실패해야 한다.
+        }
+      })(),
+    ).rejects.toThrow('모델이 준비되지 않았습니다.')
+
+    expect(createWebWorkerMLCEngine).not.toHaveBeenCalled()
+    expect(useWebLlmModelStore.getState().status).toBe('idle')
+  })
+
+  it('모델 다운로드에 실패한 뒤 질문해도 다운로드를 다시 시작하지 않는다', async () => {
+    const createWebWorkerMLCEngine = vi
+      .fn()
+      .mockRejectedValue(new Error('failed to fetch model shard'))
+    vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
+    const { webLlmChatModelAdapter } = await import('./webllm-chat-adapter')
+    const { prepareWebLlmModel, useWebLlmModelStore } = await import('./webllm-model')
+    const options = createRunOptions([createMessage('user', '질문')])
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    await expect(
+      (async () => {
+        for await (const _result of webLlmChatModelAdapter.run(options)) {
+          // 모델이 준비되지 않았으므로 응답 없이 실패해야 한다.
+        }
+      })(),
+    ).rejects.toThrow('모델이 준비되지 않았습니다.')
+
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledOnce()
+    expect(useWebLlmModelStore.getState().status).toBe('error')
+  })
+
   it('생성 중 엔진이 죽으면 상태가 초기화돼 재시도 시 모델을 다시 불러온다', async () => {
     const failingEngine: WebLlmEngine = {
       chat: {
@@ -214,6 +255,7 @@ describe('webLlmChatModelAdapter', () => {
     const { webLlmChatModelAdapter } = await import('./webllm-chat-adapter')
     const { prepareWebLlmModel, useWebLlmModelStore } = await import('./webllm-model')
     const options = createRunOptions([createMessage('user', '질문')])
+    await prepareWebLlmModel()
 
     await expect(
       (async () => {
