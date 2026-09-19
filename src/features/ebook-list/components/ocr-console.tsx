@@ -141,6 +141,7 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
   useEffect(() => {
     if (!selectedBook) return
     const book = selectedBook
+    let cancelled = false
 
     async function loadOcrData() {
       try {
@@ -156,14 +157,20 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
         if (!Array.isArray(pageResult) || !pageResult.every(isOcrPageRecord)) {
           throw new Error('Invalid OCR pages')
         }
+        if (cancelled) return
         setOcrPage(lineResult)
         setOcrPages(pageResult)
+        setError(null)
       } catch {
+        if (cancelled) return
         setError('OCR 저장 내용을 불러오지 못했습니다.')
       }
     }
 
     void loadOcrData()
+    return () => {
+      cancelled = true
+    }
   }, [linePage, selectedBook, store])
 
   const visibleBooks = books.slice(bookPage * BOOKS_PER_PAGE, (bookPage + 1) * BOOKS_PER_PAGE)

@@ -61,4 +61,34 @@ describe('OcrConsole', () => {
     })
     expect(request).toHaveBeenCalledWith('listOcrPages', 'book-11')
   })
+
+  it('성공한 OCR 조회 뒤에는 이전 조회 오류를 표시하지 않는다', async () => {
+    const user = userEvent.setup()
+    const request = vi.fn(async (command: string, payload?: unknown) => {
+      if (command === 'listBooks') {
+        return [
+          { id: 'failed-book', title: '실패한 PDF' },
+          { id: 'ready-book', title: '완료된 PDF' },
+        ]
+      }
+      if (command === 'listOcrLines') {
+        if (typeof payload === 'object' && payload !== null && 'bookId' in payload) {
+          if (payload.bookId === 'failed-book') throw new Error('Request failed')
+        }
+        return { total: 0, lines: [] }
+      }
+      if (command === 'listOcrPages') return []
+      return null
+    })
+    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+
+    render(<OcrConsole store={store} />)
+
+    await user.click(await screen.findByRole('button', { name: '실패한 PDF' }))
+    expect(await screen.findByText('OCR 저장 내용을 불러오지 못했습니다.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '완료된 PDF' }))
+    expect(await screen.findByText('OCR 줄 0개')).toBeInTheDocument()
+    expect(screen.queryByText('OCR 저장 내용을 불러오지 못했습니다.')).not.toBeInTheDocument()
+  })
 })
