@@ -44,7 +44,9 @@ export function useEbookUpload({
 
           // 3. OCR 분석 파이프라인 실행
           if (typeof bookId === 'string') {
-            void runOcrAnalysis(bookId, store).finally(() => refreshBooks())
+            void runOcrAnalysis(bookId, store)
+              .finally(() => refreshBooks())
+              .catch(() => undefined)
           }
         } catch (error) {
           toast.add({
