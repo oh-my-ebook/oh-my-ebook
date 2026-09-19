@@ -14,6 +14,7 @@ import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognitio
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
   scale: number
+  onOcrTextChange?: (textByPage: ReadonlyMap<number, string>) => void
   onStatusChange?: (status: PdfViewportStatus) => void
 }
 
@@ -88,7 +89,7 @@ function getDevicePixelRatio() {
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
-  const { document, onStatusChange, scale } = props
+  const { document, onOcrTextChange, onStatusChange, scale } = props
   const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
@@ -197,7 +198,7 @@ export function PdfViewport(props: PdfViewportProps) {
 
     const controller = new AbortController()
     const recognizePages = async () => {
-      const recognizedPages = await Promise.all(
+      const recognizedPages: (readonly [number, OcrPageResult] | null)[] = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
             const page = await document.getPage(pageNumber)
@@ -209,17 +210,35 @@ export function PdfViewport(props: PdfViewportProps) {
         }),
       )
       if (!controller.signal.aborted) {
+        const successfulOcrResults: (readonly [number, OcrPageResult])[] = recognizedPages.filter(
+          (recognizedPage) => recognizedPage !== null,
+        )
+        // key는 PDF 페이지 번호, value는 좌표와 텍스트 줄을 포함한 OCR 결과다.
+        const ocrResultsByPageNumber = new Map(successfulOcrResults)
+        const pageTextEntries: (readonly [number, string])[] = requestedPageNumbers.map(
+          (pageNumber) => {
+            const ocrResult = ocrResultsByPageNumber.get(pageNumber)
+            const recognizedLines = ocrResult?.lines ?? []
+            const pageText = recognizedLines.map((line) => line.text).join('\n')
+
+            return [pageNumber, pageText] as const
+          },
+        )
+        // key는 PDF 페이지 번호, value는 해당 페이지의 OCR 줄을 합친 본문이다.
+        const ocrTextByPageNumber = new Map(pageTextEntries)
+
         setOcrOutcome({
           document,
           pageNumbers,
-          pages: new Map(recognizedPages.filter((page) => page !== null)),
+          pages: ocrResultsByPageNumber,
         })
+        onOcrTextChange?.(ocrTextByPageNumber)
       }
     }
 
     void recognizePages()
     return () => controller.abort()
-  }, [document, firstPageNumber, pageNumbers, secondPageNumber])
+  }, [document, firstPageNumber, onOcrTextChange, pageNumbers, secondPageNumber])
 
   const ocrPages =
     ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers
