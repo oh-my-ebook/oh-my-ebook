@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
+import { ErrorAlert } from '@/components/error-alert'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
 import { usePageFileDrop } from '../hooks/use-page-file-drop'
 import { EbookStoreError } from '../lib/ebook-store-client'
@@ -86,14 +86,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
         {state.status === 'loading' && <EbookShelfLoading />}
 
         {state.status === 'error' && (
-          <Alert variant="destructive">
-            <AlertTitle>{state.message}</AlertTitle>
-            <AlertDescription>
-              <Button className="mt-3" onClick={retry} variant="outline">
-                다시 시도
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <ErrorAlert title={state.message}>
+            <Button onClick={retry}>다시 시도</Button>
+          </ErrorAlert>
         )}
 
         {state.status === 'ready' && (
@@ -124,20 +119,15 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
           </section>
         )}
         {refreshError && (
-          <Alert variant="destructive">
-            <AlertTitle>{refreshError}</AlertTitle>
-            <AlertDescription>
-              <Button
-                className="mt-3"
-                onClick={() => {
-                  void refreshLibrary()
-                }}
-                variant="outline"
-              >
-                다시 시도
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <ErrorAlert title={refreshError}>
+            <Button
+              onClick={() => {
+                void refreshLibrary()
+              }}
+            >
+              다시 시도
+            </Button>
+          </ErrorAlert>
         )}
         {state.status === 'ready' && (
           <p className="text-sm text-muted-foreground">
