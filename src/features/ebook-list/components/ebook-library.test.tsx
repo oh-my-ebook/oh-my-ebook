@@ -35,6 +35,9 @@ function createStoredBook(title: string) {
     cover_status: 'fallback' as const,
     pdf_status: 'available' as const,
     last_page: null,
+    analysis_status: 'analyzing' as const,
+    ocr_completed_at: null,
+    indexed_at: null,
     created_at: 0,
     updated_at: 0,
   }

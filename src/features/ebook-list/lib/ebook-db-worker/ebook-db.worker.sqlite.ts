@@ -40,8 +40,9 @@ export function addBook(database: Database, input: AddBookInput): string {
     database.exec(
       `INSERT INTO books (
         id, content_hash, file_name, title, author, pdf_title, pdf_subject, pdf_keywords, publisher,
-        pdf_size, page_count, cover_data, cover_mime, cover_status, last_page, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        pdf_size, page_count, cover_data, cover_mime, cover_status, last_page,
+        analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
       {
         bind: [
           id,
@@ -58,6 +59,9 @@ export function addBook(database: Database, input: AddBookInput): string {
           input.coverData ? new Uint8Array(input.coverData) : null,
           input.coverMime,
           input.coverStatus,
+          'analyzing',
+          null,
+          null,
           now,
           now,
         ],
@@ -109,6 +113,9 @@ async function openDatabase(): Promise<Database> {
             last_page INTEGER CHECK (
               last_page IS NULL OR (last_page >= 1 AND last_page <= page_count)
             ),
+            analysis_status TEXT NOT NULL CHECK (analysis_status IN ('analyzing', 'ready', 'failed')),
+            ocr_completed_at INTEGER,
+            indexed_at INTEGER,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
           );
@@ -151,7 +158,7 @@ export function listBooks(database: Database): unknown {
     `SELECT id, content_hash, file_name, title,
             author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
             page_count, cover_data, cover_mime, cover_status,
-            last_page, created_at, updated_at
+            last_page, analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
      FROM books ORDER BY created_at DESC, id DESC`,
     { rowMode: 'object', returnValue: 'resultRows' },
   )

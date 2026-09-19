@@ -142,12 +142,18 @@ describe('ebook-db.worker', () => {
     expect(schema).toContain('pdf_keywords TEXT')
     expect(schema).toContain('publisher TEXT')
     expect(schema).toContain('pdf_size INTEGER NOT NULL CHECK (pdf_size >= 0)')
+    expect(schema).toContain(
+      "analysis_status TEXT NOT NULL CHECK (analysis_status IN ('analyzing', 'ready', 'failed'))",
+    )
+    expect(schema).toContain('ocr_completed_at INTEGER')
+    expect(schema).toContain('indexed_at INTEGER')
     expect(schema).not.toContain('pdf_data BLOB')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
   })
 
   it('SQLite 책 목록에 OPFS 원본 유무를 표시한다', async () => {
+    const statements: string[] = []
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
     vi.stubGlobal('self', workerScope)
@@ -155,11 +161,26 @@ describe('ebook-db.worker', () => {
 
     class Database {
       exec(sql: string) {
+        statements.push(sql)
         if (sql === 'PRAGMA user_version') return [1]
         if (sql.includes('FROM books ORDER BY')) {
           return [
-            { id: 'available-book', content_hash: 'a'.repeat(64), title: '읽을 수 있는 책' },
-            { id: 'missing-book', content_hash: 'b'.repeat(64), title: '원본이 없는 책' },
+            {
+              id: 'available-book',
+              content_hash: 'a'.repeat(64),
+              title: '읽을 수 있는 책',
+              analysis_status: 'analyzing',
+              ocr_completed_at: null,
+              indexed_at: null,
+            },
+            {
+              id: 'missing-book',
+              content_hash: 'b'.repeat(64),
+              title: '원본이 없는 책',
+              analysis_status: 'ready',
+              ocr_completed_at: 1,
+              indexed_at: 2,
+            },
           ]
         }
         return this
@@ -178,11 +199,26 @@ describe('ebook-db.worker', () => {
 
     expect(hasPdf).toHaveBeenNthCalledWith(1, 'a'.repeat(64))
     expect(hasPdf).toHaveBeenNthCalledWith(2, 'b'.repeat(64))
+    expect(statements.find((statement) => statement.includes('FROM books ORDER BY'))).toContain(
+      'analysis_status, ocr_completed_at, indexed_at',
+    )
     expect(responses).toHaveBeenCalledWith({
       requestId: 20,
       result: [
-        expect.objectContaining({ id: 'available-book', pdf_status: 'available' }),
-        expect.objectContaining({ id: 'missing-book', pdf_status: 'missing' }),
+        expect.objectContaining({
+          id: 'available-book',
+          pdf_status: 'available',
+          analysis_status: 'analyzing',
+          ocr_completed_at: null,
+          indexed_at: null,
+        }),
+        expect.objectContaining({
+          id: 'missing-book',
+          pdf_status: 'missing',
+          analysis_status: 'ready',
+          ocr_completed_at: 1,
+          indexed_at: 2,
+        }),
       ],
     })
   })
@@ -299,6 +335,7 @@ describe('ebook-db.worker', () => {
     expect(insert?.bind).toEqual(
       expect.arrayContaining(['저자', 'PDF 제목', null, 'pdf, metadata', '출판사', 123]),
     )
+    expect(insert?.bind).toEqual(expect.arrayContaining(['analyzing', null, null]))
     expect(writePdf).toHaveBeenCalledWith('a'.repeat(64), expect.any(ArrayBuffer))
     expect(responses).toHaveBeenCalledWith({ requestId: 18, result: expect.any(String) })
   })
