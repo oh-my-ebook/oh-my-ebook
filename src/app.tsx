@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { Route, Routes, useParams } from 'react-router'
 import { Reader } from './features/reader/components/reader'
 import { ebookStore } from './features/ebook-list/lib/ebook-store'
+import { prepareOcr } from './features/reader/lib/ocr/page-recognition'
 import { EbookReaderPage } from './pages/ebook-reader-page'
 import { EbookListPage } from './pages/ebook-list-page'
 
@@ -11,6 +13,10 @@ function EbookReaderRoute() {
 }
 
 function App() {
+  useEffect(() => {
+    prepareOcr().catch(() => undefined)
+  }, [])
+
   return (
     <Routes>
       <Route path="/" element={<EbookListPage />} />
