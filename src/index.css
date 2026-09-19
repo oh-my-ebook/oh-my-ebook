@@ -236,70 +236,6 @@
 }
 
 @layer components {
-  .library-page {
-    background: var(--background);
-  }
-
-  .library-navigation {
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--card) 92%, transparent);
-  }
-
-  .library-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 2rem;
-  }
-
-  .library-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .library-summary {
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--background);
-    padding: 0 0.625rem;
-    color: var(--muted-foreground);
-    font-size: 0.875rem;
-  }
-
-  .library-summary > div {
-    display: flex;
-    align-items: baseline;
-    gap: 0.25rem;
-    white-space: nowrap;
-  }
-
-  .library-summary dd {
-    display: flex;
-    align-items: baseline;
-    color: var(--foreground);
-  }
-
-  .library-summary dt {
-    color: var(--foreground);
-    font-weight: 700;
-  }
-
-  .library-summary-usage {
-    color: var(--muted-foreground);
-    font-size: 0.6875rem;
-  }
-
-  .library-intro > p {
-    overflow-wrap: break-word;
-  }
-
   .ebook-shelf {
     display: grid;
     background: transparent;
@@ -330,43 +266,6 @@
   .book-card-cover:focus-visible {
     transform: scale(1.02);
     box-shadow: 0 14px 24px -12px rgb(31 32 28 / 24%);
-  }
-
-  .book-card-cover img {
-    background: var(--muted);
-  }
-
-  .book-title-button {
-    display: block;
-    min-width: 0;
-    height: auto;
-    padding: 0;
-    color: var(--foreground);
-    font-weight: 600;
-    line-height: 1.55;
-    text-align: left;
-    text-decoration: none;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .book-title-button:hover {
-    color: var(--primary);
-    text-decoration: none;
-  }
-
-  @media (max-width: 560px) {
-    .library-header {
-      grid-template-columns: 1fr;
-      align-items: start;
-    }
-
-    .library-actions {
-      grid-row: 2;
-      flex-wrap: wrap;
-    }
   }
 }
 

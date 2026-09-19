@@ -77,14 +77,21 @@ export function BookCard({
                 <span>원본 PDF 없음</span>
               </div>
             ) : book.cover_data && book.cover_mime ? (
-              <img ref={imageRef} alt={`${book.title} 표지`} className="size-full object-contain" />
+              <img
+                ref={imageRef}
+                alt={`${book.title} 표지`}
+                className="size-full bg-muted object-contain"
+              />
             ) : (
               <p>기본 표지</p>
             )}
           </button>
           <div className="flex flex-col gap-2">
             <div className="flex items-start justify-between gap-2">
-              <h2 className="book-title-button" title={book.title}>
+              <h2
+                className="line-clamp-2 min-w-0 leading-[1.55] font-semibold text-foreground hover:text-primary"
+                title={book.title}
+              >
                 {book.title}
               </h2>
               <DropdownMenu>

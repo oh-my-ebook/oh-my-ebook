@@ -46,7 +46,7 @@ describe('BookCard', () => {
       'src',
       'blob:cover',
     )
-    expect(screen.getByText(book.title)).toHaveClass('book-title-button')
+    expect(screen.getByRole('heading', { name: book.title })).toBeVisible()
     expect(screen.getByText('읽지 않음 · 전체 100페이지')).toBeVisible()
   })
 

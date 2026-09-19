@@ -55,8 +55,8 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   }
 
   return (
-    <main className="library-page min-h-svh">
-      <nav aria-label="주 탐색" className="library-navigation">
+    <main className="min-h-svh bg-background">
+      <nav aria-label="주 탐색" className="border-b bg-card/92">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
           <strong>oh-my-ebook</strong>
           <span className="h-4 border-l" />
@@ -64,15 +64,15 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
         </div>
       </nav>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="library-header">
-          <div className="library-intro flex min-w-0 flex-col gap-1">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6 border-b pb-8 max-[560px]:grid-cols-1 max-[560px]:items-start">
+          <div className="flex min-w-0 flex-col gap-1 [&>p]:wrap-break-word">
             <p className="text-xs text-muted-foreground">이 브라우저에만 보관되는 오프라인 서재</p>
             <h1 className="font-heading text-3xl font-bold tracking-tight">내 서재</h1>
             <p className="text-muted-foreground">
               저장한 PDF를 다시 열고 읽던 위치에서 이어 보세요.
             </p>
           </div>
-          <div className="library-actions">
+          <div className="flex items-center gap-2 max-[560px]:row-start-2 max-[560px]:flex-wrap">
             {state.status === 'ready' && <LibrarySummary books={state.books} usage={usage} />}
             <Button
               disabled={state.status !== 'ready' || refreshing}
