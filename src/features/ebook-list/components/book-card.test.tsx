@@ -9,10 +9,17 @@ const book: StoredBook = {
   content_hash: 'hash',
   file_name: 'local-library.pdf',
   title: '지역 도서관의 아주 긴 책 제목',
+  author: null,
+  pdf_title: null,
+  pdf_subject: null,
+  pdf_keywords: null,
+  publisher: null,
+  pdf_size: 0,
   page_count: 100,
   cover_data: new Uint8Array([1, 2, 3]),
   cover_mime: 'image/png',
   cover_status: 'ready',
+  pdf_status: 'available',
   last_page: null,
   created_at: 0,
   updated_at: 0,
@@ -39,7 +46,7 @@ describe('BookCard', () => {
       'src',
       'blob:cover',
     )
-    expect(screen.getByText(book.title)).toHaveClass('book-title-button')
+    expect(screen.getByRole('heading', { name: book.title })).toBeVisible()
     expect(screen.getByText('읽지 않음 · 전체 100페이지')).toBeVisible()
   })
 
@@ -93,5 +100,23 @@ describe('BookCard', () => {
     await user.click(screen.getByRole('button', { name: '취소' }))
 
     expect(menuButton).toHaveFocus()
+  })
+
+  it('원본 PDF가 없으면 깨진 표지를 보이고 클릭 시 삭제 확인을 연다', async () => {
+    const user = userEvent.setup()
+    const onOpen = vi.fn()
+    render(
+      <BookCard
+        book={{ ...book, pdf_status: 'missing' }}
+        onDelete={vi.fn(async () => undefined)}
+        onOpen={onOpen}
+      />,
+    )
+
+    expect(screen.getByRole('img', { name: '원본 PDF 없음' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: `${book.title} 삭제` }))
+
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`“${book.title}”을 삭제할까요?`)
   })
 })

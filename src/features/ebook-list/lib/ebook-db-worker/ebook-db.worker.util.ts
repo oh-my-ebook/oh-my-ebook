@@ -18,6 +18,11 @@ export interface UpdateTitleInput {
   title: string
 }
 
+export interface PdfWriteInput {
+  contentHash: string
+  pdfData: ArrayBuffer
+}
+
 export interface WorkerRequest {
   requestId: number
   command: string
@@ -37,30 +42,79 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
   )
 }
 
-export function isAddBookInput(value: unknown): value is AddBookInput {
-  if (typeof value !== 'object' || value === null) return false
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
+}
+
+export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
   return (
+    typeof book === 'object' &&
+    book !== null &&
+    'content_hash' in book &&
+    isContentHash(book.content_hash)
+  )
+}
+
+export function isAddBookInput(value: unknown): value is AddBookInput {
+  if (!isRecord(value)) return false
+  const input = value
+
+  if (!(input.pdfData instanceof ArrayBuffer) || input.pdfData.byteLength === 0) return false
+  if (!isContentHash(input.contentHash)) return false
+  if (typeof input.fileName !== 'string' || typeof input.title !== 'string') return false
+  if (
+    !isNullableString(input.author) ||
+    !isNullableString(input.pdfTitle) ||
+    !isNullableString(input.pdfSubject) ||
+    !isNullableString(input.pdfKeywords) ||
+    !isNullableString(input.publisher)
+  ) {
+    return false
+  }
+  if (
+    typeof input.pdfSize !== 'number' ||
+    !Number.isSafeInteger(input.pdfSize) ||
+    input.pdfSize < 0
+  ) {
+    return false
+  }
+  if (
+    typeof input.pageCount !== 'number' ||
+    !Number.isSafeInteger(input.pageCount) ||
+    input.pageCount <= 0
+  ) {
+    return false
+  }
+  if (!(input.coverData === null || input.coverData instanceof ArrayBuffer)) return false
+  if (!(
+    input.coverMime === null ||
+    input.coverMime === 'image/webp' ||
+    input.coverMime === 'image/png'
+  )) {
+    return false
+  }
+  if (!(input.coverStatus === 'ready' || input.coverStatus === 'fallback')) return false
+
+  return true
+}
+
+export function isContentHash(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
+}
+
+export function isPdfWriteInput(value: unknown): value is PdfWriteInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'contentHash' in value &&
+    isContentHash(value.contentHash) &&
     'pdfData' in value &&
     value.pdfData instanceof ArrayBuffer &&
-    value.pdfData.byteLength > 0 &&
-    'contentHash' in value &&
-    typeof value.contentHash === 'string' &&
-    value.contentHash.trim().length > 0 &&
-    'fileName' in value &&
-    typeof value.fileName === 'string' &&
-    'title' in value &&
-    typeof value.title === 'string' &&
-    'pageCount' in value &&
-    Number.isSafeInteger(value.pageCount) &&
-    Number(value.pageCount) > 0 &&
-    'coverData' in value &&
-    (value.coverData === null || value.coverData instanceof ArrayBuffer) &&
-    'coverMime' in value &&
-    (value.coverMime === null ||
-      value.coverMime === 'image/webp' ||
-      value.coverMime === 'image/png') &&
-    'coverStatus' in value &&
-    (value.coverStatus === 'ready' || value.coverStatus === 'fallback')
+    value.pdfData.byteLength > 0
   )
 }
 
