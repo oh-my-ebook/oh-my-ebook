@@ -52,6 +52,8 @@ export function createWebLlmChatModelAdapter(
       try {
         const chunks = await engine.chat.completions.create({
           messages: toWebLlmMessages(options),
+          // WebLLM은 Qwen 권장 설정의 top_k(20)를 지원하지 않아, 온도를 낮춰 확률이 낮은 토큰을 줄인다.
+          temperature: 0.3,
           max_tokens: 512,
           stream: true,
         })
