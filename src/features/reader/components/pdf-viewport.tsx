@@ -96,6 +96,19 @@ function isRevalidatableOutcome(
   )
 }
 
+function getPdfViewportStatus(
+  outcome: PdfViewportOutcome | null,
+  request: PdfViewportRequest,
+): PdfViewportStatus {
+  if (isCurrentOutcome(outcome, request)) {
+    return outcome.status
+  }
+  if (isRevalidatableOutcome(outcome, request)) {
+    return 'ready'
+  }
+  return 'loading'
+}
+
 function getDevicePixelRatio() {
   return Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1
 }
@@ -115,11 +128,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
-  const status: PdfViewportStatus = isCurrentOutcome(outcome, request)
-    ? outcome.status
-    : isRevalidatableOutcome(outcome, request)
-      ? 'ready'
-      : 'loading'
+  const status = getPdfViewportStatus(outcome, request)
 
   useEffect(() => {
     onStatusChange?.(status)
