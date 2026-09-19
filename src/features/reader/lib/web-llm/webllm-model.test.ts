@@ -209,6 +209,21 @@ describe('WebLLM 모델 로딩과 상태', () => {
     expect(getState().status).toBe('ready')
   })
 
+  it('resetWebLlmModelCache를 연달아 두 번 호출해도 캐시 삭제는 한 번만 실행된다', async () => {
+    // 재시도 버튼은 error 상태에서 loading으로 바뀌기 전까지 비활성화되지 않아, 더블클릭하면
+    // 두 번째 클릭이 첫 번째가 정리 중인 캐시를 다시 건드릴 수 있다. 삭제가 끝나기 전에
+    // 두 번 호출해도 deleteModelAllInfoInCache는 한 번만 실행돼야 한다.
+    const deleteModelAllInfoInCache = vi.fn(() => new Promise<void>(() => undefined))
+    vi.doMock('@mlc-ai/web-llm', () => ({ deleteModelAllInfoInCache }))
+    const { resetWebLlmModelCache } = await importFreshModule()
+
+    resetWebLlmModelCache()
+    resetWebLlmModelCache()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(deleteModelAllInfoInCache).toHaveBeenCalledOnce()
+  })
+
   it.each([
     ['GPU 메모리 부족', 'GPU device lost during allocation', GPU_MEMORY_ERROR_MESSAGE],
     // 메모리와 다운로드 단어가 함께 나와도 네트워크 오류로 잘못 안내하지 않는다.

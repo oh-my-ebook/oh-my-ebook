@@ -193,13 +193,27 @@ export async function prepareWebLlmModel() {
   await loadDefaultEngine()
 }
 
+let resetCachePromise: Promise<void> | undefined
+
 // 실패한 다운로드가 손상된 조각을 캐시에 남겼을 수 있으므로, 재시도 전에 해당 모델의
 // 캐시 항목을 모두 지운다. 정상적으로 완료된 모델까지 지우지 않도록 idle 상태의
 // 첫 다운로드가 아니라 error 상태에서 재시도할 때만 호출한다.
-export async function resetWebLlmModelCache() {
-  const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm')
-  await deleteModelAllInfoInCache(WEBLLM_MODEL_ID)
-  await prepareWebLlmModel()
+//
+// error 상태의 재시도 버튼은 loading으로 바뀌기 전까지 비활성화되지 않아 더블클릭될 수 있다.
+// enginePromise와 같은 방식으로, 진행 중인 정리 작업이 있으면 그 결과를 그대로 돌려줘
+// deleteModelAllInfoInCache가 겹쳐 호출되지 않게 한다.
+export function resetWebLlmModelCache() {
+  if (!resetCachePromise) {
+    resetCachePromise = (async () => {
+      const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm')
+      await deleteModelAllInfoInCache(WEBLLM_MODEL_ID)
+      await prepareWebLlmModel()
+    })().finally(() => {
+      resetCachePromise = undefined
+    })
+  }
+
+  return resetCachePromise
 }
 
 // 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
