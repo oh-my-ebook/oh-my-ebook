@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EbookLibraryStore } from '../ebook-library-store'
 
 const { loadPdfDocument, recognizePdfPageRaw } = vi.hoisted(() => ({
@@ -12,7 +12,12 @@ vi.mock('@/features/reader/lib/ocr/page-recognition', () => ({ recognizePdfPageR
 import { runOcrAnalysis } from './ocr-analysis'
 
 describe('runOcrAnalysis', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('페이지를 번호 순서로 하나씩 OCR하고 저장한다', async () => {
+    const abort = vi.spyOn(AbortController.prototype, 'abort')
     const page = {}
     loadPdfDocument.mockResolvedValue({
       document: { numPages: 2, getPage: vi.fn(async () => page) },
@@ -53,9 +58,11 @@ describe('runOcrAnalysis', () => {
       expect.objectContaining({ pageId: 'page-2' }),
     )
     expect(recognizePdfPageRaw).toHaveBeenCalledTimes(2)
+    expect(abort).toHaveBeenCalledOnce()
   })
 
   it('페이지 OCR 실패는 failed로 남겨 다음 실행에서 재개할 수 있게 한다', async () => {
+    const abort = vi.spyOn(AbortController.prototype, 'abort')
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
     recognizePdfPageRaw.mockRejectedValue(new Error('OCR failed'))
     const request = vi
@@ -71,5 +78,6 @@ describe('runOcrAnalysis', () => {
 
     expect(request).toHaveBeenLastCalledWith('failOcrPage', 'page-1')
     expect(request).not.toHaveBeenCalledWith('failBookAnalysis', 'book-id')
+    expect(abort).toHaveBeenCalledOnce()
   })
 })

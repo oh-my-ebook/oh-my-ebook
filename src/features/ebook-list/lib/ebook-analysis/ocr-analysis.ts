@@ -30,11 +30,12 @@ function isNextOcrPage(value: unknown): value is NextOcrPage {
 class RetryableOcrError extends Error {}
 
 export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): Promise<void> {
+  const controller = new AbortController()
+
   try {
     const storedBook = await store.request('getBook', bookId)
     if (!isStoredPdf(storedBook)) throw new Error('Stored PDF is unavailable')
 
-    const controller = new AbortController()
     const loaded = await loadPdfDocument(storedBook.pdf_data, controller.signal)
 
     // 1. PDF 페이지 수를 보고 OCR 페이지를 초기화한다.
@@ -72,5 +73,7 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
 
     // 6. 만약 전체 책 OCR 분석에 실패하면, 책 분석 상태를 failed로 남긴다.
     await store.request('failBookAnalysis', bookId)
+  } finally {
+    controller.abort()
   }
 }
