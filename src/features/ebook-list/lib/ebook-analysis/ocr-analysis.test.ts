@@ -45,7 +45,7 @@ describe('runOcrAnalysis', () => {
       bookId: 'book-id',
       pageCount: 2,
     })
-    expect(request).toHaveBeenNthCalledWith(3, 'recoverInterruptedOcrPages', 'book-id')
+    expect(request).toHaveBeenNthCalledWith(3, 'prepareOcrPagesForRun', 'book-id')
     expect(request).toHaveBeenNthCalledWith(5, 'storeOcrPage', {
       pageId: 'page-1',
       width: 100,
@@ -61,10 +61,14 @@ describe('runOcrAnalysis', () => {
     expect(abort).toHaveBeenCalledOnce()
   })
 
-  it('페이지 OCR 실패는 failed로 남겨 다음 실행에서 재개할 수 있게 한다', async () => {
+  it('페이지 OCR 실패 후에도 남은 pending 페이지를 계속 처리한다', async () => {
     const abort = vi.spyOn(AbortController.prototype, 'abort')
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
-    recognizePdfPageRaw.mockRejectedValue(new Error('OCR failed'))
+    recognizePdfPageRaw.mockRejectedValueOnce(new Error('OCR failed')).mockResolvedValueOnce({
+      width: 100,
+      height: 200,
+      lines: [],
+    })
     const request = vi
       .fn()
       .mockResolvedValueOnce({ pdf_data: new Uint8Array([1]) })
@@ -72,11 +76,19 @@ describe('runOcrAnalysis', () => {
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
       .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(null)
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
 
     await runOcrAnalysis('book-id', store)
 
-    expect(request).toHaveBeenLastCalledWith('failOcrPage', 'page-1')
+    expect(request).toHaveBeenCalledWith('failOcrPage', 'page-1')
+    expect(request).toHaveBeenCalledWith('prepareOcrPagesForRun', 'book-id')
+    expect(request).toHaveBeenCalledWith(
+      'storeOcrPage',
+      expect.objectContaining({ pageId: 'page-2' }),
+    )
     expect(request).not.toHaveBeenCalledWith('failBookAnalysis', 'book-id')
     expect(abort).toHaveBeenCalledOnce()
   })

@@ -27,8 +27,6 @@ function isNextOcrPage(value: unknown): value is NextOcrPage {
   )
 }
 
-class RetryableOcrError extends Error {}
-
 export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): Promise<void> {
   const controller = new AbortController()
 
@@ -41,8 +39,8 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
     // 1. PDF 페이지 수를 보고 OCR 페이지를 초기화한다.
     await store.request('initializeOcrPages', { bookId, pageCount: loaded.document.numPages })
 
-    // 2. 만약 페이지 중 OCR이 중단된 페이지가 있다면, 해당 페이지를 복구한다.
-    await store.request('recoverInterruptedOcrPages', bookId)
+    // 2. 중단되었거나 이전에 실패한 OCR 페이지를 다시 실행할 수 있게 준비한다.
+    await store.request('prepareOcrPagesForRun', bookId)
 
     for (;;) {
       // 3. 다음 OCR 페이지를 하나씩 선택한다.
@@ -61,16 +59,12 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
           height: result.height,
           lines: result.lines.map(({ text, bbox }) => ({ rawText: text, ...bbox })),
         })
-      } catch (error) {
-        // 5. OCR 페이지 인식에 실패하면, 해당 페이지를 실패 처리
+      } catch {
+        // 5. OCR 페이지 인식에 실패하면 해당 페이지만 실패 처리하고 다음 페이지로 넘어간다.
         await store.request('failOcrPage', nextOcrPage.id)
-        throw new RetryableOcrError('OCR page recognition failed', { cause: error })
       }
     }
-  } catch (error) {
-    // 페이지 실패에 대해서는 전체 책 에러로 판단하지 않는다.
-    if (error instanceof RetryableOcrError) return
-
+  } catch {
     // 6. 만약 전체 책 OCR 분석에 실패하면, 책 분석 상태를 failed로 남긴다.
     await store.request('failBookAnalysis', bookId)
   } finally {

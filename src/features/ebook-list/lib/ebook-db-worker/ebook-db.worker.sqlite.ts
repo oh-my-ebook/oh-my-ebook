@@ -38,7 +38,7 @@ import {
   INSERT_OCR_LINE_SQL,
   INSERT_OCR_PAGE_SQL,
   DELETE_OCR_LINES_SQL,
-  RESET_PROCESSING_OCR_PAGES_SQL,
+  PREPARE_OCR_PAGES_FOR_RUN_SQL,
   UPDATE_BOOK_COVER_SQL,
   UPDATE_BOOK_PROGRESS_SQL,
   UPDATE_BOOK_TITLE_SQL,
@@ -232,9 +232,9 @@ function initializeOcrPages(database: Database, request: WorkerRequest): undefin
   return undefined
 }
 
-function recoverInterruptedOcrPages(database: Database, request: WorkerRequest): undefined {
+function prepareOcrPagesForRun(database: Database, request: WorkerRequest): undefined {
   const bookId = getBookId(request)
-  database.exec(RESET_PROCESSING_OCR_PAGES_SQL, { bind: [Date.now(), bookId] })
+  database.exec(PREPARE_OCR_PAGES_FOR_RUN_SQL, { bind: [Date.now(), bookId] })
   return undefined
 }
 
@@ -445,8 +445,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return updateCover(database, request)
     case SQLITE_COMMAND.INITIALIZE_OCR_PAGES:
       return initializeOcrPages(database, request)
-    case SQLITE_COMMAND.RECOVER_INTERRUPTED_OCR_PAGES:
-      return recoverInterruptedOcrPages(database, request)
+    case SQLITE_COMMAND.PREPARE_OCR_PAGES_FOR_RUN:
+      return prepareOcrPagesForRun(database, request)
     case SQLITE_COMMAND.ACQUIRE_NEXT_OCR_PAGE:
       return acquireNextOcrPage(database, request)
     case SQLITE_COMMAND.STORE_OCR_PAGE:

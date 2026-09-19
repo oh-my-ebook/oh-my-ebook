@@ -29,7 +29,7 @@ function createDatabase({
     return undefined
   })
   const selectObject = vi.fn((sql: string) => {
-    if (sql.includes("status IN ('pending', 'failed')")) return nextPage
+    if (sql.includes("status = 'pending'")) return nextPage
     if (sql.includes('SELECT book_id')) return { book_id: 'book-id' }
     return null
   })
@@ -58,21 +58,24 @@ describe('OCR SQLite 계약', () => {
     ).toEqual([1, 2, 3])
   })
 
-  it('중단된 processing 페이지를 pending으로 되돌린다', () => {
+  it('중단되었거나 실패한 페이지를 다음 실행을 위해 pending으로 되돌린다', () => {
     const { database, exec } = createDatabase()
 
     executeSqliteCommand(database, {
       requestId: 2,
-      command: SQLITE_COMMAND.RECOVER_INTERRUPTED_OCR_PAGES,
+      command: SQLITE_COMMAND.PREPARE_OCR_PAGES_FOR_RUN,
       payload: 'book-id',
     })
 
-    expect(exec).toHaveBeenCalledWith(expect.stringContaining("SET status = 'pending'"), {
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining("status = 'pending'"), {
+      bind: [expect.any(Number), 'book-id'],
+    })
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining("('processing', 'failed')"), {
       bind: [expect.any(Number), 'book-id'],
     })
   })
 
-  it('pending 또는 failed 중 가장 앞 페이지를 선점한다', () => {
+  it('pending 중 가장 앞 페이지를 선점한다', () => {
     const { database, exec, selectObject } = createDatabase({
       nextPage: { id: 'page-2', page_number: 2 },
     })
@@ -85,6 +88,9 @@ describe('OCR SQLite 계약', () => {
 
     expect(page).toEqual({ id: 'page-2', pageNumber: 2 })
     expect(selectObject).toHaveBeenCalledWith(expect.stringContaining('ORDER BY page_number'), [
+      'book-id',
+    ])
+    expect(selectObject).toHaveBeenCalledWith(expect.stringContaining("status = 'pending'"), [
       'book-id',
     ])
     expect(exec.mock.calls[1]?.[0]).toContain("SET status = 'processing'")

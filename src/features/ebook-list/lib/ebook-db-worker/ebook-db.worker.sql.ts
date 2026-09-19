@@ -96,12 +96,12 @@ export const SELECT_BOOK_PAGE_COUNT_SQL = 'SELECT page_count FROM books WHERE id
 export const INSERT_OCR_PAGE_SQL = `INSERT OR IGNORE INTO ocr_pages (
   id, book_id, page_number, status, created_at, updated_at
 ) VALUES (?, ?, ?, 'pending', ?, ?)`
-export const RESET_PROCESSING_OCR_PAGES_SQL = `UPDATE ocr_pages
-  SET status = 'pending', updated_at = ? WHERE book_id = ? AND status = 'processing'`
+export const PREPARE_OCR_PAGES_FOR_RUN_SQL = `UPDATE ocr_pages
+  SET status = 'pending', updated_at = ? WHERE book_id = ? AND status IN ('processing', 'failed')`
 export const SELECT_NEXT_OCR_PAGE_SQL = `SELECT id, page_number FROM ocr_pages
-  WHERE book_id = ? AND status IN ('pending', 'failed') ORDER BY page_number LIMIT 1`
+  WHERE book_id = ? AND status = 'pending' ORDER BY page_number LIMIT 1`
 export const SET_OCR_PAGE_PROCESSING_SQL = `UPDATE ocr_pages
-  SET status = 'processing', updated_at = ? WHERE id = ? AND status IN ('pending', 'failed')`
+  SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'pending'`
 export const DELETE_OCR_LINES_SQL = 'DELETE FROM ocr_lines WHERE ocr_page_id = ?'
 export const INSERT_OCR_LINE_SQL = `INSERT INTO ocr_lines (
   ocr_page_id, line_index, raw_text, x0, y0, x1, y1
