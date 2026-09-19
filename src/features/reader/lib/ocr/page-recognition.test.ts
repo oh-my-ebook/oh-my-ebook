@@ -99,4 +99,47 @@ describe('recognizePdfPage', () => {
       ],
     })
   })
+
+  it('양면 페이지의 OCR 줄을 읽기 순서로 Kiwi에 넘기고 좌표를 유지한다', async () => {
+    const context = { font: '', measureText: vi.fn(() => ({ width: 100 })) }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as CanvasRenderingContext2D,
+    )
+    const item = (text: string, x0: number, y0: number, x1: number, y1: number) => ({
+      text,
+      poly: [
+        [x0, y0],
+        [x1, y0],
+        [x1, y1],
+        [x0, y1],
+      ],
+    })
+    predict.mockResolvedValue([
+      {
+        items: [
+          item('왼쪽 1', 100, 100, 900, 120),
+          item('오른쪽 1', 1_100, 110, 1_900, 130),
+          item('왼쪽 2', 100, 140, 900, 160),
+          item('오른쪽 2', 1_100, 150, 1_900, 170),
+        ],
+      },
+    ])
+    createPaddle.mockResolvedValue({ predict })
+    postprocessWithKiwi.mockImplementation(async (text: string) => text)
+    const page = {
+      getViewport: vi.fn(() => ({ width: 2_000, height: 1_000, rotation: 0 })),
+      render: vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() })),
+    }
+
+    const signal = new AbortController().signal
+    const { lines } = await recognizePdfPage(page, signal)
+
+    expect(postprocessWithKiwi).toHaveBeenCalledWith('왼쪽 1\n왼쪽 2\n오른쪽 1\n오른쪽 2', signal)
+    expect(lines.map(({ text, x0, y0 }) => ({ text, x0, y0 }))).toEqual([
+      { text: '왼쪽 1', x0: 100, y0: 100 },
+      { text: '왼쪽 2', x0: 100, y0: 140 },
+      { text: '오른쪽 1', x0: 1_100, y0: 110 },
+      { text: '오른쪽 2', x0: 1_100, y0: 150 },
+    ])
+  })
 })

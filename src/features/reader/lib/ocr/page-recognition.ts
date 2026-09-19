@@ -1,5 +1,6 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
 import { postprocessWithKiwi } from '../kiwi/client'
+import { sortInReadingOrder } from './reading-order'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 200 DPI 픽셀 좌표로 변환한다.
@@ -167,7 +168,7 @@ export async function recognizePdfPage(
   const { canvas, context } = await renderPdfPageForOcr(page, signal)
 
   try {
-    const sourceLines = await recognizeWithPaddleOcr(canvas, signal)
+    const sourceLines = sortInReadingOrder(await recognizeWithPaddleOcr(canvas, signal))
     const lines = await postprocessOcrLines(sourceLines, context, signal)
 
     return { width: canvas.width, height: canvas.height, lines }
