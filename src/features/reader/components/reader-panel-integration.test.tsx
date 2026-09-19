@@ -1,5 +1,7 @@
+import type { PropsWithChildren } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
@@ -24,6 +26,17 @@ vi.mock('../lib/pdf-document', async (importOriginal) => {
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
 
+// jsdom에는 Resizable이 패널 크기를 계산할 실제 레이아웃이 없어 구분선이 입력 포커스를
+// 되가져간다. 실제 primitive 동작은 ReaderPanel 테스트와 E2E에서 확인하고, 이 통합 테스트는
+// Reader 상태와 채팅 연결만 검증한다.
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: ({ 'aria-label': ariaLabel }: { 'aria-label': string }) => (
+    <div aria-label={ariaLabel} role="separator" />
+  ),
+}))
+
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
 vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
@@ -45,8 +58,8 @@ vi.mock('../lib/web-llm/webllm-chat-adapter', async (importOriginal) => {
   }
 })
 
-const PANEL_OPEN_LABEL = '보조 패널 열기'
-const PANEL_TITLE = '보조 패널'
+const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
+const PANEL_TITLE = '함께 읽기'
 
 // mock 상태를 모듈 전역 let 대신 각 테스트가 직접 만드는 팩토리로 캡슐화해, beforeEach 초기화
 // 누락으로 테스트 간 상태가 새는 걸 원천적으로 막는다.
@@ -134,7 +147,7 @@ async function renderLoadedReader(
   vi.stubGlobal('devicePixelRatio', 1)
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  render(<Reader url="/sample.pdf" />)
+  render(<Reader url="/sample.pdf" />, { wrapper: MemoryRouter })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -152,7 +165,7 @@ describe('Reader 보조 패널 연결', () => {
     vi.unstubAllGlobals()
   })
 
-  it('넓은 화면에서 패널을 열면 본문 옆 영역이 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
+  it('넓은 화면에서 패널을 열면 본문 옆 영역이 표시되고, 같은 버튼으로 닫는다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
@@ -162,11 +175,12 @@ describe('Reader 보조 패널 연결', () => {
     await user.click(panelButton)
 
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.getByRole('separator', { name: '함께 읽기 패널 너비 조절' })).toBeInTheDocument()
 
-    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: '함께 읽기 패널 닫기', pressed: true }))
 
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: PANEL_OPEN_LABEL })).toHaveFocus()
+    expect(screen.getByRole('button', { name: PANEL_OPEN_LABEL, pressed: false })).toHaveFocus()
   })
 
   it('좁은 화면에서 패널을 열면 Sheet로 표시되고, 닫으면 열기 버튼으로 포커스가 복원된다', async () => {
@@ -213,13 +227,13 @@ describe('Reader 보조 패널 연결', () => {
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
-    const input = screen.getByRole('textbox', { name: 'Message input' })
+    const input = screen.getByRole('textbox', { name: '질문 입력' })
     await user.type(input, '질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
 
     expect(await screen.findByText('질문')).toBeInTheDocument()
     // 다음 상호작용 전에 응답을 끝까지 받아, 패널을 닫아도 실행 중인 타이머가 남지 않게 한다.
-    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+    await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('region', { name: PANEL_TITLE })).not.toBeInTheDocument()
@@ -236,17 +250,17 @@ describe('Reader 보조 패널 연결', () => {
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
-    const input = screen.getByRole('textbox', { name: 'Message input' })
+    const input = screen.getByRole('textbox', { name: '질문 입력' })
 
     for (const question of ['첫번째 질문', '두번째 질문', '세번째 질문']) {
       await user.type(input, question)
       await user.keyboard('{Enter}')
       await screen.findByText(question)
       // 다음 질문을 보내기 전에 응답을 끝까지 받아, 실행 중인 Mock 타이머가 남지 않게 한다.
-      await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+      await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
     }
 
-    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeVisible()
+    expect(screen.getByRole('textbox', { name: '질문 입력' })).toBeVisible()
     expect(screen.getByText('세번째 질문')).toBeVisible()
   })
 
@@ -257,20 +271,20 @@ describe('Reader 보조 패널 연결', () => {
     await renderLoadedReader(resizeObserverMock, 2)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
-    const input = screen.getByRole('textbox', { name: 'Message input' })
+    const input = screen.getByRole('textbox', { name: '질문 입력' })
 
     await user.type(input, '첫 질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
     await screen.findByText('첫 질문')
-    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+    await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
 
     await user.click(screen.getByRole('button', { name: '다음 페이지' }))
     await screen.findByRole('img', { name: 'PDF 2페이지' })
 
     await user.type(input, '둘째 질문')
-    await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
     await screen.findByText('둘째 질문')
-    await screen.findByRole('button', { name: 'Send message' }, { timeout: 3000 })
+    await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
 
     expect(screen.getByText('첫 질문')).toBeInTheDocument()
     expect(respondSpy).toHaveBeenCalledTimes(2)

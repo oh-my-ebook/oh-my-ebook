@@ -58,15 +58,21 @@ describe('EbookStoreClient', () => {
       contentHash: 'hash',
       fileName: 'a.pdf',
       title: 'A',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: pdfData.byteLength,
       pageCount: 1,
       coverData: null,
       coverMime: null,
       coverStatus: 'fallback' as const,
     }
-    const added = client.addBook(input)
+    const added = client.saveBook(input)
 
     expect(sent[0]).toEqual({
-      message: { requestId: 1, command: 'addBook', payload: input },
+      message: { requestId: 1, command: 'saveBook', payload: input },
       transfer: [pdfData],
     })
 
@@ -135,11 +141,17 @@ describe('EbookStoreClient', () => {
   it('전송된 PDF 원본은 잠금 오류가 나도 다시 보내지 않는다', async () => {
     const { worker, sent, respond } = createWorker()
     const client = new EbookStoreClient(worker)
-    const pending = client.addBook({
+    const pending = client.saveBook({
       pdfData: new ArrayBuffer(8),
       contentHash: 'hash',
       fileName: 'a.pdf',
       title: 'A',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 8,
       pageCount: 1,
       coverData: null,
       coverMime: null,

@@ -46,7 +46,7 @@ PDF.js 본체와 같은 패키지의 `build/pdf.worker.min.mjs?url`을 import해
 | `currentPage`         | 마지막으로 선택한 PDF 페이지 번호. 두 페이지 보기에서 오른쪽 페이지를 선택해도 유지 |
 | `preferredView`       | 사용자가 선택한 한 페이지·두 페이지 보기                                            |
 | `zoom`                | `fit-height` 또는 수동 배율의 구분된 상태                                           |
-| `panelOpen`           | 빈 보조 패널 열림 여부                                                              |
+| `panelOpen`           | 함께 읽기 패널 열림 여부                                                            |
 | 문서·페이지 표시 상태 | 준비 중·표시 중·완료·오류를 구분                                                    |
 
 화면에 표시할 페이지 번호와 앞뒤 이동 가능 여부는 페이지 정보, `currentPage`, `preferredView`, 화면·읽기 영역 폭으로 계산한다. 파생값을 별도 상태로 중복 저장하지 않는다. 화면 폭이 부족하거나 가로 페이지여도 `preferredView`를 바꾸지 않는다.
@@ -69,6 +69,14 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 
 ## 크기 계산과 UI 구성
 
+### Reader UI 개선
+
+- 기존 의미 색상 토큰의 라이트·다크 값을 그대로 사용하고 `<html class="dark">`만 전환한다. PDF Canvas에는 색상 필터를 적용하지 않는다.
+- 상단에는 독서 도구와 문서명을, 하단에는 페이지 탐색과 배율 조절을 배치한다. 아직 연결할 기능이 없는 돌아가기·책갈피 버튼은 별도 상태나 알림 없이 Button으로만 제공한다.
+- 목차는 넓은 화면에서 헤더 없이 읽기 영역 왼쪽에 폭 280px 패널로 붙이고 목차 버튼으로 여닫는다. 좁은 화면에서는 제목과 닫기 조작만 있는 기존 Sheet를 왼쪽에서 연다. 목차 항목이나 임시 데이터를 만들지 않는다.
+- 넓은 화면의 읽기 영역과 함께 읽기 패널은 shadcn Resizable로 조합한다. 패널을 닫으면 구분선과 패널을 제거하며 기존 열기 버튼 포커스 복원을 유지한다. 좁은 화면은 기존 Sheet를 재사용한다.
+- 확대 조절은 기존 `ZoomControls` 동작을 유지한 채 하단 독서 위치 바로 옮긴다. 페이지·보기·채팅 상태와 계산 로직은 바꾸지 않는다.
+
 ### 스타일링 원칙
 
 - Reader의 화면 스타일은 Tailwind CSS 유틸리티와 shadcn 컴포넌트 variant로 작성한다. `app.css`나 컴포넌트별 CSS·CSS Module 파일을 사용하지 않는다.
@@ -79,7 +87,7 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 
 - 기본 화면의 고정 폭·장식 레이아웃을 제거하고 Tailwind 유틸리티로 전체 화면 높이의 Reader 골격을 구성한다. 상단·하단은 내용에 맞춰 줄바꿈하고, 수동 확대처럼 본문이 읽기 영역을 넘을 때만 본문을 스크롤한다.
 - `use-reader-layout`에서 화면 폭과 본문 컨테이너의 크기를 구분한다. 화면 기준은 `matchMedia`, 읽기 영역은 `ResizeObserver`로 측정한다. 읽기 영역의 실제 client 폭과 높이에서 각 방향의 여백을 뺀 값을 사용한다.
-- 두 페이지 허용 조건은 화면 폭 `>=1024px`와 읽기 영역 가용 폭 `>=1000px`를 모두 만족하는 것이다. 본문 자체의 확대 폭을 측정해 전환 여부를 판단하지 않는다.
+- 두 페이지 허용 조건은 화면 폭 `>=1024px`이다. 패널을 여닫을 때 보기 방식이 바뀌지 않도록 읽기 영역 가용 폭이나 본문 자체의 확대 폭은 판단에 쓰지 않는다.
 - 높이 맞춤 배율은 `min(가용 높이 / 현재 표시하는 페이지 중 가장 큰 높이, 가용 너비 / 현재 표시하는 페이지 너비의 합)`으로 계산한다. 두 페이지를 표시할 때는 전체 폭에 페이지 사이 간격을 포함한다. 자동 맞춤에서는 현재 표시하는 모든 페이지가 읽기 영역 안에 들어와 가로·세로 스크롤이 생기지 않아야 하며, 폭이 남으면 가로 중앙에 배치한다.
 - PDF의 기본 크기는 회전 적용 후 `getViewport({ scale: 96 / 72 })`로 얻은 CSS 크기로 정하고 이를 100%로 표시한다. 실제 Canvas 픽셀 크기는 표시 배율과 `devicePixelRatio`를 반영하되 CSS 크기와 확대율 표시는 분리한다.
 - 수동 배율은 25%~300%, 증감은 25%p로 시작한다. 높이 맞춤의 계산값에는 이 한도를 적용하지 않는다. 수동 조작은 현재 표시 배율에서 증감 후 한도에 맞추고, 상한 이상에서는 확대·하한 이하에서는 축소를 비활성화해 버튼 동작이 역전되지 않게 한다.
@@ -98,7 +106,7 @@ PDF 페이지를 그리는 작업은 즉시 끝나지 않는다. 예를 들어 1
 
 UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 공식 컴포넌트만 진행한다. Button을 재설치하거나 프리셋을 변경하지 않는다. 색상·서체는 기존 토큰, 표현 종류는 내장 variant, 사용처 `className`은 레이아웃에 사용한다. 필요한 지면 표현은 테마 토큰을 참조하는 Tailwind 유틸리티로 정의하고 토큰 값을 복제하지 않는다.
 
-슬라이더와 페이지 탐색·보기 방식의 아이콘 버튼에는 접근 가능한 이름을 제공하고, 해당 버튼에는 Tooltip을 붙인다. 두 페이지 보기를 적용할 수 없으면 버튼을 비활성화하고, 두 페이지 보기 중 공간이 부족해지면 toast로 단면 표시를 알린다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Slider](https://ui.shadcn.com/docs/components/base/slider), [Toast](https://ui.shadcn.com/docs/components/base/toast), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
+슬라이더와 페이지 탐색·보기 방식의 아이콘 버튼에는 접근 가능한 이름을 제공하고, 해당 버튼에는 Tooltip을 붙인다. 두 페이지 보기를 적용할 수 없으면 보기 방식 조작을 숨기고, 두 페이지 보기 중 공간이 부족해지면 toast로 단면 표시를 알린다. 긴 문서명은 줄임 표시하되 전체 제목을 heading의 접근 가능한 이름으로 유지한다. 좁은 패널은 제목과 닫기 조작만 포함하고 `finalFocus`로 열기 버튼에 포커스를 돌린다. 넓은 패널도 닫을 때 같은 버튼으로 복원한다. [Slider](https://ui.shadcn.com/docs/components/base/slider), [Toast](https://ui.shadcn.com/docs/components/base/toast), [Sheet](https://ui.shadcn.com/docs/components/base/sheet), [Dialog 포커스 API](https://base-ui.com/react/components/dialog)
 
 공식 문서·레지스트리와 스킬을 비교한 결과는 다음과 같이 적용한다.
 
@@ -122,14 +130,14 @@ UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 �
 | `src/features/reader/components/view-mode-control.tsx` | 한 페이지·두 페이지 보기 전환                                          |
 | `src/features/reader/components/zoom-controls.tsx`     | 확대·축소·확대율·높이 맞춤 조작                                        |
 | `src/features/reader/components/pdf-viewport.tsx`      | Canvas 렌더링과 표시 완료·오류 처리                                    |
-| `src/features/reader/components/reader-panel.tsx`      | 반응형 빈 패널과 포커스 복원                                           |
+| `src/features/reader/components/reader-panel.tsx`      | 반응형 함께 읽기 패널, 너비 조절과 포커스 복원                         |
 | `src/features/reader/lib/pdf-document.ts`              | PDF.js worker 설정과 문서·페이지 정보 조회                             |
 | `src/features/reader/lib/page-navigation.ts`           | 페이지 범위·첫/앞뒤/마지막 이동의 순수 계산                            |
 | `src/features/reader/lib/page-spread.ts`               | 방향·함께 표시할 페이지·두 페이지 이동의 순수 계산                     |
 | `src/features/reader/lib/reader-zoom.ts`               | 높이 맞춤·수동 배율의 순수 계산                                        |
 | `src/features/reader/hooks/use-pdf-document.ts`        | 문서 로딩·재시도·수명 관리                                             |
 | `src/features/reader/hooks/use-reader-layout.ts`       | 화면·읽기 영역 측정과 정리                                             |
-| `src/components/ui/`                                   | 필요한 기본 컴포넌트와 의존 컴포넌트를 CLI로 추가                      |
+| `src/components/ui/`                                   | 필요한 기본 컴포넌트와 Resizable 의존 컴포넌트를 CLI로 추가            |
 | `src/index.css`                                        | Tailwind 설정·공통 테마 토큰·전역 기본 스타일 유지, 필요한 토큰만 추가 |
 | `public/samples/basic-reader.pdf`                      | 기본 세로 텍스트 PDF                                                   |
 | `e2e/fixtures/pdf/`                                    | 스캔·가로·혼합·한 장·회전·정사각형 검증 파일                           |
@@ -156,7 +164,7 @@ UI 추가는 현재 Base UI 설정에서 `pnpm dlx shadcn@latest`로 필요한 �
 
 E2E는 Canvas 존재만 확인하지 않고 렌더링 완료 상태와 페이지별 고유 도형이 포함된 본문 이미지를 함께 확인한다. 전체 화면 스냅샷을 모든 조건에 만들지 않고, 텍스트·스캔·두 페이지 대표 본문만 이미지 기준으로 검증한다. 외부 UI 폰트에 의존하지 않는 PDF 영역을 기준으로 하며 기준 이미지 변경은 실제 화면을 확인한 뒤 반영한다. [Playwright 시각 비교](https://playwright.dev/docs/test-snapshots)
 
-화면 폭 1023px·1024px와 읽기 영역 999px·1000px는 서로 다른 조건으로 검증한다. 순수 계산에서는 두 입력을 독립적으로 다루고, E2E에서는 실제 읽기 영역 측정값을 확인하며 창 크기·패널 상태로 가능한 경계를 만든다. 320px 화면에서는 모든 조작부가 도달 가능한지 확인한다. PDF 로딩 오류는 네트워크 응답 대체로, 개별 render 실패는 제어 가능한 렌더링 경계 테스트로 검증한다.
+화면 폭 1023px·1024px 경계로 두 페이지 허용을 검증하고, 읽기 영역 폭이 바뀌어도 허용 여부가 유지되는지 확인한다. E2E에서는 창 크기와 패널 상태로 경계를 만든다. 320px 화면에서는 모든 조작부가 도달 가능한지 확인한다. PDF 로딩 오류는 네트워크 응답 대체로, 개별 render 실패는 제어 가능한 렌더링 경계 테스트로 검증한다.
 
 ## 병렬 구현과 완료 확인
 

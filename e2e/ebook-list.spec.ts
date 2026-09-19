@@ -46,16 +46,16 @@ test('PDF를 추가하고 내용 중복을 막으며 새로고침 후 표지와 
   await expect(page.getByRole('img', { name: 'The Local Library 표지' })).toBeVisible()
 })
 
-test('책 삭제를 취소하거나 완료하면 목록과 브라우저 용량을 갱신한다', async ({ page }) => {
+test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장소 사용량을 갱신한다', async ({ page }) => {
   await page.addInitScript(() => {
     let usage = 0
     navigator.storage.persisted = async () => true
-    navigator.storage.estimate = async () => ({ usage, quota: 10_000 })
+    navigator.storage.estimate = async () => ({ usage })
 
     const original = Worker.prototype.postMessage
     Worker.prototype.postMessage = function (message, ...transfer) {
       if (typeof message === 'object' && message !== null && 'command' in message) {
-        if (message.command === 'addBook') usage = 2_000
+        if (message.command === 'saveBook') usage = 2_000
         if (message.command === 'deleteBook') usage = 0
       }
       return Reflect.apply(original, this, [message, ...transfer])
@@ -74,7 +74,7 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 용량�
   const secondBook = page.getByRole('article', { name: 'without-metadata' })
   await expect(firstBook).toBeVisible()
   await expect(secondBook).toBeVisible()
-  await expect(page.getByText('남은 용량 7.8 KB')).toBeVisible()
+  await expect(page.getByText('소장 도서 2권 (2 KB)')).toBeVisible()
 
   await firstBook.getByRole('button', { name: 'The Local Library 메뉴' }).click()
   await page.getByRole('menuitem', { name: '책 삭제' }).click()
@@ -92,7 +92,7 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 용량�
   await expect(firstBook).toHaveCount(0)
   await expect(secondBook).toBeVisible()
   await expect(page.getByText('저장된 책 1권')).toBeVisible()
-  await expect(page.getByText('남은 용량 9.8 KB')).toBeVisible()
+  await expect(page.getByText('소장 도서 1권 (0 B)')).toBeVisible()
 })
 
 test('책 삭제 저장이 실패하면 책을 유지하고 재시도 안내를 보여 준다', async ({ page }) => {
@@ -194,39 +194,6 @@ test('표지 생성 실패를 복구하고 회전된 첫 페이지를 표지로 
   expect(size).toEqual({ width: 480, height: 320 })
 })
 
-test('예상 공간이 부족하면 저장하지 않는다', async ({ page }) => {
-  await page.addInitScript(() => {
-    navigator.storage.persisted = async () => true
-    navigator.storage.estimate = async () => ({ usage: 100, quota: 101 })
-  })
-  await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
-  await page
-    .getByLabel('PDF 파일 선택')
-    .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
-  await expect(page.getByText('브라우저 저장 공간이 부족합니다.')).toBeVisible()
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
-})
-
-test('저장 공간이 1GB 이하이면 영구 저장을 요청하고 거부를 알린다', async ({ page }) => {
-  await page.addInitScript(() => {
-    navigator.storage.persisted = async () => false
-    navigator.storage.persist = async () => false
-    navigator.storage.estimate = async () => ({ usage: 0, quota: 1024 ** 3 })
-  })
-  await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
-  await expect(page.getByRole('button', { name: '영구 저장 요청' })).toBeVisible()
-  await page
-    .getByLabel('PDF 파일 선택')
-    .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
-
-  await expect(page.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
-  await expect(page.getByText('The Local Library')).toBeVisible()
-  await page.getByRole('button', { name: '영구 저장 요청' }).click()
-  await expect(page.getByText('영구 저장 전환에 실패했습니다.')).toBeVisible()
-})
-
 test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않는다', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
@@ -236,7 +203,7 @@ test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않�
         typeof message === 'object' &&
         message !== null &&
         'command' in message &&
-        message.command === 'addBook' &&
+        message.command === 'saveBook' &&
         'requestId' in message
       ) {
         setTimeout(() => {

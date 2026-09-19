@@ -1,6 +1,7 @@
-import { createRef } from 'react'
+import { createRef, type PropsWithChildren } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -10,6 +11,11 @@ const useReaderLayoutMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../hooks/use-pdf-document', () => ({ usePdfDocument: usePdfDocumentMock }))
 vi.mock('../hooks/use-reader-layout', () => ({ useReaderLayout: useReaderLayoutMock }))
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: () => <div role="separator" />,
+}))
 
 describe('Reader 크기 조절 연결', () => {
   beforeEach(() => {
@@ -44,7 +50,7 @@ describe('Reader 크기 조절 연결', () => {
 
   it('확대·축소·높이 맞춤 결과를 한 페이지 본문 배율에 반영한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="테스트 PDF" url="/test.pdf" />)
+    render(<Reader title="테스트 PDF" url="/test.pdf" />, { wrapper: MemoryRouter })
 
     expect(screen.getByRole('status', { name: '현재 확대율' })).toHaveTextContent('75%')
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })
@@ -69,15 +75,15 @@ describe('Reader 크기 조절 연결', () => {
     await user.click(screen.getByRole('button', { name: '축소' }))
 
     expect(screen.getByRole('status', { name: '현재 확대율' })).toHaveTextContent('100%')
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toHaveAttribute(
       'aria-pressed',
       'false',
     )
 
-    await user.click(screen.getByRole('button', { name: '높이 맞춤' }))
+    await user.click(screen.getByRole('button', { name: '화면에 맞춤' }))
 
     expect(screen.getByRole('status', { name: '현재 확대율' })).toHaveTextContent('75%')
-    expect(screen.getByRole('button', { name: '높이 맞춤' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '화면에 맞춤' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )

@@ -5,7 +5,7 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { useSyncExternalStore } from 'react'
-import { Thread } from '@/components/assistant-ui/elements/thread.aui'
+import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +16,17 @@ import {
   subscribeWebLlmModelStatus,
   webLlmChatModelAdapter,
 } from '../lib/web-llm/webllm-chat-adapter'
+
+// 부모가 다시 렌더링될 때 메시지 영역까지 다시 그리지 않도록 모듈 범위에 둔다.
+const THREAD_COMPONENTS: ThreadComponents = {
+  Welcome: () => (
+    <div className="flex flex-1 items-center justify-center px-4">
+      <p className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both text-center text-lg font-medium delay-50 duration-300 ease-out motion-reduce:animate-none">
+        어떤 것에 대해 알아볼까요?
+      </p>
+    </div>
+  ),
+}
 
 interface ReaderChatProps {
   chatModel?: ChatModelAdapter
@@ -113,7 +124,7 @@ function ReaderChatContent({ currentPage }: ReaderChatContentProps) {
     <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <ModelDownloadAlert />
       <div className="min-h-0 flex-1">
-        <Thread />
+        <Thread components={THREAD_COMPONENTS} />
       </div>
     </div>
   )

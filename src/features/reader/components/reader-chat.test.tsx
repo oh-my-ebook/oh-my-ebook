@@ -87,16 +87,27 @@ function createControllableRespond(chunkCount: number) {
   return { respond, controllers }
 }
 
-const MESSAGE_INPUT_NAME = 'Message input'
-const SEND_BUTTON_NAME = 'Send message'
-const STOP_BUTTON_NAME = 'Stop generating'
-const RETRY_BUTTON_NAME = 'Refresh'
+const MESSAGE_INPUT_NAME = '질문 입력'
+const SEND_BUTTON_NAME = '질문 보내기'
+const STOP_BUTTON_NAME = '답변 중지'
+const RETRY_BUTTON_NAME = '다시 답변받기'
 
 describe('ReaderChat', () => {
   afterEach(() => {
     webLlmModelMock.prepare.mockReset()
     webLlmModelMock.reset()
     vi.unstubAllGlobals()
+  })
+
+  it('대화를 시작하기 전에는 질문을 안내하는 문구를 보여준다', () => {
+    setupResizeObserverMock()
+    render(<ReaderChat />)
+
+    expect(screen.getByText('어떤 것에 대해 알아볼까요?')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })).toHaveAttribute(
+      'placeholder',
+      '질문을 입력하세요',
+    )
   })
 
   it('모델 다운로드 버튼으로 준비 상태를 확인할 수 있다', async () => {
@@ -359,9 +370,7 @@ describe('ReaderChat', () => {
     controller.resolve()
     const retryButton = await screen.findByRole('button', { name: RETRY_BUTTON_NAME })
 
-    // 재시도 조작부는 대화 내역 쪽(입력창보다 앞, More 버튼보다도 앞)에 있어
-    // Shift+Tab으로 두 번 거슬러 올라가야 닿는다.
-    await user.tab({ shift: true })
+    // 재시도 조작부는 대화 내역 쪽(입력창보다 앞)에 있어 Shift+Tab으로 거슬러 올라가야 닿는다.
     await user.tab({ shift: true })
     expect(retryButton).toHaveFocus()
   })

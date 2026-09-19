@@ -7,13 +7,13 @@ import { analyzePdf } from '../lib/pdf-import'
 interface UseCoverRegenerationOptions {
   store: EbookLibraryStore
   refreshBooks(): Promise<void>
-  refreshCapacity(): Promise<void>
+  refreshUsage(): Promise<void>
 }
 
 export function useCoverRegeneration({
   store,
   refreshBooks,
-  refreshCapacity,
+  refreshUsage,
 }: UseCoverRegenerationOptions) {
   const [coverErrors, setCoverErrors] = useState<Record<string, string>>({})
   const [regeneratingCover, setRegeneratingCover] = useState<string | null>(null)
@@ -39,7 +39,7 @@ export function useCoverRegeneration({
         coverMime: analyzed.coverMime,
       })
       await refreshBooks()
-      await refreshCapacity()
+      await refreshUsage()
     } catch (error) {
       setCoverErrors((current) => ({
         ...current,

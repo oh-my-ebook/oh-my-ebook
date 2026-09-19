@@ -5,9 +5,9 @@ description: 읽기·질문·근거 확인에 집중하는 전자책 리더
 colors:
   primary: '#1F201C'
   primary-foreground: '#F4F3EE'
-  background: '#F1EEE5'
-  card: '#FFFDF8'
-  muted: '#EDE9DC'
+  background: '#EEEAE0'
+  card: '#F9F5EB'
+  muted: '#E9E5D7'
   muted-foreground: '#4A4840'
   border: '#E0DBCC'
   input: '#7E7B6F'
@@ -20,11 +20,11 @@ colors:
   reader-code-foreground: '#E7E3D6'
   dark-primary: '#DBD7CA'
   dark-primary-foreground: '#1A1915'
-  dark-background: '#141310'
+  dark-background: '#181714'
   dark-card: '#201F1A'
   dark-muted: '#2F2D26'
   dark-muted-foreground: '#948F80'
-  dark-border: '#2F2D26'
+  dark-border: '#3D3A33'
   dark-input: '#948F80'
   dark-accent: '#26322B'
   dark-destructive: '#D98A63'
@@ -89,10 +89,12 @@ YAML은 토큰 값, 본문은 적용 규칙을 정의한다.
   YAML의 `dark-*`는 다크 값 표기이며 별도 CSS 변수명이 아니다.
 - `@theme inline`의 `--color-*`에 일반·`reader-*` 토큰을 연결하고 `bg-background`, `text-reader-link` 등 의미 클래스로 사용한다.
 - 중복 색 매핑: `foreground/card-foreground/popover-foreground/sidebar-foreground/sidebar-primary`는 `primary`,
-  `popover/sidebar`는 `card`, `secondary`는 `reader-page`, `secondary-foreground`는 `muted-foreground`,
+  `popover/sidebar`는 `card`, 라이트 `secondary-foreground`는 `muted-foreground`, 다크 `secondary-foreground`는 `foreground`,
   `accent-foreground/ring/sidebar-accent-foreground/sidebar-ring`은 `reader-link`와 같은 값이다.
   `sidebar-primary-foreground/sidebar-accent/sidebar-border`는 대응하는 일반 토큰과 같은 값이다.
 - Figma Make의 HEX 값을 보존한다. `muted`는 배경과 구분되는 면 색으로 기본 hover를 표현한다.
+- `secondary`는 눌린 버튼(목차·함께 읽기 패널)의 면 색으로, `card` 위에서 hover(`muted`)보다 한 단계 진하게 보이도록 둔다.
+  기본으로 켜져 있는 "화면에 맞춤"은 항상 진하게 보이지 않도록 Toggle 기본값인 `muted`를 쓴다.
 
 ## Typography
 
@@ -109,13 +111,13 @@ YAML은 토큰 값, 본문은 적용 규칙을 정의한다.
 ## Layout
 
 - 아래 수치와 spacing 토큰은 페이지·전자책 배치 전용이다.
-  `@theme`의 `--spacing-reader-*`에 연결해 `gap-reader-spread-gap`, `p-reader-page-mobile`로 사용한다.
+  `@theme`의 `--spacing-reader-*`에 연결해 `gap-reader-spread-gap`로 사용한다.
 - 랜딩 최대 폭 900px, 좌우 여백 16–32px.
 - 리더 상·하단 바는 최소 48px. 중앙 지면과 오른쪽 320px 질문 패널은 각각 스크롤한다.
 - HTML 지면은 단면 최대 640px, 안쪽 여백은 데스크톱 세로 72px·가로 80px, 모바일 24px.
   PDF는 원본 비율과 확대값을 따른다. 푸터가 본문에 겹치지 않게 한다.
-- 1024px 미만은 단면과 Sheet형 질문 패널. 목차는 폭 240px의 Sheet로 연다.
-  양면은 책 영역의 가용 폭이 1000px 이상일 때 제공하고, 최대 1100px·간격 16px로 배치한다.
+- 1024px 미만은 단면과 Sheet형 질문 패널. 목차는 넓은 화면에서 읽기 영역 왼쪽에 폭 280px로 붙이고, 좁은 화면에서는 Sheet로 연다.
+  양면은 화면 폭 1024px 이상에서 제공하고, 최대 1100px·간격 16px로 배치한다.
 
 ## Elevation & Depth
 

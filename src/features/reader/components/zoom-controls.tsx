@@ -1,4 +1,7 @@
+import { MinusIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Toggle } from '@/components/ui/toggle'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ZoomControlsProps {
   isFitHeight: boolean
@@ -24,35 +27,43 @@ export function ZoomControls({
   return (
     <div role="group" aria-label="크기 조절" className="flex flex-wrap items-center gap-1">
       <Button
+        aria-label="축소"
         type="button"
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon-sm"
         disabled={disabled || !canZoomOut}
         onClick={onZoomOut}
       >
-        축소
+        <MinusIcon />
       </Button>
-      <output role="status" aria-label="현재 확대율">
-        {Math.round(scale * 100)}%
-      </output>
+      {/* 켜짐 상태를 나타내는 버튼이라 Toggle을 쓴다. 이미 맞춤 상태에서 눌러도 맞춤을 유지한다. */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Toggle
+              aria-label="화면에 맞춤"
+              disabled={disabled}
+              onPressedChange={onFitHeight}
+              pressed={isFitHeight}
+              size="sm"
+            />
+          }
+        >
+          <output role="status" aria-label="현재 확대율">
+            {Math.round(scale * 100)}%
+          </output>
+        </TooltipTrigger>
+        <TooltipContent>화면에 맞춤</TooltipContent>
+      </Tooltip>
       <Button
+        aria-label="확대"
         type="button"
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon-sm"
         disabled={disabled || !canZoomIn}
         onClick={onZoomIn}
       >
-        확대
-      </Button>
-      <Button
-        type="button"
-        variant={isFitHeight ? 'secondary' : 'outline'}
-        size="sm"
-        aria-pressed={isFitHeight}
-        disabled={disabled}
-        onClick={onFitHeight}
-      >
-        높이 맞춤
+        <PlusIcon />
       </Button>
     </div>
   )
