@@ -30,6 +30,8 @@ export interface EbookWorkerRequest {
 export type EbookStoreResponse =
   { requestId: number; result: unknown } | { requestId: number; error: { code: string } }
 
+export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'
+
 export interface AddBookInput {
   pdfData: ArrayBuffer
   contentHash: string
@@ -64,6 +66,9 @@ export interface StoredBook {
   cover_status: 'ready' | 'fallback'
   pdf_status: 'available' | 'missing'
   last_page: number | null
+  analysis_status: BookAnalysisStatus
+  ocr_completed_at: number | null
+  indexed_at: number | null
   created_at: number
   updated_at: number
 }

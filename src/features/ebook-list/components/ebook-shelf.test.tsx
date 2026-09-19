@@ -22,6 +22,9 @@ function createBook(id: string, title: string): StoredBook {
     cover_status: 'ready',
     pdf_status: 'available' as const,
     last_page: null,
+    analysis_status: 'analyzing',
+    ocr_completed_at: null,
+    indexed_at: null,
     created_at: 0,
     updated_at: 0,
   }

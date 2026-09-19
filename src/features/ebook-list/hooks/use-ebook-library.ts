@@ -14,16 +14,32 @@ type LibraryState =
   | { status: 'ready'; books: StoredBook[] }
   | { status: 'error'; message: string }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isPdfStatus(value: unknown): value is StoredBook['pdf_status'] {
+  return value === 'available' || value === 'missing'
+}
+
+function isAnalysisStatus(value: unknown): value is StoredBook['analysis_status'] {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
+}
+
+function isNullableTimestamp(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isSafeInteger(value))
+}
+
 function isStoredBook(value: unknown): value is StoredBook {
+  if (!isRecord(value)) return false
+
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
     typeof value.id === 'string' &&
-    'title' in value &&
     typeof value.title === 'string' &&
-    'pdf_status' in value &&
-    (value.pdf_status === 'available' || value.pdf_status === 'missing')
+    isPdfStatus(value.pdf_status) &&
+    isAnalysisStatus(value.analysis_status) &&
+    isNullableTimestamp(value.ocr_completed_at) &&
+    isNullableTimestamp(value.indexed_at)
   )
 }
 
