@@ -57,11 +57,29 @@ export function useReaderLayout(): ReaderLayout {
     }
 
     measure()
-    const observer = new ResizeObserver(measure)
+
+    // 창 리사이즈나 패널 드래그 중에는 ResizeObserver 콜백이 프레임마다 여러 번 발생한다.
+    // 매번 즉시 측정해 반영하면 배율이 계속 바뀌어 PDF 뷰포트가 깜빡이므로,
+    // 한 애니메이션 프레임에 모아 한 번만 측정한다.
+    let animationFrameId: number | null = null
+    const scheduleMeasure = () => {
+      if (animationFrameId !== null) {
+        return
+      }
+      animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null
+        measure()
+      })
+    }
+
+    const observer = new ResizeObserver(scheduleMeasure)
     observer.observe(container)
 
     return () => {
       observer.disconnect()
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId)
+      }
     }
   }, [])
 
