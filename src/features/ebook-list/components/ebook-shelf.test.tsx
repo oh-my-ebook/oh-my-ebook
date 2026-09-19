@@ -97,4 +97,39 @@ describe('EbookShelf', () => {
     )
     expect(screen.getByRole('button', { name: '책 추가' })).toBeDisabled()
   })
+
+  it('페이지 드래그 상태를 책 추가 카드에 전달한다', () => {
+    const { rerender } = render(
+      <EbookShelf
+        books={[]}
+        coverErrors={{}}
+        dragActive={false}
+        onFilesSelected={vi.fn()}
+        onOpenBook={vi.fn()}
+        onDelete={vi.fn()}
+        onRegenerate={vi.fn()}
+        onRename={vi.fn()}
+        regeneratingCover={null}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute(
+      'data-dragging',
+      'false',
+    )
+
+    rerender(
+      <EbookShelf
+        books={[]}
+        coverErrors={{}}
+        dragActive
+        onFilesSelected={vi.fn()}
+        onOpenBook={vi.fn()}
+        onDelete={vi.fn()}
+        onRegenerate={vi.fn()}
+        onRename={vi.fn()}
+        regeneratingCover={null}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute('data-dragging', 'true')
+  })
 })

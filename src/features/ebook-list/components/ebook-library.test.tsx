@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
@@ -112,6 +112,46 @@ describe('EbookLibrary', () => {
     expect(screen.getByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent('확인 불가')
+  })
+
+  it('페이지 어디로든 파일을 끌고 오면 책 추가 카드가 강조되고, 놓으면 책을 추가한다', async () => {
+    const store = createStore()
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      pdfData: new ArrayBuffer(1),
+      contentHash: 'hash',
+      fileName: 'dropped.pdf',
+      title: '드롭한 책',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 1,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+    const file = new File(['pdf'], 'dropped.pdf', { type: 'application/pdf' })
+
+    fireEvent.dragEnter(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute('data-dragging', 'true')
+
+    fireEvent.drop(main, { dataTransfer: { types: ['Files'], files: [file] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute(
+      'data-dragging',
+      'false',
+    )
+    expect(await screen.findByText('dropped.pdf을 추가했습니다.')).toBeVisible()
+    expect(store.saveBook).toHaveBeenCalledOnce()
   })
 
   it('업로드 전에 quota 기반으로 파일을 차단하지 않고 일부 실패 후 다음 파일을 처리한다', async () => {

@@ -2,6 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { usePageFileDrop } from '../hooks/use-page-file-drop'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
@@ -29,6 +30,13 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     deleteBook,
   } = useEbookLibrary(store)
 
+  const { isDraggingFile, dropZoneProps } = usePageFileDrop({
+    disabled: state.status !== 'ready' || isUploading,
+    onFilesDropped: (files) => {
+      void addFiles(files)
+    },
+  })
+
   async function openBook(bookId: string) {
     try {
       await store.request('hasBook', bookId)
@@ -45,7 +53,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   }
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="min-h-svh bg-background" {...dropZoneProps}>
       <nav aria-label="주 탐색" className="border-b bg-card/92">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
           <strong>oh-my-ebook</strong>
@@ -94,6 +102,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             <EbookShelf
               books={state.books}
               coverErrors={coverErrors}
+              dragActive={isDraggingFile}
               isUploading={isUploading}
               onFilesSelected={(files) => {
                 void addFiles(files)

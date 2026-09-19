@@ -6,6 +6,7 @@ interface EbookShelfProps {
   books: readonly StoredBook[]
   coverErrors: Readonly<Record<string, string>>
   disabled?: boolean
+  dragActive?: boolean
   isUploading?: boolean
   onFilesSelected(files: File[]): void
   onOpenBook(bookId: string): void
@@ -19,6 +20,7 @@ export function EbookShelf({
   books,
   coverErrors,
   disabled,
+  dragActive,
   isUploading,
   onFilesSelected,
   onOpenBook,
@@ -32,6 +34,7 @@ export function EbookShelf({
       <li>
         <AddBookCard
           disabled={disabled}
+          dragActive={dragActive}
           isUploading={isUploading}
           onFilesSelected={onFilesSelected}
         />

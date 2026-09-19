@@ -267,6 +267,12 @@
     transform: scale(1.02);
     box-shadow: 0 14px 24px -12px rgb(31 32 28 / 24%);
   }
+
+  .book-card-cover[data-dragging='true'] {
+    border-color: var(--primary);
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 @custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));

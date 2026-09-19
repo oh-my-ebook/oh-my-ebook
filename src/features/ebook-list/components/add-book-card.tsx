@@ -1,20 +1,21 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Plus } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 
 interface AddBookCardProps {
   isUploading?: boolean
   disabled?: boolean
+  dragActive?: boolean
   onFilesSelected(files: File[]): void
 }
 
 export function AddBookCard({
   isUploading = false,
   disabled = false,
+  dragActive = false,
   onFilesSelected,
 }: AddBookCardProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
   const unavailable = disabled || isUploading
 
   function selectFiles(files: File[]) {
@@ -40,21 +41,10 @@ export function AddBookCard({
       />
       <button
         aria-label="책 추가"
-        className="book-card-cover h-full w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none transition-colors data-[dragging=true]:border-primary data-[dragging=true]:bg-primary/10 data-[dragging=true]:text-primary"
-        data-dragging={dragging}
+        className="book-card-cover h-full w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none transition-colors"
+        data-dragging={dragActive}
         disabled={unavailable}
         onClick={() => inputRef.current?.click()}
-        onDragEnter={(event) => {
-          event.preventDefault()
-          if (!unavailable) setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault()
-          setDragging(false)
-          selectFiles(Array.from(event.dataTransfer.files))
-        }}
         type="button"
       >
         {isUploading ? <Spinner /> : <Plus />}
