@@ -57,7 +57,7 @@ describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
     const user = userEvent.setup()
     render(<ReaderChat />)
 
-    const input = screen.getByRole('textbox', { name: 'Message input' })
+    const input = screen.getByRole('textbox', { name: '질문 입력' })
     await user.type(input, '실제 질문 내용')
     await user.keyboard('{Enter}')
 
