@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
+import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
@@ -146,6 +147,7 @@ describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
     respondSpy.mockReset()
+    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -208,6 +210,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -231,6 +234,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(false)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -252,6 +256,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock, 2)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))

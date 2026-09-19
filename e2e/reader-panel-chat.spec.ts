@@ -27,17 +27,14 @@ async function openReader(page: import('@playwright/test').Page) {
 }
 
 test.describe('보조 패널 채팅', () => {
-  test('넓은 화면에서 질문을 입력할 수 있다', async ({ page }) => {
+  test('넓은 화면에서 모델을 다운로드하기 전에는 질문을 입력할 수 없다', async ({ page }) => {
     await openReader(page)
     await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
     await expect(page.getByRole('region', { name: PANEL_TITLE })).toBeVisible()
     await expect(page.getByRole('button', { name: '모델 다운로드' })).toBeVisible()
 
-    const input = page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })
-    await input.fill('이 페이지 요약해줘')
-
-    await expect(input).toHaveValue('이 페이지 요약해줘')
-    await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })).toBeDisabled()
+    await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeDisabled()
   })
 
   test('넓은 화면에서 키보드로 패널 너비를 조절한다', async ({ page }) => {
@@ -68,7 +65,7 @@ test.describe('보조 패널 채팅', () => {
       await expect.poll(async () => (await panel.boundingBox())?.x).toBe(80)
 
       const input = page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })
-      await input.fill('이 페이지 요약해줘')
+      await expect(input).toBeVisible()
 
       const viewportSize = page.viewportSize()
       const inputBox = await input.boundingBox()

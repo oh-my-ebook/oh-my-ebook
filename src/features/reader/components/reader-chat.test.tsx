@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
 import { createMockChatModelAdapter, type MockResponder } from '../lib/mock-chat-adapter'
-import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
+import { useWebLlmModelStore, type WebLlmModelStatus } from '../lib/web-llm/webllm-model'
 import { ReaderChat } from './reader-chat'
 
 const prepareWebLlmModelMock = vi.hoisted(() => vi.fn(async () => undefined))
@@ -56,7 +56,7 @@ const RETRY_BUTTON_NAME = '다시 답변받기'
 describe('ReaderChat', () => {
   afterEach(() => {
     prepareWebLlmModelMock.mockReset()
-    useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true)
+    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -146,8 +146,37 @@ describe('ReaderChat', () => {
     expect(screen.getByRole('button', { name: '모델 다운로드 중' })).toBeInTheDocument()
   })
 
+  it.each<[string, WebLlmModelStatus]>([
+    ['다운로드 전', 'idle'],
+    ['다운로드 중', 'loading'],
+    ['다운로드 실패', 'error'],
+  ])('모델이 %s 상태면 질문을 입력할 수 없다', (_case, status) => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status })
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })).toBeDisabled()
+  })
+
+  it('입력해 둔 질문이 있어도 모델에 문제가 생기면 보낼 수 없다', async () => {
+    setupResizeObserverMock()
+    const user = userEvent.setup()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const { respond } = createControllableRespond(0)
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+    await user.type(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME }), '질문')
+
+    act(() => useWebLlmModelStore.setState({ status: 'error' }))
+
+    expect(screen.getByRole('button', { name: SEND_BUTTON_NAME })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })).toBeDisabled()
+  })
+
   it('Enter로 전송하면 질문이 먼저 표시되고 응답이 스트리밍 조각으로 갱신되며 완료되면 스트리밍 상태가 해제된다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const { respond, controllers } = createControllableRespond(2)
     const adapter = createMockChatModelAdapter(respond)
@@ -172,6 +201,7 @@ describe('ReaderChat', () => {
 
   it('Shift+Enter는 줄바꿈만 하고 전송하지 않는다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const { respond } = createControllableRespond(1)
     const adapter = createMockChatModelAdapter(respond)
@@ -188,6 +218,7 @@ describe('ReaderChat', () => {
 
   it('빈 값이나 공백만 있는 입력은 전송하지 않는다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const { respond } = createControllableRespond(0)
     const adapter = createMockChatModelAdapter(respond)
@@ -203,6 +234,7 @@ describe('ReaderChat', () => {
 
   it('응답을 받는 동안 새 질문 전송이 비활성화된다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const { respond, controllers } = createControllableRespond(1)
     const adapter = createMockChatModelAdapter(respond)
@@ -227,6 +259,7 @@ describe('ReaderChat', () => {
 
   it('응답 생성에 실패하면 오류를 안내하고 재시도 조작을 제공한다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const controller = createPromiseController<void>()
     // 첫 조각이 도착하기 전에 실패하는 경우를 흉내 내므로 이 제너레이터는 의도적으로 yield하지 않는다.
@@ -249,6 +282,7 @@ describe('ReaderChat', () => {
 
   it('재시도하면 같은 질문으로 다시 응답을 받는다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     let callCount = 0
     const firstController = createPromiseController<void>()
@@ -281,6 +315,7 @@ describe('ReaderChat', () => {
 
   it('전송한 질문에 현재 페이지 번호가 함께 전달된다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const receivedContexts: Parameters<MockResponder>[1][] = []
     const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
@@ -300,6 +335,7 @@ describe('ReaderChat', () => {
 
   it('Tab으로 입력 중인 질문에서 전송 조작부로 이동할 수 있다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const { respond } = createControllableRespond(1)
     const adapter = createMockChatModelAdapter(respond)
@@ -314,6 +350,7 @@ describe('ReaderChat', () => {
 
   it('실패 후 Tab으로 재시도 조작부로 이동할 수 있다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
     const controller = createPromiseController<void>()
     // 첫 조각이 도착하기 전에 실패하는 경우를 흉내 내므로 이 제너레이터는 의도적으로 yield하지 않는다.
@@ -338,6 +375,7 @@ describe('ReaderChat', () => {
 
   it('스트리밍 중인 응답의 갱신과 완료를 보조 기술로 확인할 수 있다', async () => {
     setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
     const { respond, controllers } = createControllableRespond(1)
     const adapter = createMockChatModelAdapter(respond)
     render(<ReaderChat chatModel={adapter} />)
