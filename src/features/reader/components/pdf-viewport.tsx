@@ -227,14 +227,10 @@ export function PdfViewport(props: PdfViewportProps) {
       : new Map<number, OcrPageResult>()
 
   return (
-    <section
-      aria-busy={status === 'loading'}
-      aria-label="PDF 본문"
-      className="h-full min-h-0 overflow-auto"
-    >
+    <section aria-busy={status === 'loading'} aria-label="PDF 본문" className="h-full min-h-0">
       <div
         aria-label={status === 'loading' ? `PDF ${pageRange}페이지 표시 중` : undefined}
-        className="flex min-h-full w-max min-w-full items-start justify-center gap-reader-spread-gap"
+        className="flex min-h-full w-max min-w-full items-center justify-center gap-reader-spread-gap"
         hidden={status === 'error'}
         ref={canvasContainerRef}
         role={status === 'loading' ? 'status' : undefined}

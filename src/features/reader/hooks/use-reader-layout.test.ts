@@ -157,37 +157,23 @@ describe('useReaderLayout', () => {
     expect(layout.current?.availableHeight).toBe(1199.652)
   })
 
-  it('읽기 영역 가용 폭 999px과 1000px 경계를 정확히 구분한다', () => {
-    const resizeObserver = setupResizeObserverMock()
-    setupMatchMediaMock()
-    const { layout } = renderLayoutHarness()
-    const container = layout.current!.containerRef.current!
-
-    setContainerSize(container, 999, 800)
-    resizeObserver.triggerResize()
-    expect(layout.current?.availableWidth).toBe(999)
-
-    setContainerSize(container, 1000, 800)
-    resizeObserver.triggerResize()
-    expect(layout.current?.availableWidth).toBe(1000)
-  })
-
-  it('화면과 읽기 영역의 변경을 각각 반영해 두 페이지 가능 여부를 계산한다', () => {
+  it('읽기 영역 너비와 관계없이 브라우저 창 너비만으로 두 페이지 가능 여부를 계산한다', () => {
     const resizeObserver = setupResizeObserverMock()
     const mediaQuery = setupMatchMediaMock(false)
     const { layout } = renderLayoutHarness()
     const container = layout.current!.containerRef.current!
 
-    setContainerSize(container, 1000, 800)
+    setContainerSize(container, 1200, 800)
     resizeObserver.triggerResize()
     expect(layout.current?.isSpreadAvailable).toBe(false)
 
     mediaQuery.triggerMediaChange(true)
     expect(layout.current?.isSpreadAvailable).toBe(true)
 
-    setContainerSize(container, 999, 800)
+    // 패널을 열어 읽기 영역이 좁아져도 창 너비가 그대로면 두 페이지 보기를 유지한다.
+    setContainerSize(container, 600, 800)
     resizeObserver.triggerResize()
-    expect(layout.current?.isSpreadAvailable).toBe(false)
+    expect(layout.current?.isSpreadAvailable).toBe(true)
   })
 
   it('읽기 영역 크기가 바뀌면 다시 측정한다', () => {

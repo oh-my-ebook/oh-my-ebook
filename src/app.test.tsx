@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -18,6 +19,11 @@ vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
+vi.mock('@/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizablePanel: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ResizableHandle: () => <div role="separator" />,
+}))
 
 const resizeNotifications: Array<() => void> = []
 
@@ -139,7 +145,7 @@ describe('App', () => {
   it('제목이 없으면 전체 파일명을 제목으로 표시한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />)
+    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: MemoryRouter })
 
     expect(screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })).toBeInTheDocument()
   })

@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { resolve } from 'node:path'
 
-const PANEL_OPEN_LABEL = '보조 패널 열기'
-const PANEL_TITLE = '보조 패널'
-const MESSAGE_INPUT_LABEL = 'Message input'
-const SEND_BUTTON_LABEL = 'Send message'
+const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
+const PANEL_TITLE = '함께 읽기'
+const MESSAGE_INPUT_LABEL = '질문 입력'
+const SEND_BUTTON_LABEL = '질문 보내기'
 const MOCK_RESPONSE_TEXT =
   '질문을 확인했어요. 지금은 Mock 응답이라 실제 AI 답변은 아직 연결되지 않았어요.'
 
@@ -41,6 +41,23 @@ test.describe('보조 패널 채팅', () => {
     await expect(page.getByText('이 페이지 요약해줘')).toBeVisible()
     await expect(page.getByText(MOCK_RESPONSE_TEXT)).toBeVisible()
     await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeVisible()
+  })
+
+  test('넓은 화면에서 키보드로 패널 너비를 조절한다', async ({ page }) => {
+    await openReader(page)
+    await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
+
+    const panel = page.getByRole('region', { name: PANEL_TITLE })
+    const handle = page.getByRole('separator', { name: '함께 읽기 패널 너비 조절' })
+    const before = await panel.boundingBox()
+    await handle.press('ArrowLeft')
+    const after = await panel.boundingBox()
+
+    if (!before || !after) {
+      throw new Error('함께 읽기 패널의 너비를 확인하지 못했습니다.')
+    }
+
+    expect(after.width).toBeGreaterThan(before.width)
   })
 
   test.describe('좁은 화면(320px)', () => {
