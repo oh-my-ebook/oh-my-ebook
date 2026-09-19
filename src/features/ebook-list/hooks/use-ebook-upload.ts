@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import { runOcrAnalysis } from '../lib/ebook-analysis/ocr-analysis'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
 
 interface UseEbookUploadOptions {
@@ -34,9 +35,17 @@ export function useEbookUpload({
     try {
       for (const file of files) {
         try {
+          // 1. PDF 메타데이터 추출
           const analyzed = await analyzePdf(file)
-          await store.saveBook(analyzed)
+
+          // 2. PDF 메타데이터 및 원본 저장
+          const bookId = await store.saveBook(analyzed)
           toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
+
+          // 3. OCR 분석 파이프라인 실행
+          if (typeof bookId === 'string') {
+            void runOcrAnalysis(bookId, store).finally(() => refreshBooks())
+          }
         } catch (error) {
           toast.add({
             title: `${file.name}을 추가하지 못했습니다.`,

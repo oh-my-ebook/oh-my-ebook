@@ -28,6 +28,12 @@ export interface OcrPageResult {
   lines: readonly SelectableTextLine[]
 }
 
+export interface RawOcrPageResult {
+  width: number
+  height: number
+  lines: readonly OcrLine[]
+}
+
 type PaddleOcr = Awaited<
   ReturnType<(typeof import('@paddleocr/paddleocr-js'))['PaddleOCR']['create']>
 >
@@ -211,6 +217,24 @@ export async function recognizePdfPage(
     return { width: canvas.width, height: canvas.height, lines }
   } finally {
     // OCR이 끝난 고해상도 Canvas의 픽셀 메모리를 즉시 반환한다.
+    canvas.width = 0
+    canvas.height = 0
+  }
+}
+
+export async function recognizePdfPageRaw(
+  page: PdfPageHandle,
+  signal: AbortSignal,
+): Promise<RawOcrPageResult> {
+  const { canvas } = await renderPdfPageForOcr(page, signal)
+
+  try {
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      lines: await recognizeWithPaddleOcr(canvas, signal),
+    }
+  } finally {
     canvas.width = 0
     canvas.height = 0
   }

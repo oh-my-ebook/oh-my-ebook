@@ -1,6 +1,6 @@
 import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
-import type { AddBookInput } from '../../ebook-types'
+import type { AddBookInput, NextOcrPage, OcrLinePage, OcrLineRecord } from '../../ebook-types'
 import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
@@ -14,6 +14,21 @@ import {
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
   SELECT_BOOK_METADATA_SQL,
   SELECT_BOOKS_SQL,
+  SELECT_BOOK_PAGE_COUNT_SQL,
+  SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
+  SELECT_NEXT_OCR_PAGE_SQL,
+  SELECT_OCR_PAGE_BOOK_ID_SQL,
+  SELECT_OCR_LINE_COUNT_SQL,
+  SELECT_OCR_LINES_SQL,
+  SET_BOOK_ANALYSIS_FAILED_SQL,
+  SET_OCR_COMPLETED_AT_SQL,
+  SET_OCR_PAGE_FAILED_SQL,
+  SET_OCR_PAGE_PROCESSING_SQL,
+  SET_OCR_PAGE_READY_SQL,
+  INSERT_OCR_LINE_SQL,
+  INSERT_OCR_PAGE_SQL,
+  DELETE_OCR_LINES_SQL,
+  RESET_PROCESSING_OCR_PAGES_SQL,
   UPDATE_BOOK_COVER_SQL,
   UPDATE_BOOK_PROGRESS_SQL,
   UPDATE_BOOK_TITLE_SQL,
@@ -28,6 +43,9 @@ import {
 import {
   getPayload,
   isRowAffected,
+  isInitializeOcrPagesInput,
+  isListOcrLinesInput,
+  isStoreOcrPageInput,
   isUpdateCoverInput,
   isUpdateProgressInput,
   isUpdateTitleInput,
@@ -180,6 +198,154 @@ function updateCover(database: Database, request: WorkerRequest): undefined {
   return undefined
 }
 
+// 업로든한 PDF의 페이지 수를 보고 페이지 개수만큼 저장한다.
+function initializeOcrPages(database: Database, request: WorkerRequest): undefined {
+  const input = getPayload(request, request.command, isInitializeOcrPagesInput)
+  if (!database.selectValue(SELECT_BOOK_PAGE_COUNT_SQL, [input.bookId])) {
+    throw new NotFoundBookError()
+  }
+
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    for (let pageNumber = 1; pageNumber <= input.pageCount; pageNumber += 1) {
+      database.exec(INSERT_OCR_PAGE_SQL, {
+        bind: [crypto.randomUUID(), input.bookId, pageNumber, now, now],
+      })
+    }
+    database.exec(COMMIT_TRANSACTION_SQL)
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+  return undefined
+}
+
+function recoverInterruptedOcrPages(database: Database, request: WorkerRequest): undefined {
+  const bookId = getBookId(request)
+  database.exec(RESET_PROCESSING_OCR_PAGES_SQL, { bind: [Date.now(), bookId] })
+  return undefined
+}
+
+function acquireNextOcrPage(database: Database, request: WorkerRequest): NextOcrPage | null {
+  const bookId = getBookId(request)
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    const page = database.selectObject(SELECT_NEXT_OCR_PAGE_SQL, [bookId])
+    if (!page) {
+      database.exec(COMMIT_TRANSACTION_SQL)
+      return null
+    }
+
+    const { id, page_number: pageNumber } = page
+    if (typeof id !== 'string' || typeof pageNumber !== 'number')
+      throw new Error('Invalid OCR page')
+    database.exec(SET_OCR_PAGE_PROCESSING_SQL, { bind: [now, id] })
+    if (!isRowAffected(database)) throw new Error('Unable to claim OCR page')
+    database.exec(COMMIT_TRANSACTION_SQL)
+    return { id, pageNumber }
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+}
+
+function storeOcrPage(database: Database, request: WorkerRequest): boolean {
+  const input = getPayload(request, request.command, isStoreOcrPageInput)
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    const page = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [input.pageId])
+    const bookId = page?.book_id
+    if (typeof bookId !== 'string') throw new NotFoundBookError()
+
+    database.exec(DELETE_OCR_LINES_SQL, { bind: [input.pageId] })
+    input.lines.forEach((line, lineIndex) => {
+      database.exec(INSERT_OCR_LINE_SQL, {
+        bind: [input.pageId, lineIndex, line.rawText, line.x0, line.y0, line.x1, line.y1],
+      })
+    })
+    database.exec(SET_OCR_PAGE_READY_SQL, {
+      bind: [input.width, input.height, now, input.pageId],
+    })
+    if (!isRowAffected(database)) throw new Error('Unable to store OCR page')
+
+    const incompletePages = database.selectValue(SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL, [bookId])
+    if (incompletePages !== 0) {
+      database.exec(COMMIT_TRANSACTION_SQL)
+      return false
+    }
+    database.exec(SET_OCR_COMPLETED_AT_SQL, { bind: [now, now, bookId] })
+    database.exec(COMMIT_TRANSACTION_SQL)
+    return true
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+}
+
+function failOcrPage(database: Database, request: WorkerRequest): undefined {
+  const pageId = getBookId(request)
+  database.exec(SET_OCR_PAGE_FAILED_SQL, { bind: [Date.now(), pageId] })
+  if (!isRowAffected(database)) throw new NotFoundBookError()
+  return undefined
+}
+
+function failBookAnalysis(database: Database, request: WorkerRequest): undefined {
+  const bookId = getBookId(request)
+  database.exec(SET_BOOK_ANALYSIS_FAILED_SQL, { bind: [Date.now(), bookId] })
+  if (!isRowAffected(database)) throw new NotFoundBookError()
+  return undefined
+}
+
+function isOcrLineRecord(value: unknown): value is OcrLineRecord {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'page_number' in value &&
+    typeof value.page_number === 'number' &&
+    'line_index' in value &&
+    typeof value.line_index === 'number' &&
+    'raw_text' in value &&
+    typeof value.raw_text === 'string' &&
+    'x0' in value &&
+    typeof value.x0 === 'number' &&
+    'y0' in value &&
+    typeof value.y0 === 'number' &&
+    'x1' in value &&
+    typeof value.x1 === 'number' &&
+    'y1' in value &&
+    typeof value.y1 === 'number'
+  )
+}
+
+function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_OCR_LINE_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid OCR line count')
+  const lines = database.exec(SELECT_OCR_LINES_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(lines)) throw new Error('Invalid OCR lines')
+  const ocrLines: OcrLineRecord[] = []
+  for (const line of lines) {
+    if (!isOcrLineRecord(line)) throw new Error('Invalid OCR lines')
+    ocrLines.push({
+      page_number: line.page_number,
+      line_index: line.line_index,
+      raw_text: line.raw_text,
+      x0: line.x0,
+      y0: line.y0,
+      x1: line.x1,
+      y1: line.y1,
+    })
+  }
+  return { lines: ocrLines, total }
+}
+
 export function executeSqliteCommand(database: Database, request: WorkerRequest): unknown {
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
@@ -192,6 +358,20 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return updateTitle(database, request)
     case SQLITE_COMMAND.UPDATE_COVER:
       return updateCover(database, request)
+    case SQLITE_COMMAND.INITIALIZE_OCR_PAGES:
+      return initializeOcrPages(database, request)
+    case SQLITE_COMMAND.RECOVER_INTERRUPTED_OCR_PAGES:
+      return recoverInterruptedOcrPages(database, request)
+    case SQLITE_COMMAND.ACQUIRE_NEXT_OCR_PAGE:
+      return acquireNextOcrPage(database, request)
+    case SQLITE_COMMAND.STORE_OCR_PAGE:
+      return storeOcrPage(database, request)
+    case SQLITE_COMMAND.FAIL_OCR_PAGE:
+      return failOcrPage(database, request)
+    case SQLITE_COMMAND.FAIL_BOOK_ANALYSIS:
+      return failBookAnalysis(database, request)
+    case SQLITE_COMMAND.LIST_OCR_LINES:
+      return listOcrLines(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

@@ -3,6 +3,7 @@ import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import { runOcrAnalysis } from '../lib/ebook-analysis/ocr-analysis'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
@@ -104,6 +105,23 @@ export function useEbookLibrary(store: EbookLibraryStore) {
       active = false
     }
   }, [store, attempt, refreshUsage])
+
+  // 분석 중 브라우저가 종료되고 다시 들어왔을 때,
+  // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
+  useEffect(() => {
+    if (state.status !== 'ready') return
+    const pendingBooks = state.books.filter(
+      (book) => book.analysis_status === 'analyzing' && book.ocr_completed_at === null,
+    )
+
+    async function resumeOcrAnalysis() {
+      for (const book of pendingBooks) {
+        await runOcrAnalysis(book.id, store)
+      }
+    }
+
+    void resumeOcrAnalysis().catch(() => undefined)
+  }, [state, store])
 
   function retry() {
     setState({ status: 'loading' })
