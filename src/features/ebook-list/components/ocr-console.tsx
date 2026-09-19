@@ -29,47 +29,29 @@ interface ConsoleBook {
 }
 
 function isConsoleBook(value: unknown): value is ConsoleBook {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'title' in value &&
-    typeof value.title === 'string'
-  )
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'string') return false
+  if (!('title' in value) || typeof value.title !== 'string') return false
+  return true
 }
 
 function isOcrLineRecord(value: unknown): value is OcrLineRecord {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'page_number' in value &&
-    typeof value.page_number === 'number' &&
-    'line_index' in value &&
-    typeof value.line_index === 'number' &&
-    'raw_text' in value &&
-    typeof value.raw_text === 'string' &&
-    'x0' in value &&
-    typeof value.x0 === 'number' &&
-    'y0' in value &&
-    typeof value.y0 === 'number' &&
-    'x1' in value &&
-    typeof value.x1 === 'number' &&
-    'y1' in value &&
-    typeof value.y1 === 'number'
-  )
+  if (typeof value !== 'object' || value === null) return false
+  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
+  if (!('line_index' in value) || typeof value.line_index !== 'number') return false
+  if (!('raw_text' in value) || typeof value.raw_text !== 'string') return false
+  if (!('x0' in value) || typeof value.x0 !== 'number') return false
+  if (!('y0' in value) || typeof value.y0 !== 'number') return false
+  if (!('x1' in value) || typeof value.x1 !== 'number') return false
+  if (!('y1' in value) || typeof value.y1 !== 'number') return false
+  return true
 }
 
 function isOcrLinePage(value: unknown): value is OcrLinePage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'total' in value &&
-    typeof value.total === 'number' &&
-    'lines' in value &&
-    Array.isArray(value.lines) &&
-    value.lines.every(isOcrLineRecord)
-  )
+  if (typeof value !== 'object' || value === null) return false
+  if (!('total' in value) || typeof value.total !== 'number') return false
+  if (!('lines' in value) || !Array.isArray(value.lines)) return false
+  return value.lines.every(isOcrLineRecord)
 }
 
 function PageControls({

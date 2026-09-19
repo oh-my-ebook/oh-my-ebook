@@ -8,6 +8,7 @@ import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { PdfDocumentSource } from '../lib/pdf-document'
+import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -30,6 +31,7 @@ interface ReaderProps {
   data?: Uint8Array
   title?: string
   initialPage?: number
+  getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   onPageChange?(pageNumber: number): void
 }
 
@@ -110,7 +112,14 @@ const ARROW_KEY_OWNER_SELECTOR = [
   '[data-slot="toggle-group"]',
 ].join(', ')
 
-export function Reader({ data, initialPage, onPageChange, title, url }: ReaderProps) {
+export function Reader({
+  data,
+  getStoredOcrPage,
+  initialPage,
+  onPageChange,
+  title,
+  url,
+}: ReaderProps) {
   const source = data ?? url ?? ''
   const [currentPage, setCurrentPage] = useState(1)
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
@@ -234,6 +243,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
+          getStoredOcrPage={getStoredOcrPage}
           pages={pageSpread.pages}
           scale={displayScale}
         />

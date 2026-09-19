@@ -123,3 +123,7 @@ export const SELECT_OCR_LINES_SQL = `SELECT ocr_pages.page_number, ocr_lines.lin
   ocr_lines.raw_text, ocr_lines.x0, ocr_lines.y0, ocr_lines.x1, ocr_lines.y1
   FROM ocr_lines JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id
   WHERE ocr_pages.book_id = ? ORDER BY ocr_pages.page_number, ocr_lines.line_index LIMIT ? OFFSET ?`
+export const SELECT_READY_OCR_PAGE_SQL = `SELECT id, width, height FROM ocr_pages
+  WHERE book_id = ? AND page_number = ? AND status = 'ready'`
+export const SELECT_OCR_PAGE_LINES_SQL = `SELECT raw_text, x0, y0, x1, y1 FROM ocr_lines
+  WHERE ocr_page_id = ? ORDER BY line_index`

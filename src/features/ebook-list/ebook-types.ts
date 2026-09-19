@@ -60,6 +60,12 @@ export interface OcrLinePage {
   total: number
 }
 
+export interface StoredOcrPage {
+  width: number
+  height: number
+  lines: OcrLineInput[]
+}
+
 export interface AddBookInput {
   pdfData: ArrayBuffer
   contentHash: string

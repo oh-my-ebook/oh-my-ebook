@@ -1,6 +1,12 @@
 import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
-import type { AddBookInput, NextOcrPage, OcrLinePage, OcrLineRecord } from '../../ebook-types'
+import type {
+  AddBookInput,
+  NextOcrPage,
+  OcrLinePage,
+  OcrLineRecord,
+  StoredOcrPage,
+} from '../../ebook-types'
 import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
@@ -20,6 +26,8 @@ import {
   SELECT_OCR_PAGE_BOOK_ID_SQL,
   SELECT_OCR_LINE_COUNT_SQL,
   SELECT_OCR_LINES_SQL,
+  SELECT_OCR_PAGE_LINES_SQL,
+  SELECT_READY_OCR_PAGE_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -44,6 +52,7 @@ import {
   getPayload,
   isRowAffected,
   isInitializeOcrPagesInput,
+  isGetStoredOcrPageInput,
   isListOcrLinesInput,
   isStoreOcrPageInput,
   isUpdateCoverInput,
@@ -300,24 +309,62 @@ function failBookAnalysis(database: Database, request: WorkerRequest): undefined
 }
 
 function isOcrLineRecord(value: unknown): value is OcrLineRecord {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'page_number' in value &&
-    typeof value.page_number === 'number' &&
-    'line_index' in value &&
-    typeof value.line_index === 'number' &&
-    'raw_text' in value &&
-    typeof value.raw_text === 'string' &&
-    'x0' in value &&
-    typeof value.x0 === 'number' &&
-    'y0' in value &&
-    typeof value.y0 === 'number' &&
-    'x1' in value &&
-    typeof value.x1 === 'number' &&
-    'y1' in value &&
-    typeof value.y1 === 'number'
-  )
+  if (!isStoredOcrLine(value)) return false
+  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
+  if (!('line_index' in value) || typeof value.line_index !== 'number') return false
+  return true
+}
+
+function isStoredOcrLine(value: unknown): value is {
+  raw_text: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+} {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('raw_text' in value) || typeof value.raw_text !== 'string') return false
+  if (!('x0' in value) || typeof value.x0 !== 'number') return false
+  if (!('y0' in value) || typeof value.y0 !== 'number') return false
+  if (!('x1' in value) || typeof value.x1 !== 'number') return false
+  if (!('y1' in value) || typeof value.y1 !== 'number') return false
+  return true
+}
+
+function getStoredOcrPage(database: Database, request: WorkerRequest): StoredOcrPage | null {
+  const input = getPayload(request, request.command, isGetStoredOcrPageInput)
+  const page = database.selectObject(SELECT_READY_OCR_PAGE_SQL, [input.bookId, input.pageNumber])
+  if (!page) return null
+  const { id, width, height } = page
+  if (
+    typeof id !== 'string' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    throw new Error('Invalid stored OCR page')
+  }
+  const lines = database.exec(SELECT_OCR_PAGE_LINES_SQL, {
+    bind: [id],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(lines)) throw new Error('Invalid stored OCR lines')
+  const storedLines = []
+  for (const line of lines) {
+    if (!isStoredOcrLine(line)) throw new Error('Invalid stored OCR lines')
+    storedLines.push({
+      rawText: line.raw_text,
+      x0: line.x0,
+      y0: line.y0,
+      x1: line.x1,
+      y1: line.y1,
+    })
+  }
+  return { width, height, lines: storedLines }
 }
 
 function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
@@ -372,6 +419,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return failBookAnalysis(database, request)
     case SQLITE_COMMAND.LIST_OCR_LINES:
       return listOcrLines(database, request)
+    case SQLITE_COMMAND.GET_STORED_OCR_PAGE:
+      return getStoredOcrPage(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

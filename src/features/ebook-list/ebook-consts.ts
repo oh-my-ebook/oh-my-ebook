@@ -28,6 +28,7 @@ export const SQLITE_COMMAND = {
   FAIL_OCR_PAGE: 'failOcrPage',
   FAIL_BOOK_ANALYSIS: 'failBookAnalysis',
   LIST_OCR_LINES: 'listOcrLines',
+  GET_STORED_OCR_PAGE: 'getStoredOcrPage',
 } as const
 
 export const OPFS_COMMAND = {

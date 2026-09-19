@@ -42,6 +42,11 @@ export interface ListOcrLinesInput {
   offset: number
 }
 
+export interface GetStoredOcrPageInput {
+  bookId: string
+  pageNumber: number
+}
+
 export interface WorkerRequest {
   requestId: number
   command: string
@@ -233,6 +238,10 @@ export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput 
     Number.isSafeInteger(value.offset) &&
     value.offset >= 0
   )
+}
+
+export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPageInput {
+  return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
 export function getPayload<T>(
