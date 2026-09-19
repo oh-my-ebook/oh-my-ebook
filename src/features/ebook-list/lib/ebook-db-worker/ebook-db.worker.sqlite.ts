@@ -2,6 +2,23 @@ import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
 import type { AddBookInput } from '../../ebook-types'
 import {
+  BEGIN_TRANSACTION_SQL,
+  COMMIT_TRANSACTION_SQL,
+  DELETE_BOOK_BY_ID_SQL,
+  ENABLE_FOREIGN_KEYS_SQL,
+  GET_SCHEMA_VERSION_SQL,
+  INITIAL_SCHEMA_SQL,
+  INSERT_BOOK_SQL,
+  ROLLBACK_TRANSACTION_SQL,
+  SELECT_BOOK_EXISTS_SQL,
+  SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
+  SELECT_BOOK_METADATA_SQL,
+  SELECT_BOOKS_SQL,
+  UPDATE_BOOK_COVER_SQL,
+  UPDATE_BOOK_PROGRESS_SQL,
+  UPDATE_BOOK_TITLE_SQL,
+} from './ebook-db.worker.sql'
+import {
   DeletedBookError,
   DuplicateBookError,
   NotFoundBookError,
@@ -29,54 +46,47 @@ export function isSqliteCommand(command: string): command is SqliteCommand {
 let databasePromise: Promise<Database> | undefined
 
 export function addBook(database: Database, input: AddBookInput): string {
-  if (database.selectValue('SELECT id FROM books WHERE content_hash = ?', [input.contentHash])) {
+  if (database.selectValue(SELECT_BOOK_ID_BY_CONTENT_HASH_SQL, [input.contentHash])) {
     throw new DuplicateBookError()
   }
 
   const id = crypto.randomUUID()
   const now = Date.now()
-  database.exec('BEGIN IMMEDIATE')
+  database.exec(BEGIN_TRANSACTION_SQL)
   try {
-    database.exec(
-      `INSERT INTO books (
-        id, content_hash, file_name, title, author, pdf_title, pdf_subject, pdf_keywords, publisher,
-        pdf_size, page_count, cover_data, cover_mime, cover_status, last_page,
-        analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
-      {
-        bind: [
-          id,
-          input.contentHash,
-          input.fileName,
-          input.title,
-          input.author,
-          input.pdfTitle,
-          input.pdfSubject,
-          input.pdfKeywords,
-          input.publisher,
-          input.pdfSize,
-          input.pageCount,
-          input.coverData ? new Uint8Array(input.coverData) : null,
-          input.coverMime,
-          input.coverStatus,
-          'analyzing',
-          null,
-          null,
-          now,
-          now,
-        ],
-      },
-    )
-    database.exec('COMMIT')
+    database.exec(INSERT_BOOK_SQL, {
+      bind: [
+        id,
+        input.contentHash,
+        input.fileName,
+        input.title,
+        input.author,
+        input.pdfTitle,
+        input.pdfSubject,
+        input.pdfKeywords,
+        input.publisher,
+        input.pdfSize,
+        input.pageCount,
+        input.coverData ? new Uint8Array(input.coverData) : null,
+        input.coverMime,
+        input.coverStatus,
+        'analyzing',
+        null,
+        null,
+        now,
+        now,
+      ],
+    })
+    database.exec(COMMIT_TRANSACTION_SQL)
   } catch (error) {
-    database.exec('ROLLBACK')
+    database.exec(ROLLBACK_TRANSACTION_SQL)
     throw error
   }
   return id
 }
 
 export function deleteBookById(database: Database, id: string): void {
-  database.exec('DELETE FROM books WHERE id = ?', { bind: [id] })
+  database.exec(DELETE_BOOK_BY_ID_SQL, { bind: [id] })
 
   if (!isRowAffected(database)) throw new DeletedBookError()
 }
@@ -87,44 +97,18 @@ async function openDatabase(): Promise<Database> {
 
   const database = new sqlite3.oo1.OpfsDb('/ebook-library.sqlite3')
   try {
-    const version = database.exec('PRAGMA user_version', {
+    database.exec(ENABLE_FOREIGN_KEYS_SQL)
+    const version = database.exec(GET_SCHEMA_VERSION_SQL, {
       rowMode: 0,
       returnValue: 'resultRows',
     })[0]
     if (version === 0) {
-      database.exec('BEGIN IMMEDIATE')
+      database.exec(BEGIN_TRANSACTION_SQL)
       try {
-        database.exec(`
-          CREATE TABLE books (
-            id TEXT PRIMARY KEY,
-            content_hash TEXT NOT NULL UNIQUE,
-            file_name TEXT NOT NULL,
-            title TEXT NOT NULL,
-            author TEXT,
-            pdf_title TEXT,
-            pdf_subject TEXT,
-            pdf_keywords TEXT,
-            publisher TEXT,
-            pdf_size INTEGER NOT NULL CHECK (pdf_size >= 0),
-            page_count INTEGER NOT NULL CHECK (page_count > 0),
-            cover_data BLOB,
-            cover_mime TEXT,
-            cover_status TEXT NOT NULL CHECK (cover_status IN ('ready', 'fallback')),
-            last_page INTEGER CHECK (
-              last_page IS NULL OR (last_page >= 1 AND last_page <= page_count)
-            ),
-            analysis_status TEXT NOT NULL CHECK (analysis_status IN ('analyzing', 'ready', 'failed')),
-            ocr_completed_at INTEGER,
-            indexed_at INTEGER,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-          );
-          CREATE INDEX books_created_at_idx ON books(created_at DESC, id DESC);
-          PRAGMA user_version = 1;
-        `)
-        database.exec('COMMIT')
+        database.exec(INITIAL_SCHEMA_SQL)
+        database.exec(COMMIT_TRANSACTION_SQL)
       } catch (error) {
-        database.exec('ROLLBACK')
+        database.exec(ROLLBACK_TRANSACTION_SQL)
         throw error
       }
     } else if (version !== 1) {
@@ -154,50 +138,33 @@ export function getBookId(request: WorkerRequest): string {
 }
 
 export function listBooks(database: Database): unknown {
-  return database.exec(
-    `SELECT id, content_hash, file_name, title,
-            author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
-            page_count, cover_data, cover_mime, cover_status,
-            last_page, analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
-     FROM books ORDER BY created_at DESC, id DESC`,
-    { rowMode: 'object', returnValue: 'resultRows' },
-  )
+  return database.exec(SELECT_BOOKS_SQL, { rowMode: 'object', returnValue: 'resultRows' })
 }
 
 function hasBook(database: Database, request: WorkerRequest): undefined {
   const id = getBookId(request)
-  if (!database.selectValue('SELECT 1 FROM books WHERE id = ?', [id])) {
+  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [id])) {
     throw new DeletedBookError()
   }
   return undefined
 }
 
 export function getBookMetadata(database: Database, id: string): Record<string, unknown> {
-  const book = database.selectObject(
-    `SELECT id, content_hash, file_name, title,
-            author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
-            page_count, last_page
-     FROM books WHERE id = ?`,
-    [id],
-  )
+  const book = database.selectObject(SELECT_BOOK_METADATA_SQL, [id])
   if (!book) throw new NotFoundBookError()
   return normalizeStoredProgress(database, id, book)
 }
 
 function updateProgress(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isUpdateProgressInput)
-  database.exec(
-    `UPDATE books SET last_page = ?, updated_at = ?
-     WHERE id = ? AND ? <= page_count`,
-    { bind: [input.page, Date.now(), input.id, input.page] },
-  )
+  database.exec(UPDATE_BOOK_PROGRESS_SQL, { bind: [input.page, Date.now(), input.id, input.page] })
   if (!isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }
 
 function updateTitle(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isUpdateTitleInput)
-  database.exec('UPDATE books SET title = ?, updated_at = ? WHERE id = ?', {
+  database.exec(UPDATE_BOOK_TITLE_SQL, {
     bind: [input.title.trim(), Date.now(), input.id],
   })
   if (!isRowAffected(database)) throw new DeletedBookError()
@@ -206,12 +173,9 @@ function updateTitle(database: Database, request: WorkerRequest): undefined {
 
 function updateCover(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isUpdateCoverInput)
-  database.exec(
-    `UPDATE books SET cover_data = ?, cover_mime = ?, cover_status = 'ready', updated_at = ? WHERE id = ?`,
-    {
-      bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
-    },
-  )
+  database.exec(UPDATE_BOOK_COVER_SQL, {
+    bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
+  })
   if (!isRowAffected(database)) throw new DeletedBookError()
   return undefined
 }

@@ -1,6 +1,7 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
 import type { AddBookInput } from '../../ebook-types'
 import { InvalidPayloadError } from './ebook-db.worker.error'
+import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './ebook-db.worker.sql'
 
 export interface UpdateCoverInput {
   id: string
@@ -188,12 +189,12 @@ export function normalizeStoredProgress(
     return book
   }
 
-  database.exec('UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?', {
+  database.exec(RESET_INVALID_BOOK_PROGRESS_SQL, {
     bind: [Date.now(), id],
   })
   return { ...book, last_page: 1 }
 }
 
 export function isRowAffected(database: Database): boolean {
-  return database.selectValue('SELECT changes()') === 1
+  return database.selectValue(SELECT_CHANGES_SQL) === 1
 }
