@@ -88,13 +88,18 @@ async function createEngine(): Promise<WebLlmEngine> {
   })
 
   return Promise.race([
-    CreateWebWorkerMLCEngine(currentWorker, WEBLLM_MODEL_ID, {
-      initProgressCallback: ({ progress }) => {
-        useWebLlmModelStore.setState({
-          progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
-        })
+    CreateWebWorkerMLCEngine(
+      currentWorker,
+      WEBLLM_MODEL_ID,
+      {
+        initProgressCallback: ({ progress }) => {
+          useWebLlmModelStore.setState({
+            progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
+          })
+        },
       },
-    }),
+      { context_window_size: 8192 },
+    ),
     workerFailed,
   ])
 }
