@@ -19,6 +19,10 @@ function getText(message: ThreadMessage) {
 }
 
 function toWebLlmMessages({ context, messages }: ChatModelRunOptions) {
+  if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+    console.debug('[ReaderChat] getContext', context.system ?? '')
+  }
+
   const history = messages.map((message): ChatCompletionMessageParam => ({
     role: message.role,
     content: getText(message),
