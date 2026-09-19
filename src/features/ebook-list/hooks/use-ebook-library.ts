@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import { createOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
@@ -50,6 +51,18 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [refreshing, setRefreshing] = useState(false)
   const storage = useLibraryStorage()
   const { refreshUsage } = storage
+  const ocrCoordinatorRef = useRef<ReturnType<typeof createOcrAnalysisCoordinator> | null>(null)
+  if (ocrCoordinatorRef.current === null) {
+    ocrCoordinatorRef.current = createOcrAnalysisCoordinator()
+  }
+  const ocrCoordinator = ocrCoordinatorRef.current
+
+  const startOcrAnalysis = useCallback(
+    async (bookId: string): Promise<void> => {
+      await ocrCoordinator.startOcrAnalysis(bookId, store)
+    },
+    [ocrCoordinator, store],
+  )
 
   async function refreshBooks() {
     const result = await store.request('listBooks')
@@ -105,6 +118,23 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     }
   }, [store, attempt, refreshUsage])
 
+  // 분석 중 브라우저가 종료되고 다시 들어왔을 때,
+  // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
+  useEffect(() => {
+    if (state.status !== 'ready') return
+    const pendingBooks = state.books.filter(
+      (book) => book.analysis_status === 'analyzing' && book.ocr_completed_at === null,
+    )
+
+    async function resumeOcrAnalysis() {
+      for (const book of pendingBooks) {
+        await startOcrAnalysis(book.id)
+      }
+    }
+
+    void resumeOcrAnalysis().catch(() => undefined)
+  }, [state, startOcrAnalysis])
+
   function retry() {
     setState({ status: 'loading' })
     setAttempt((current) => current + 1)
@@ -115,6 +145,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     isLibraryReady: state.status === 'ready',
     refreshBooks,
     refreshUsage,
+    startOcrAnalysis,
   })
   const coverRegeneration = useCoverRegeneration({
     store,

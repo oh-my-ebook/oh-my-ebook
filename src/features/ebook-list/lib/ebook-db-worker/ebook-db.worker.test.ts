@@ -111,7 +111,7 @@ describe('ebook-db.worker', () => {
     )
   })
 
-  it('새 DB는 PDF BLOB 없이 메타데이터 스키마를 만든다', async () => {
+  it('새 DB는 PDF BLOB 없이 페이지 OCR 저장 스키마를 만든다', async () => {
     const statements: string[] = []
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
@@ -148,6 +148,22 @@ describe('ebook-db.worker', () => {
     expect(schema).toContain('ocr_completed_at INTEGER')
     expect(schema).toContain('indexed_at INTEGER')
     expect(schema).not.toContain('pdf_data BLOB')
+    expect(schema).toContain('CREATE TABLE ocr_pages')
+    expect(schema).toContain('book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE')
+    expect(schema).toContain('page_number INTEGER NOT NULL CHECK (page_number > 0)')
+    expect(schema).toContain('width INTEGER CHECK (width IS NULL OR width > 0)')
+    expect(schema).toContain('height INTEGER CHECK (height IS NULL OR height > 0)')
+    expect(schema).toContain("status TEXT NOT NULL DEFAULT 'pending'")
+    expect(schema).toContain("CHECK (status IN ('pending', 'processing', 'ready', 'failed'))")
+    expect(schema).toContain('CREATE TABLE ocr_lines')
+    expect(schema).toContain('ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE')
+    expect(schema).toContain('line_index INTEGER NOT NULL')
+    expect(schema).toContain('x1 REAL NOT NULL CHECK (x1 > x0)')
+    expect(schema).toContain('y1 REAL NOT NULL CHECK (y1 > y0)')
+    expect(schema).toContain('CREATE UNIQUE INDEX ocr_pages_book_page_idx')
+    expect(schema).toContain('CREATE INDEX ocr_pages_resume_idx')
+    expect(schema).toContain('CREATE UNIQUE INDEX ocr_lines_page_order_idx')
+    expect(statements).toContain('PRAGMA foreign_keys = ON')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
   })

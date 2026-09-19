@@ -5,9 +5,12 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { recognizePdfPage } = vi.hoisted(() => ({ recognizePdfPage: vi.fn() }))
+const { postprocessStoredOcrPage, recognizePdfPage } = vi.hoisted(() => ({
+  postprocessStoredOcrPage: vi.fn(),
+  recognizePdfPage: vi.fn(),
+}))
 
-vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
+vi.mock('../lib/ocr/page-recognition', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
 
 function createRenderTask() {
   const completion = createPromiseController<void>()
@@ -71,6 +74,7 @@ describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
+    postprocessStoredOcrPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
   afterEach(() => {
@@ -158,6 +162,41 @@ describe('PdfViewport', () => {
     const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
     expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
+  })
+
+  it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1200,
+      height: 1800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+    postprocessStoredOcrPage.mockResolvedValueOnce({
+      width: 1200,
+      height: 1800,
+      lines: [],
+    })
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    await waitFor(() =>
+      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
+    )
+    expect(recognizePdfPage).not.toHaveBeenCalled()
   })
 
   it('표시 크기가 바뀌면 이전 작업을 취소하고 늦은 완료를 무시한다', async () => {

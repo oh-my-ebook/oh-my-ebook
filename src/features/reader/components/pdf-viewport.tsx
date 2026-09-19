@@ -9,10 +9,16 @@ import {
   type PdfPageInfo,
   type PdfPageViewport,
 } from '../lib/pdf-document'
-import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognition'
+import {
+  postprocessStoredOcrPage,
+  recognizePdfPage,
+  type OcrPageResult,
+  type StoredOcrPageResult,
+} from '../lib/ocr/page-recognition'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
+  getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onStatusChange?: (status: PdfViewportStatus) => void
 }
@@ -116,7 +122,7 @@ function getDevicePixelRatio() {
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
-  const { document, onStatusChange, scale } = props
+  const { document, getStoredOcrPage, onStatusChange, scale } = props
   const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
@@ -239,8 +245,15 @@ export function PdfViewport(props: PdfViewportProps) {
       const recognizedPages = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
-            const page = await document.getPage(pageNumber)
-            const result = await recognizePdfPage(page, controller.signal)
+            let storedOcrPage: StoredOcrPageResult | null = null
+            try {
+              storedOcrPage = (await getStoredOcrPage?.(pageNumber)) ?? null
+            } catch {
+              // 저장소 조회에 실패해도 기존 즉석 OCR 경로를 유지한다.
+            }
+            const result = storedOcrPage
+              ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
+              : await recognizePdfPage(await document.getPage(pageNumber), controller.signal)
             return [pageNumber, result] as const
           } catch {
             return null
@@ -258,7 +271,7 @@ export function PdfViewport(props: PdfViewportProps) {
 
     void recognizePages()
     return () => controller.abort()
-  }, [document, firstPageNumber, pageNumbers, secondPageNumber])
+  }, [document, firstPageNumber, getStoredOcrPage, pageNumbers, secondPageNumber])
 
   const ocrPages =
     ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers

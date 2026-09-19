@@ -9,6 +9,7 @@ interface UseEbookUploadOptions {
   isLibraryReady: boolean
   refreshBooks(): Promise<void>
   refreshUsage(): Promise<void>
+  startOcrAnalysis(bookId: string): Promise<void>
 }
 
 function failureMessage(error: unknown) {
@@ -24,6 +25,7 @@ export function useEbookUpload({
   isLibraryReady,
   refreshBooks,
   refreshUsage,
+  startOcrAnalysis,
 }: UseEbookUploadOptions) {
   const [isUploading, setIsUploading] = useState(false)
 
@@ -34,9 +36,19 @@ export function useEbookUpload({
     try {
       for (const file of files) {
         try {
+          // 1. PDF 메타데이터 추출
           const analyzed = await analyzePdf(file)
-          await store.saveBook(analyzed)
+
+          // 2. PDF 메타데이터 및 원본 저장
+          const bookId = await store.saveBook(analyzed)
           toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
+
+          // 3. OCR 분석 파이프라인 실행
+          if (typeof bookId === 'string') {
+            void startOcrAnalysis(bookId)
+              .finally(() => refreshBooks())
+              .catch(() => undefined)
+          }
         } catch (error) {
           toast.add({
             title: `${file.name}을 추가하지 못했습니다.`,

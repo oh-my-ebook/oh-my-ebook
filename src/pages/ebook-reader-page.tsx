@@ -1,7 +1,9 @@
+import { useCallback } from 'react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { ErrorAlert } from '@/components/error-alert'
 import { Reader } from '@/features/reader/components/reader'
+import type { StoredOcrPageResult } from '@/features/reader/lib/ocr/page-recognition'
 import { BookOpen, RefreshCw } from 'lucide-react'
 import {
   type EbookReaderStore,
@@ -10,6 +12,24 @@ import {
 
 export type { EbookReaderStore }
 
+function isStoredOcrLine(value: unknown): value is StoredOcrPageResult['lines'][number] {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('rawText' in value) || typeof value.rawText !== 'string') return false
+  if (!('x0' in value) || typeof value.x0 !== 'number') return false
+  if (!('y0' in value) || typeof value.y0 !== 'number') return false
+  if (!('x1' in value) || typeof value.x1 !== 'number') return false
+  if (!('y1' in value) || typeof value.y1 !== 'number') return false
+  return true
+}
+
+function isStoredOcrPage(value: unknown): value is StoredOcrPageResult {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('width' in value) || typeof value.width !== 'number') return false
+  if (!('height' in value) || typeof value.height !== 'number') return false
+  if (!('lines' in value) || !Array.isArray(value.lines)) return false
+  return value.lines.every(isStoredOcrLine)
+}
+
 interface EbookReaderPageProps {
   bookId: string
   store: EbookReaderStore
@@ -17,6 +37,13 @@ interface EbookReaderPageProps {
 
 export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   const { retry, saveReadingPosition, state } = useEbookReadingSession(bookId, store)
+  const getStoredOcrPage = useCallback(
+    async (pageNumber: number) => {
+      const result = await store.request('getStoredOcrPage', { bookId, pageNumber })
+      return isStoredOcrPage(result) ? result : null
+    },
+    [bookId, store],
+  )
 
   if (state.status === 'loading') {
     return (
@@ -56,6 +83,7 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
     <Reader
       data={state.book.pdfData}
       initialPage={state.book.lastPage ?? 1}
+      getStoredOcrPage={getStoredOcrPage}
       onPageChange={saveReadingPosition}
       title={state.book.title}
     />

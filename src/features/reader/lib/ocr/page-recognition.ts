@@ -28,6 +28,24 @@ export interface OcrPageResult {
   lines: readonly SelectableTextLine[]
 }
 
+export interface RawOcrPageResult {
+  width: number
+  height: number
+  lines: readonly OcrLine[]
+}
+
+export interface StoredOcrPageResult {
+  width: number
+  height: number
+  lines: readonly {
+    rawText: string
+    x0: number
+    y0: number
+    x1: number
+    y1: number
+  }[]
+}
+
 type PaddleOcr = Awaited<
   ReturnType<(typeof import('@paddleocr/paddleocr-js'))['PaddleOCR']['create']>
 >
@@ -214,4 +232,38 @@ export async function recognizePdfPage(
     canvas.width = 0
     canvas.height = 0
   }
+}
+
+export async function recognizePdfPageRaw(
+  page: PdfPageHandle,
+  signal: AbortSignal,
+): Promise<RawOcrPageResult> {
+  const { canvas } = await renderPdfPageForOcr(page, signal)
+
+  try {
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      lines: await recognizeWithPaddleOcr(canvas, signal),
+    }
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
+}
+
+export async function postprocessStoredOcrPage(
+  page: StoredOcrPageResult,
+  signal: AbortSignal,
+): Promise<OcrPageResult> {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('OCR Canvas를 만들 수 없습니다.')
+
+  const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+    text: rawText,
+    bbox: { x0, y0, x1, y1 },
+  }))
+  const lines = await postprocessOcrLines(sourceLines, context, signal)
+  return { width: page.width, height: page.height, lines }
 }
