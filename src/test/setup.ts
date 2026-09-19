@@ -26,4 +26,9 @@ beforeEach(() => {
   }
 })
 
+// jsdom은 canvas 2D 컨텍스트를 구현하지 않아 호출마다 "Not implemented" 로그를 남기고 null을 반환한다.
+// PDF 렌더링을 우연히 거치는 테스트의 로그만 없애려고 jsdom과 같은 null을 조용히 반환한다.
+// canvas 사용 가능 여부가 결과에 영향을 주는 테스트는 이 기본값에 기대지 말고 vi.spyOn으로 직접 준비한다.
+HTMLCanvasElement.prototype.getContext = () => null
+
 afterEach(cleanup)
