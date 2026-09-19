@@ -1,7 +1,26 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { stubSupportedGpu, stubWorker } from '../../../test/web-llm-stubs'
+import { ReaderChat } from './reader-chat'
+
+const createCompletion = vi.hoisted(() =>
+  vi.fn(async (_request: { messages: { role: string; content: string }[] }) => ({
+    async *[Symbol.asyncIterator]() {
+      yield { choices: [{ delta: { content: '답변' } }] }
+    },
+  })),
+)
+
+// 테스트 안에서 resetModules 후 ReaderChat을 다시 import하면 assistant-ui 전체를 새로 불러오는
+// 시간이 테스트 제한 시간에 포함돼, 부하가 있는 환경에서 5초를 넘겨 실패한다.
+// 이 파일은 테스트가 하나라 모델 싱글턴을 초기화할 필요가 없으므로 파일 단위 mock으로 둔다.
+vi.mock('@mlc-ai/web-llm', () => ({
+  CreateWebWorkerMLCEngine: vi.fn(async () => ({
+    chat: { completions: { create: createCompletion } },
+    interruptGenerate: vi.fn(),
+  })),
+}))
 
 function setupResizeObserverMock() {
   class ResizeObserverMock {
@@ -17,42 +36,25 @@ function setupResizeObserverMock() {
 // 다른 테스트는 전부 webLlmChatModelAdapter 자체를 Mock으로 치환해서, 이 경로는 지금까지
 // 한 번도 검증된 적이 없다.
 describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
-  let restoreGpu: () => void
-
-  beforeEach(() => {
-    vi.resetModules()
-    setupResizeObserverMock()
-    stubWorker()
-    restoreGpu = stubSupportedGpu()
-  })
+  const restoreGpu: (() => void)[] = []
 
   afterEach(() => {
-    restoreGpu()
+    restoreGpu.splice(0).forEach((restore) => restore())
     vi.unstubAllGlobals()
-    vi.doUnmock('@mlc-ai/web-llm')
   })
 
   it('입력한 질문 텍스트가 그대로 엔진 요청에 실린다', async () => {
-    const create = vi.fn(async (_request: { messages: { role: string; content: string }[] }) => ({
-      async *[Symbol.asyncIterator]() {
-        yield { choices: [{ delta: { content: '답변' } }] }
-      },
-    }))
-    const engine = { chat: { completions: { create } }, interruptGenerate: vi.fn() }
-    vi.doMock('@mlc-ai/web-llm', () => ({
-      CreateWebWorkerMLCEngine: vi.fn(async () => engine),
-    }))
-
-    const { ReaderChat } = await import('./reader-chat')
+    setupResizeObserverMock()
+    stubWorker()
+    restoreGpu.push(stubSupportedGpu())
     const user = userEvent.setup()
     render(<ReaderChat />)
 
-    const input = screen.getByRole('textbox', { name: '질문 입력' })
-    await user.type(input, '실제 질문 내용')
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '실제 질문 내용')
     await user.keyboard('{Enter}')
 
-    await vi.waitFor(() => expect(create).toHaveBeenCalled())
-    expect(create.mock.calls[0]?.[0].messages.at(-1)).toEqual({
+    await vi.waitFor(() => expect(createCompletion).toHaveBeenCalled())
+    expect(createCompletion.mock.calls[0]?.[0].messages.at(-1)).toEqual({
       role: 'user',
       content: '실제 질문 내용',
     })
