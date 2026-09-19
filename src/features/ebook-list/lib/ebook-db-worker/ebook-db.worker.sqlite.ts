@@ -5,6 +5,7 @@ import type {
   NextOcrPage,
   OcrLinePage,
   OcrLineRecord,
+  OcrPageRecord,
   StoredOcrPage,
 } from '../../ebook-types'
 import {
@@ -28,6 +29,7 @@ import {
   SELECT_OCR_LINES_SQL,
   SELECT_OCR_PAGE_LINES_SQL,
   SELECT_READY_OCR_PAGE_SQL,
+  SELECT_OCR_PAGES_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -367,6 +369,42 @@ function getStoredOcrPage(database: Database, request: WorkerRequest): StoredOcr
   return { width, height, lines: storedLines }
 }
 
+function isOcrPageRecord(value: unknown): value is OcrPageRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
+  if (!('status' in value) || !isOcrPageStatus(value.status)) return false
+  if (!('width' in value) || !(value.width === null || typeof value.width === 'number'))
+    return false
+  if (!('height' in value) || !(value.height === null || typeof value.height === 'number'))
+    return false
+  return true
+}
+
+function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
+  return value === 'pending' || value === 'processing' || value === 'ready' || value === 'failed'
+}
+
+function listOcrPages(database: Database, request: WorkerRequest): OcrPageRecord[] {
+  const bookId = getBookId(request)
+  const pages = database.exec(SELECT_OCR_PAGES_SQL, {
+    bind: [bookId],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(pages)) throw new Error('Invalid OCR pages')
+  const ocrPages: OcrPageRecord[] = []
+  for (const page of pages) {
+    if (!isOcrPageRecord(page)) throw new Error('Invalid OCR pages')
+    ocrPages.push({
+      page_number: page.page_number,
+      status: page.status,
+      width: page.width,
+      height: page.height,
+    })
+  }
+  return ocrPages
+}
+
 function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
   const input = getPayload(request, request.command, isListOcrLinesInput)
   const total = database.selectValue(SELECT_OCR_LINE_COUNT_SQL, [input.bookId])
@@ -421,6 +459,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return listOcrLines(database, request)
     case SQLITE_COMMAND.GET_STORED_OCR_PAGE:
       return getStoredOcrPage(database, request)
+    case SQLITE_COMMAND.LIST_OCR_PAGES:
+      return listOcrPages(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

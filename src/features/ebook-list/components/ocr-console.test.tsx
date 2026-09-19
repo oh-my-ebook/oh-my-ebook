@@ -29,6 +29,16 @@ describe('OcrConsole', () => {
           ],
         }
       }
+      if (command === 'listOcrPages') {
+        return [
+          {
+            page_number: 1,
+            status: 'pending',
+            width: null,
+            height: null,
+          },
+        ]
+      }
       return null
     })
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
@@ -43,10 +53,12 @@ describe('OcrConsole', () => {
     await user.click(screen.getByRole('button', { name: 'PDF 11' }))
 
     expect(await screen.findByText('저장된 OCR 원문')).toBeInTheDocument()
+    expect(screen.getByText('pending')).toBeInTheDocument()
     expect(request).toHaveBeenCalledWith('listOcrLines', {
       bookId: 'book-11',
       limit: 50,
       offset: 0,
     })
+    expect(request).toHaveBeenCalledWith('listOcrPages', 'book-11')
   })
 })

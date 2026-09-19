@@ -66,6 +66,13 @@ export interface StoredOcrPage {
   lines: OcrLineInput[]
 }
 
+export interface OcrPageRecord {
+  page_number: number
+  status: 'pending' | 'processing' | 'ready' | 'failed'
+  width: number | null
+  height: number | null
+}
+
 export interface AddBookInput {
   pdfData: ArrayBuffer
   contentHash: string
