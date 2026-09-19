@@ -13,21 +13,38 @@ import {
 // 지연과 그 사이의 실패 가능성을 줄일 수 있다.
 const PRECONNECT_ORIGINS = ['https://huggingface.co', 'https://raw.githubusercontent.com']
 
+// 이 컴포넌트가 동시에 여러 개 마운트될 수 있으므로(예: 여러 리더 패널), 링크를 참조
+// 카운트로 관리한다. 그러지 않으면 한 인스턴스가 언마운트될 때 다른 인스턴스가 아직
+// 쓰고 있는 공유 링크를 지워버릴 수 있다.
+const preconnectLinksByOrigin = new Map<string, { link: HTMLLinkElement; refCount: number }>()
+
 function usePreconnectModelOrigins() {
   useEffect(() => {
-    const addedLinks = PRECONNECT_ORIGINS.filter(
-      (origin) => !document.head.querySelector(`link[rel="preconnect"][href="${origin}"]`),
-    ).map((origin) => {
+    for (const origin of PRECONNECT_ORIGINS) {
+      const existing = preconnectLinksByOrigin.get(origin)
+      if (existing) {
+        existing.refCount += 1
+        continue
+      }
       const link = document.createElement('link')
       link.rel = 'preconnect'
       link.href = origin
       link.crossOrigin = 'anonymous'
       document.head.appendChild(link)
-      return link
-    })
+      preconnectLinksByOrigin.set(origin, { link, refCount: 1 })
+    }
 
     return () => {
-      addedLinks.forEach((link) => link.remove())
+      for (const origin of PRECONNECT_ORIGINS) {
+        const existing = preconnectLinksByOrigin.get(origin)
+        if (!existing) continue
+        if (existing.refCount <= 1) {
+          existing.link.remove()
+          preconnectLinksByOrigin.delete(origin)
+        } else {
+          existing.refCount -= 1
+        }
+      }
     }
   }, [])
 }
