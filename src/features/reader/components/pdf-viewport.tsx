@@ -68,6 +68,10 @@ function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
   return 'render' in page && typeof page.render === 'function'
 }
 
+function isSameRenderTarget(a: PdfViewportRequest, b: PdfViewportRequest) {
+  return a.document === b.document && a.pageNumbers === b.pageNumbers
+}
+
 function isCurrentOutcome(
   outcome: PdfViewportOutcome | null,
   request: PdfViewportRequest,
@@ -75,9 +79,20 @@ function isCurrentOutcome(
   return (
     outcome !== null &&
     outcome.request.attempt === request.attempt &&
-    outcome.request.document === request.document &&
-    outcome.request.pageNumbers === request.pageNumbers &&
-    outcome.request.scale === request.scale
+    outcome.request.scale === request.scale &&
+    isSameRenderTarget(outcome.request, request)
+  )
+}
+
+// 배율만 바뀌어 다시 그리는 동안에는, 같은 문서·페이지를 이미 성공적으로 그려둔 이전 결과를
+// 스켈레톤 대신 그대로 보여준다. 배율이 프레임마다 미세하게 바뀌는 리사이즈 중에도
+// 캔버스가 깜빡이지 않도록 하기 위함이다.
+function isRevalidatableOutcome(
+  outcome: PdfViewportOutcome | null,
+  request: PdfViewportRequest,
+): outcome is PdfViewportOutcome {
+  return (
+    outcome !== null && outcome.status === 'ready' && isSameRenderTarget(outcome.request, request)
   )
 }
 
@@ -100,7 +115,11 @@ export function PdfViewport(props: PdfViewportProps) {
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
-  const status = isCurrentOutcome(outcome, request) ? outcome.status : 'loading'
+  const status: PdfViewportStatus = isCurrentOutcome(outcome, request)
+    ? outcome.status
+    : isRevalidatableOutcome(outcome, request)
+      ? 'ready'
+      : 'loading'
 
   useEffect(() => {
     onStatusChange?.(status)
@@ -160,6 +179,12 @@ export function PdfViewport(props: PdfViewportProps) {
         await Promise.all(
           requestedPageNumbers.map((pageNumber, index) => renderPage(pageNumber, canvases[index])),
         )
+        if (controller.signal.aborted) {
+          return
+        }
+        // 이전 결과가 화면에 남아 있다면 새 캔버스가 준비된 뒤에만 교체해 깜빡임을 막는다.
+        const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
+        canvasSlots.forEach((slot, index) => slot.replaceChildren(canvases[index]))
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'ready',
@@ -169,7 +194,9 @@ export function PdfViewport(props: PdfViewportProps) {
           return
         }
         controller.abort()
-        canvases.forEach((canvas) => canvas.remove())
+        // 재검증 중 실패하면 숨겨질 이전 결과의 캔버스도 함께 비워 오래 남지 않게 한다.
+        const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
+        canvasSlots.forEach((slot) => slot.replaceChildren())
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'error',
@@ -177,13 +204,10 @@ export function PdfViewport(props: PdfViewportProps) {
       }
     }
 
-    const canvasContainers = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
-    canvasContainers.forEach((container, index) => container.replaceChildren(canvases[index]))
     void renderPages()
 
     return () => {
       controller.abort()
-      canvases.forEach((canvas) => canvas.remove())
     }
   }, [attempt, document, firstPageNumber, pageNumbers, scale, secondPageNumber])
 
