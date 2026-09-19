@@ -102,24 +102,172 @@ describe('WebLLM 모델 로딩과 상태', () => {
     expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(1)
   })
 
-  it('네트워크 오류로 로딩에 실패하면 재시도 안내를 남기고, 재시도하면 다시 불러온다', async () => {
+  it('네트워크 오류는 자동으로 재시도하다가, 계속 실패하면 안내를 남기고 재시도하면 다시 불러온다', async () => {
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      const workerInstances = stubWorker()
+      // mockRejectedValueOnce는 체이닝 시점에 즉시 거부된 Promise를 만들어, 실제로 호출되기까지
+      // (재시도 대기 동안) 처리되지 않은 상태로 남아 unhandled rejection 경고를 유발한다.
+      // 호출 시점에 던지는 mockImplementationOnce로 지연 생성한다.
+      const createWebWorkerMLCEngine = vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => {
+          throw new Error('failed to fetch model shard')
+        })
+        .mockImplementationOnce(async () => createIdleEngine())
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, MAX_DOWNLOAD_ATTEMPTS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      // 가짜 타이머로 재시도를 진행하는 동안, 실패가 실제로 처리되기 전에 Node가 먼저
+      // "처리되지 않은 거부"로 판단하지 않도록 핸들러를 미리 붙여 둔다. 아래 rejects.toThrow()가
+      // 최종 검증을 맡으므로 여기서는 아무 것도 하지 않는다.
+      preparePromise.catch(() => undefined)
+      // 자동 재시도 사이의 대기 시간을 흘려보내 MAX_DOWNLOAD_ATTEMPTS번 모두 실패하게 한다.
+      for (let attempt = 1; attempt < MAX_DOWNLOAD_ATTEMPTS; attempt += 1) {
+        await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      }
+
+      await expect(preparePromise).rejects.toThrow()
+      expect(getState()).toMatchObject({ status: 'error', error: NETWORK_ERROR_MESSAGE })
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(MAX_DOWNLOAD_ATTEMPTS)
+      workerInstances
+        .slice(0, MAX_DOWNLOAD_ATTEMPTS)
+        .forEach((instance) => expect(instance.terminate).toHaveBeenCalledOnce())
+
+      await prepareWebLlmModel()
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(MAX_DOWNLOAD_ATTEMPTS + 1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('다운로드 진행률이 일정 시간 멈추면 정체로 보고 자동으로 다시 연결한다', async () => {
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      stubWorker()
+      let callCount = 0
+      const createWebWorkerMLCEngine = vi.fn(
+        async (
+          _worker: unknown,
+          _modelId: string,
+          config: { initProgressCallback: (report: { progress: number }) => void },
+        ) => {
+          callCount += 1
+          if (callCount === 1) {
+            config.initProgressCallback({ progress: 0.2 })
+            // 첫 시도는 진행률만 찍고 응답 없이 멈춘 상황을 흉내 낸다.
+            return new Promise<never>(() => undefined)
+          }
+          return createIdleEngine()
+        },
+      )
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, STALL_TIMEOUT_MS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(getState()).toMatchObject({ status: 'loading', progress: 20 })
+
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS)
+      await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      await preparePromise
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('진행률이 같은 값으로 반복 보고돼도 정체 타이머를 재설정하지 않는다', async () => {
+    // 다운로드가 멈춰도 initProgressCallback 자체는 같은 값으로 주기적으로 불릴 수 있다.
+    // 값이 실제로 늘어나지 않았는데도 매번 타이머를 재설정하면 정체가 영원히 감지되지 않는다.
+    vi.useFakeTimers()
+    try {
+      restoreGpu.push(stubSupportedGpu())
+      stubWorker()
+      let callCount = 0
+      let reportProgress: ((report: { progress: number }) => void) | undefined
+      const createWebWorkerMLCEngine = vi.fn(
+        async (
+          _worker: unknown,
+          _modelId: string,
+          config: { initProgressCallback: (report: { progress: number }) => void },
+        ) => {
+          callCount += 1
+          if (callCount === 1) {
+            reportProgress = config.initProgressCallback
+            reportProgress({ progress: 0.2 })
+            return new Promise<never>(() => undefined)
+          }
+          return createIdleEngine()
+        },
+      )
+      mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+      const { prepareWebLlmModel, getState, RETRY_DELAY_MS, STALL_TIMEOUT_MS } =
+        await importFreshModule()
+
+      const preparePromise = prepareWebLlmModel()
+      await vi.advanceTimersByTimeAsync(0)
+
+      // 정체 기준 시간의 절반 지점에서 같은 진행률을 한 번 더 보고한다. 타이머가 이걸로
+      // 재설정되면 정체가 그만큼 늦게 감지돼야 하는데, 그러면 안 된다.
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS / 2)
+      reportProgress?.({ progress: 0.2 })
+      await vi.advanceTimersByTimeAsync(STALL_TIMEOUT_MS / 2)
+      await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS)
+      await preparePromise
+
+      expect(getState().status).toBe('ready')
+      expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('resetWebLlmModelCache는 캐시를 지운 뒤 모델을 다시 불러온다', async () => {
     restoreGpu.push(stubSupportedGpu())
-    const workerInstances = stubWorker()
-    const createWebWorkerMLCEngine = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('failed to fetch model shard'))
-      .mockResolvedValueOnce(createIdleEngine())
-    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    stubWorker()
+    const deleteModelAllInfoInCache = vi.fn(async () => undefined)
+    const createWebWorkerMLCEngine = vi.fn(async () => createIdleEngine())
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: createWebWorkerMLCEngine,
+      deleteModelAllInfoInCache,
+    }))
+    const { resetWebLlmModelCache, getState } = await importFreshModule()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
-    expect(getState()).toMatchObject({ status: 'error', error: NETWORK_ERROR_MESSAGE })
-    expect(workerInstances[0]?.terminate).toHaveBeenCalledOnce()
+    await resetWebLlmModelCache()
 
-    await prepareWebLlmModel()
-
+    expect(deleteModelAllInfoInCache).toHaveBeenCalledWith('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
     expect(getState().status).toBe('ready')
-    expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
+  })
+
+  it('resetWebLlmModelCache를 연달아 두 번 호출해도 캐시 삭제는 한 번만 실행된다', async () => {
+    // 재시도 버튼은 error 상태에서 loading으로 바뀌기 전까지 비활성화되지 않아, 더블클릭하면
+    // 두 번째 클릭이 첫 번째가 정리 중인 캐시를 다시 건드릴 수 있다. 삭제가 끝나기 전에
+    // 두 번 호출해도 deleteModelAllInfoInCache는 한 번만 실행돼야 한다.
+    const deleteModelAllInfoInCache = vi.fn(() => new Promise<void>(() => undefined))
+    vi.doMock('@mlc-ai/web-llm', () => ({ deleteModelAllInfoInCache }))
+    const { resetWebLlmModelCache } = await importFreshModule()
+
+    resetWebLlmModelCache()
+    resetWebLlmModelCache()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(deleteModelAllInfoInCache).toHaveBeenCalledOnce()
   })
 
   it.each([
@@ -141,6 +289,24 @@ describe('WebLLM 모델 로딩과 상태', () => {
     await expect(prepareWebLlmModel()).rejects.toThrow()
 
     expect(getState().error).toBe(expectedMessage)
+  })
+
+  it('메시지에 다운로드 관련 단어가 섞인 GPU 메모리 오류는 재시도하지 않고 즉시 반환한다', async () => {
+    // "out of memory while downloading model shard"처럼 메모리 오류에도 네트워크 오류
+    // 패턴(download)이 함께 들어갈 수 있다. 복구 불가능한 메모리 오류를 재시도로 낭비하지
+    // 않도록, 안내 문구 분류와 재시도 여부 분류가 같은 기준을 써야 한다.
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const createWebWorkerMLCEngine = vi
+      .fn()
+      .mockRejectedValue(new Error('out of memory while downloading model shard'))
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel, getState } = await importFreshModule()
+
+    await expect(prepareWebLlmModel()).rejects.toThrow()
+
+    expect(getState().error).toBe(GPU_MEMORY_ERROR_MESSAGE)
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledOnce()
   })
 
   it('워커 로딩 중 오류가 발생하면 안내 메시지를 남긴다', async () => {
