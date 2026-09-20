@@ -68,7 +68,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     <main className="min-h-svh bg-background" {...dropZoneProps}>
       <nav aria-label="주 탐색" className="border-b bg-card/92">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
-          <strong>oh-my-ebook</strong>
+          <Link to="/" aria-label="oh-my-ebook 홈">
+            <strong>oh-my-ebook</strong>
+          </Link>
           <span className="h-4 border-l" />
           <span className="rounded bg-muted px-3 py-1 text-sm">내 서재</span>
         </div>

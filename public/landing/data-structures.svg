@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="450" viewBox="0 0 310 450">
+<rect width="310" height="450" fill="#c8cbbb"/>
+<path d="M12 0V450" stroke="#213c32" opacity=".16"/>
+<text x="32" y="42" font-family="sans-serif" font-size="9" letter-spacing="2" fill="#213c32">OH MY EBOOK / STUDY NOTES</text>
+<g font-family="sans-serif" font-weight="700" font-size="30" fill="#213c32"><text x="32" y="105">그림으로 배우는</text><text x="32" y="152">자료구조</text></g>
+<text x="34" y="183" font-family="monospace" font-size="10" letter-spacing="1" fill="#213c32">DATA STRUCTURES</text>
+<g fill="none" stroke="#45634e" stroke-width="2"><path d="M155 225L89 285M155 225L221 285M89 285L54 350M89 285L126 350M221 285L258 350"/><g fill="#c8cbbb"><circle cx="155" cy="225" r="20"/><circle cx="89" cy="285" r="20"/><circle cx="221" cy="285" r="20"/><circle cx="54" cy="350" r="17"/><circle cx="126" cy="350" r="17"/><circle cx="258" cy="350" r="17"/></g></g>
+<path d="M34 405H276" stroke="#213c32" opacity=".4"/>
+<text x="34" y="427" font-family="sans-serif" font-size="10" fill="#213c32">배열 · 연결 리스트 · 트리</text>
+</svg>

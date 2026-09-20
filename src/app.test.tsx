@@ -82,12 +82,16 @@ function resizeReaderTo(width: number, height: number) {
   act(notifyResize)
 }
 
-function renderApp() {
-  return render(
+async function renderApp() {
+  const result = render(
     <MemoryRouter initialEntries={['/sample-reader']}>
       <App />
     </MemoryRouter>,
   )
+  await act(async () => {
+    await vi.dynamicImportSettled()
+  })
+  return result
 }
 
 describe('App', () => {
@@ -119,8 +123,9 @@ describe('App', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     const { loadedDocument } = createLoadedDocument()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    renderApp()
+    await renderApp()
 
+    await screen.findByRole('heading', { name: '기본 PDF 리더 샘플' })
     expect(prepareOcrMock).toHaveBeenCalledOnce()
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
@@ -148,10 +153,11 @@ describe('App', () => {
     })
   })
 
-  it('Reader를 해제하면 크기 관찰을 정리한다', () => {
+  it('Reader를 해제하면 크기 관찰을 정리한다', async () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    const { unmount } = renderApp()
+    const { unmount } = await renderApp()
+    await screen.findByRole('heading', { name: '기본 PDF 리더 샘플' })
 
     unmount()
 
@@ -174,7 +180,8 @@ describe('App', () => {
     loadPdfDocumentMock
       .mockReturnValueOnce(failedLoad.promise)
       .mockReturnValueOnce(retryLoad.promise)
-    renderApp()
+    await renderApp()
+    await screen.findByRole('heading', { name: '기본 PDF 리더 샘플' })
     resizeReaderTo(320, 640)
 
     await act(async () => {

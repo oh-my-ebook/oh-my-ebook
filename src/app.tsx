@@ -1,37 +1,27 @@
-import { useEffect } from 'react'
-import { Route, Routes, useParams } from 'react-router'
-import { Reader } from './features/reader/components/reader'
-import { ebookStore } from './features/ebook-list/lib/ebook-store'
-import { prepareOcr } from './features/reader/lib/ocr/page-recognition'
-import { EbookReaderPage } from './pages/ebook-reader-page'
-import { EbookListPage } from './pages/ebook-list-page'
-import { OcrConsolePage } from './pages/ocr-console-page'
-import { PrivacyPolicyPage } from './pages/privacy-policy-page'
-import { TermsOfServicePage } from './pages/terms-of-service-page'
-import { OpenSourceLicensesPage } from './pages/open-source-licenses-page'
+import { lazy, Suspense } from 'react'
+import { Route, Routes } from 'react-router'
+import { LandingPage } from './features/landing/components/landing-page'
+import { Spinner } from './components/ui/spinner'
 
-function EbookReaderRoute() {
-  const { bookId } = useParams()
-  if (!bookId || !ebookStore) return <EbookListPage />
-  return <EbookReaderPage key={bookId} bookId={bookId} store={ebookStore} />
-}
+const ReadingRoutes = lazy(() => import('./pages/reading-routes'))
 
 function App() {
-  useEffect(() => {
-    prepareOcr().catch(() => undefined)
-  }, [])
-
   return (
     <Routes>
-      <Route path="/" element={<EbookListPage />} />
-      <Route path="/books/:bookId" element={<EbookReaderRoute />} />
-      <Route path="/console" element={<OcrConsolePage store={ebookStore} />} />
-      <Route path="/privacy" element={<PrivacyPolicyPage />} />
-      <Route path="/terms" element={<TermsOfServicePage />} />
-      <Route path="/licenses" element={<OpenSourceLicensesPage />} />
+      <Route path="/" element={<LandingPage />} />
       <Route
-        path="/sample-reader"
-        element={<Reader title="기본 PDF 리더 샘플" url="/samples/basic-reader.pdf" />}
+        path="*"
+        element={
+          <Suspense
+            fallback={
+              <div className="flex min-h-svh items-center justify-center">
+                <Spinner aria-label="화면 불러오는 중" />
+              </div>
+            }
+          >
+            <ReadingRoutes />
+          </Suspense>
+        }
       />
     </Routes>
   )

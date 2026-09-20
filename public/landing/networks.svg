@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="450" viewBox="0 0 310 450">
+<rect width="310" height="450" fill="#af5035"/>
+<path d="M12 0V450" stroke="#fff0d5" opacity=".16"/>
+<text x="32" y="42" font-family="sans-serif" font-size="9" letter-spacing="2" fill="#fff0d5">OH MY EBOOK / STUDY NOTES</text>
+<g font-family="sans-serif" font-weight="700" font-size="35" fill="#fff0d5"><text x="32" y="105">네트워크</text><text x="32" y="152">첫걸음</text></g>
+<text x="34" y="183" font-family="monospace" font-size="10" letter-spacing="1" fill="#fff0d5">COMPUTER NETWORKS</text>
+<g stroke="#f0c28d" stroke-width="2" fill="none"><path d="M62 240L155 285L247 240M62 345L155 285L247 345"/><rect x="42" y="220" width="40" height="40"/><rect x="227" y="220" width="40" height="40"/><rect x="42" y="325" width="40" height="40"/><rect x="227" y="325" width="40" height="40"/><circle cx="155" cy="285" r="25"/></g>
+<path d="M34 405H276" stroke="#fff0d5" opacity=".4"/>
+<text x="34" y="427" font-family="sans-serif" font-size="10" fill="#fff0d5">패킷 · 프로토콜 · 연결</text>
+</svg>

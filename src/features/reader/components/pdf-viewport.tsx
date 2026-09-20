@@ -26,7 +26,7 @@ import {
   PdfSelectionToolbar,
   type PdfSelectionAction,
   type PdfTextSelection,
-} from './pdf-selection-toolbar'
+} from '@/components/pdf-selection-toolbar'
 
 // 어떤 문서의 결과인지 함께 넘겨, 받는 쪽이 문서가 바뀐 뒤 남은 이전 결과를 걸러낼 수 있게 한다.
 export interface OcrText {

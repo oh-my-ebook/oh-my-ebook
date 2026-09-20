@@ -103,7 +103,7 @@ describe('EbookReaderPage', () => {
     render(<EbookReaderPage bookId="book-id" store={store} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('저장된 PDF 원본을 읽지 못했습니다.')
-    expect(screen.getByRole('link', { name: '책장으로 이동' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: '책장으로 이동' })).toHaveAttribute('href', '/library')
     shouldFail = false
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(await screen.findByRole('main', { name: '독서 화면' })).toBeInTheDocument()

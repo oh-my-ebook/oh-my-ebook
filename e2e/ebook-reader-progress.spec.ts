@@ -7,7 +7,7 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -26,7 +26,7 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
     await page.getByRole('button', { name: '다음 페이지' }).click()
     await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
     await page.goBack()
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL('/library')
     await expect(page.getByText(`2 / ${pageCount}페이지`)).toBeVisible()
     await page.getByRole('button', { name: 'The Local Library 열기' }).click()
     await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)

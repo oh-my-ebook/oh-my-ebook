@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="450" viewBox="0 0 310 450">
+<rect width="310" height="450" fill="#284d40"/>
+<path d="M12 0V450" stroke="#eee9d7" opacity=".16"/>
+<text x="32" y="42" font-family="sans-serif" font-size="9" letter-spacing="2" fill="#eee9d7">OH MY EBOOK / STUDY NOTES</text>
+<g font-family="sans-serif" font-weight="700" font-size="35" fill="#eee9d7"><text x="32" y="105">운영체제의</text><text x="32" y="152">기초</text></g>
+<text x="34" y="183" font-family="monospace" font-size="10" letter-spacing="1" fill="#eee9d7">OPERATING SYSTEMS</text>
+<g fill="none" stroke="#a8c3b3" stroke-width="2"><rect x="46" y="224" width="84" height="46" rx="3"/><rect x="46" y="303" width="84" height="46" rx="3"/><rect x="192" y="224" width="70" height="125" rx="3"/><path d="M192 265H262M192 307H262M130 247H160V285H192M130 326H160V285"/></g><g font-family="monospace" font-size="12" fill="#eee9d7"><text x="59" y="251">0x1000</text><text x="59" y="330">0x2000</text><text x="203" y="249">RAM</text></g>
+<path d="M34 405H276" stroke="#eee9d7" opacity=".4"/>
+<text x="34" y="427" font-family="sans-serif" font-size="10" fill="#eee9d7">메모리 · 프로세스 · 파일 시스템</text>
+</svg>
