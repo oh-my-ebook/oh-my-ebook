@@ -1,17 +1,15 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel } from '@/components/ui/resizable'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { ReaderChat } from './reader-chat'
 
 const PANEL_TITLE = '함께 읽기'
 const CLOSE_BUTTON_LABEL = '함께 읽기 패널 닫기'
 const RESIZE_HANDLE_LABEL = '함께 읽기 패널 너비 조절'
 
 interface ReaderPanelProps {
-  chatSessionKey?: string
-  currentPage?: number
+  children: ReactNode
   isWideScreen: boolean
   onOpenChange: (open: boolean) => void
   open: boolean
@@ -20,13 +18,7 @@ interface ReaderPanelProps {
 
 type PanelSectionProps = Omit<ReaderPanelProps, 'isWideScreen'>
 
-function WideReaderPanel({
-  chatSessionKey,
-  currentPage,
-  onOpenChange,
-  open,
-  openButtonRef,
-}: PanelSectionProps) {
+function WideReaderPanel({ children, onOpenChange, open, openButtonRef }: PanelSectionProps) {
   // 패널을 열면 채팅 입력창이 포커스를 가져가므로, 닫을 때 열기 버튼으로 되돌리지 않으면
   // 포커스가 사라진다.
   const wasOpenRef = useRef(open)
@@ -72,22 +64,14 @@ function WideReaderPanel({
           className="flex h-full min-w-0 flex-col bg-card"
           role="region"
         >
-          <div className="min-h-0 flex-1">
-            <ReaderChat currentPage={currentPage} key={chatSessionKey} />
-          </div>
+          <div className="min-h-0 flex-1">{children}</div>
         </aside>
       </ResizablePanel>
     </>
   )
 }
 
-function NarrowReaderPanel({
-  chatSessionKey,
-  currentPage,
-  onOpenChange,
-  open,
-  openButtonRef,
-}: PanelSectionProps) {
+function NarrowReaderPanel({ children, onOpenChange, open, openButtonRef }: PanelSectionProps) {
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent aria-label={PANEL_TITLE} finalFocus={openButtonRef} showCloseButton={false}>
@@ -99,9 +83,7 @@ function NarrowReaderPanel({
             <XIcon />
           </SheetClose>
         </SheetHeader>
-        <div className="min-h-0 flex-1">
-          <ReaderChat currentPage={currentPage} key={chatSessionKey} />
-        </div>
+        <div className="min-h-0 flex-1">{children}</div>
       </SheetContent>
     </Sheet>
   )

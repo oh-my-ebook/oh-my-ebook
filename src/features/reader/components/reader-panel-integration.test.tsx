@@ -1,20 +1,23 @@
 import type { PropsWithChildren } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
+import type { BookMetadata } from '../lib/book-metadata'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
+const recognizePdfPageMock = vi.hoisted(() => vi.fn())
 vi.mock('../lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
+vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage: recognizePdfPageMock }))
 
 // jsdom에는 Resizable이 패널 크기를 계산할 실제 레이아웃이 없어 구분선이 입력 포커스를
 // 되가져간다. 실제 primitive 동작은 ReaderPanel 테스트와 E2E에서 확인하고, 이 통합 테스트는
@@ -102,17 +105,37 @@ function setupMatchMediaMock(isWideScreen: boolean) {
   )
 }
 
+function selectOcrText(text: string) {
+  const layer = screen.getByLabelText('PDF 1페이지 텍스트 레이어')
+  const line = layer.querySelector('[data-slot="pdf-ocr-line"]')
+  const textNode = line?.firstChild
+  if (!(line instanceof Element) || !(textNode instanceof Text)) {
+    throw new Error('선택할 OCR 텍스트를 찾지 못했습니다.')
+  }
+
+  const range = document.createRange()
+  range.selectNodeContents(textNode)
+  Object.defineProperty(range, 'getBoundingClientRect', {
+    value: () => new DOMRect(100, 120, 80, 20),
+  })
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  expect(selection?.toString()).toBe(text)
+  fireEvent.mouseUp(line)
+}
+
 function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
   const renderPage = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }))
-  const page = {
+  const getPage = vi.fn(async (pageNumber: number) => ({
+    pageNumber,
     getViewport: ({ scale }: { scale: number }) => ({
       width: 600 * scale,
       height: 900 * scale,
       rotation: 0,
     }),
     render: renderPage,
-  }
-  const getPage = vi.fn(async () => page)
+  }))
   const document = { numPages: pageCount, getPage } satisfies PdfDocumentHandle
 
   return {
@@ -129,11 +152,29 @@ function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
 async function renderLoadedReader(
   resizeObserverMock: ReturnType<typeof setupResizeObserverMock>,
   pageCount = 1,
+  bookMetadata?: BookMetadata,
 ) {
   vi.stubGlobal('devicePixelRatio', 1)
+  recognizePdfPageMock.mockImplementation(async (page: { pageNumber: number }) => ({
+    width: 1,
+    height: 1,
+    lines: [
+      {
+        text: `${page.pageNumber}페이지 OCR 본문`,
+        x0: 0,
+        y0: 0,
+        x1: 1,
+        y1: 1,
+        fontSize: 1,
+        scaleX: 1,
+      },
+    ],
+  }))
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  render(<Reader url="/sample.pdf" />, { wrapper: MemoryRouter })
+  const view = render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, {
+    wrapper: MemoryRouter,
+  })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -141,6 +182,7 @@ async function renderLoadedReader(
     await documentLoad.promise
   })
   await screen.findByRole('img', { name: 'PDF 1페이지' })
+  return view
 }
 
 describe('Reader 보조 패널 연결', () => {
@@ -232,6 +274,26 @@ describe('Reader 보조 패널 연결', () => {
     expect(screen.queryByText('질문')).not.toBeInTheDocument()
   })
 
+  it('문서 주소가 바뀌면 패널을 닫지 않아도 대화가 초기화된다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const { rerender } = await renderLoadedReader(resizeObserverMock)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
+    expect(await screen.findByText('질문')).toBeInTheDocument()
+    await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
+
+    rerender(<Reader url="/other.pdf" />)
+    await screen.findByRole('img', { name: 'PDF 1페이지' })
+
+    expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    expect(screen.queryByText('질문')).not.toBeInTheDocument()
+  })
+
   it('좁은 화면에서 대화가 길어져도 채팅 조작부가 계속 표시된다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
@@ -281,7 +343,47 @@ describe('Reader 보조 패널 연결', () => {
     expect(respondSpy).toHaveBeenCalledTimes(2)
     expect(respondSpy.mock.calls[0]?.[0]).toBe('첫 질문')
     expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('1')
+    expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('1페이지 OCR 본문')
     expect(respondSpy.mock.calls[1]?.[0]).toBe('둘째 질문')
     expect(respondSpy.mock.calls[1]?.[1]?.system).toContain('2')
+    expect(respondSpy.mock.calls[1]?.[1]?.system).toContain('2페이지 OCR 본문')
+    expect(respondSpy.mock.calls[1]?.[1]?.system).not.toContain('1페이지 OCR 본문')
+  })
+
+  it('리더가 받은 도서 메타데이터를 질문 컨텍스트에 전달한다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    await renderLoadedReader(resizeObserverMock, 1, {
+      author: '저자',
+      publisher: '출판사',
+      title: '도서 제목',
+    })
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
+    await user.click(screen.getByRole('button', { name: '질문 보내기' }))
+
+    expect(respondSpy).toHaveBeenCalledOnce()
+    expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('제목: 도서 제목')
+  })
+
+  it('PDF 선택 문장의 자세한 설명을 채팅 패널에서 바로 요청한다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    await renderLoadedReader(resizeObserverMock)
+
+    selectOcrText('1페이지 OCR 본문')
+    await user.click(await screen.findByRole('button', { name: '자세히 설명' }))
+
+    expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    await waitFor(() => expect(respondSpy).toHaveBeenCalledOnce())
+    expect(respondSpy.mock.calls[0]?.[0]).toBe(
+      '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.',
+    )
+    expect(screen.getAllByText('1페이지 OCR 본문')).toHaveLength(2)
   })
 })

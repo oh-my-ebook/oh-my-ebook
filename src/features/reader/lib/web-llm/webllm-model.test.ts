@@ -102,6 +102,23 @@ describe('WebLLM 모델 로딩과 상태', () => {
     expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(1)
   })
 
+  it('모델을 8192토큰 컨텍스트로 불러온다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const createWebWorkerMLCEngine = vi.fn(async () => createIdleEngine())
+    mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
+    const { prepareWebLlmModel, WEBLLM_MODEL_ID } = await importFreshModule()
+
+    await prepareWebLlmModel()
+
+    expect(createWebWorkerMLCEngine).toHaveBeenCalledWith(
+      expect.anything(),
+      WEBLLM_MODEL_ID,
+      expect.any(Object),
+      { context_window_size: 8192 },
+    )
+  })
+
   it('네트워크 오류로 로딩에 실패하면 재시도 안내를 남기고, 재시도하면 다시 불러온다', async () => {
     restoreGpu.push(stubSupportedGpu())
     const workerInstances = stubWorker()

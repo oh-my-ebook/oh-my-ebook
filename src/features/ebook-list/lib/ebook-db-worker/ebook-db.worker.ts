@@ -4,6 +4,7 @@ import { COMMAND } from '../../ebook-consts'
 import type { EbookStoreResponse } from '../../ebook-types'
 import { getErrorCode, UnsupportedCommandError } from './ebook-db.worker.error'
 import {
+  clearOpfs,
   deletePdf,
   executeOpfsCommand,
   hasPdf,
@@ -13,6 +14,7 @@ import {
 } from './ebook-db.worker.opfs'
 import {
   addBook,
+  closeDatabase,
   deleteBookById,
   executeSqliteCommand,
   getDatabase,
@@ -95,8 +97,15 @@ async function deleteBook(request: WorkerRequest): Promise<void> {
   deleteBookById(database, id)
 }
 
+async function clearStorage(): Promise<void> {
+  await closeDatabase()
+  await clearOpfs()
+}
+
 function executeLibraryCommand(request: WorkerRequest): Promise<unknown> {
   switch (request.command) {
+    case COMMAND.CLEAR_STORAGE:
+      return clearStorage()
     case COMMAND.SAVE_BOOK:
       return saveBook(request)
     case COMMAND.LIST_BOOKS:

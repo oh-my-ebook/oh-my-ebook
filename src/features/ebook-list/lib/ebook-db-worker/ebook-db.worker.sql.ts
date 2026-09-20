@@ -75,6 +75,20 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE UNIQUE INDEX chunk_sources_chunk_order_idx ON chunk_sources(chunk_id, source_order);
   CREATE INDEX chunk_sources_page_line_idx ON chunk_sources(ocr_page_id, start_line_index);
 
+  CREATE TABLE search_terms (
+    id INTEGER PRIMARY KEY,
+    term TEXT NOT NULL UNIQUE,
+    document_frequency INTEGER NOT NULL CHECK (document_frequency > 0)
+  );
+
+  CREATE TABLE search_postings (
+    term_id INTEGER NOT NULL REFERENCES search_terms(id),
+    chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE,
+    term_frequency INTEGER NOT NULL CHECK (term_frequency > 0),
+    PRIMARY KEY (term_id, chunk_id)
+  );
+  CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id);
+
   PRAGMA user_version = 1;
 `
 
@@ -164,6 +178,44 @@ export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
 export const INSERT_CHUNK_SOURCE_SQL = `INSERT INTO chunk_sources (
   chunk_id, ocr_page_id, start_line_index, end_line_index, source_order
 ) VALUES (?, ?, ?, ?, ?)`
+export const DELETE_ORPHAN_SEARCH_TERMS_SQL = `DELETE FROM search_terms
+  WHERE NOT EXISTS (SELECT 1 FROM search_postings WHERE search_postings.term_id = search_terms.id)`
+export const REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL = `UPDATE search_terms
+  SET document_frequency = (
+    SELECT COUNT(*) FROM search_postings WHERE search_postings.term_id = search_terms.id
+  )`
+export const UPSERT_SEARCH_TERM_SQL = `INSERT INTO search_terms (term, document_frequency)
+  VALUES (?, 1)
+  ON CONFLICT(term) DO UPDATE SET document_frequency = document_frequency + 1`
+export const SELECT_SEARCH_TERM_ID_SQL = 'SELECT id FROM search_terms WHERE term = ?'
+export const INSERT_SEARCH_POSTING_SQL = `INSERT INTO search_postings (
+  term_id, chunk_id, term_frequency
+) VALUES (?, ?, ?)`
+export const SET_BOOK_INDEXED_SQL = `UPDATE books
+  SET analysis_status = 'ready', indexed_at = ?, updated_at = ? WHERE id = ?`
+export const SELECT_SEARCH_TERM_COUNT_SQL = `SELECT COUNT(DISTINCT search_terms.id) FROM search_terms
+  JOIN search_postings ON search_postings.term_id = search_terms.id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_SEARCH_TERMS_SQL = `SELECT search_terms.id, search_terms.term,
+  search_terms.document_frequency FROM search_terms
+  JOIN search_postings ON search_postings.term_id = search_terms.id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?
+  GROUP BY search_terms.id
+  ORDER BY search_terms.term
+  LIMIT ? OFFSET ?`
+export const SELECT_SEARCH_POSTING_COUNT_SQL = `SELECT COUNT(*) FROM search_postings
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_SEARCH_POSTINGS_SQL = `SELECT search_postings.term_id, search_postings.chunk_id,
+  search_postings.term_frequency, search_terms.term, search_chunks.ordinal AS chunk_ordinal
+  FROM search_postings
+  JOIN search_terms ON search_terms.id = search_postings.term_id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?
+  ORDER BY search_terms.term, search_chunks.ordinal
+  LIMIT ? OFFSET ?`
 export const SELECT_SEARCH_CHUNK_COUNT_SQL = 'SELECT COUNT(*) FROM search_chunks WHERE book_id = ?'
 export const SELECT_SEARCH_CHUNKS_SQL = `SELECT id, ordinal, text, token_count, created_at
   FROM search_chunks WHERE book_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`

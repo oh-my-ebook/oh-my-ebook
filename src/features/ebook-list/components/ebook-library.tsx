@@ -1,12 +1,16 @@
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { ErrorAlert } from '@/components/error-alert'
+import { useState } from 'react'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { clearOriginData } from '../lib/origin-data-manager'
 import { usePageFileDrop } from '../hooks/use-page-file-drop'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
 import { LibrarySummary } from './library-summary'
+import { ClearOriginDataDialog } from './clear-origin-data-dialog'
 
 interface EbookLibraryProps {
   store: EbookLibraryStore
@@ -14,6 +18,7 @@ interface EbookLibraryProps {
 }
 
 export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const {
     state,
     retry,
@@ -53,6 +58,12 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     }
   }
 
+  async function clearAllData() {
+    await store.request('clearStorage')
+    await clearOriginData()
+    window.location.reload()
+  }
+
   return (
     <main className="min-h-svh bg-background" {...dropZoneProps}>
       <nav aria-label="주 탐색" className="border-b bg-card/92">
@@ -81,6 +92,13 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               variant="outline"
             >
               새로고침
+            </Button>
+            <Button
+              disabled={state.status !== 'ready'}
+              onClick={() => setClearDialogOpen(true)}
+              variant="outline"
+            >
+              저장소 관리
             </Button>
           </div>
         </header>
@@ -140,6 +158,24 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
           </p>
         )}
       </div>
+      <ClearOriginDataDialog
+        onClear={clearAllData}
+        onOpenChange={setClearDialogOpen}
+        open={clearDialogOpen}
+      />
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-x-4 gap-y-1 px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-10">
+          <Link className="hover:text-foreground hover:underline" to="/privacy">
+            개인정보처리방침
+          </Link>
+          <Link className="hover:text-foreground hover:underline" to="/terms">
+            이용약관
+          </Link>
+          <Link className="hover:text-foreground hover:underline" to="/licenses">
+            오픈소스 라이선스
+          </Link>
+        </div>
+      </footer>
     </main>
   )
 }

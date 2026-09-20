@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelRunOptions, ChatModelRunResult, ThreadMessage } from '@assistant-ui/react'
 import { stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
+import { encodeQuoteTexts } from '../../../../lib/quote'
 import { createWebLlmChatModelAdapter } from './webllm-chat-adapter'
 import type { WebLlmEngine } from './webllm-model'
 
-function createMessage(role: 'user' | 'assistant', text: string): ThreadMessage {
+function createMessage(role: 'user' | 'assistant', text: string, quote?: string): ThreadMessage {
   const common = {
     id: `${role}-${text}`,
     createdAt: new Date(),
     content: [{ type: 'text' as const, text }],
-    metadata: { custom: {} },
+    metadata: {
+      custom: quote ? { quote: { messageId: 'pdf-page-3', text: quote } } : {},
+    },
   }
 
   if (role === 'user') {
@@ -91,7 +94,138 @@ describe('createWebLlmChatModelAdapter', () => {
       ],
       max_tokens: 512,
       stream: true,
+      temperature: 0.3,
     })
+  })
+
+  it('사용자 메시지의 PDF 인용문을 질문과 함께 엔진에 전달한다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const adapter = createWebLlmChatModelAdapter(async () => engine)
+    const options = createRunOptions([createMessage('user', '이 부분을 설명해 주세요.', '인용문')])
+
+    for await (const _result of adapter.run(options)) {
+      // 엔진에 전달된 메시지만 검증한다.
+    }
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'system', content: '현재 PDF 5페이지를 읽고 있습니다.' },
+          {
+            role: 'user',
+            content: '<selected_quote>\n인용문\n</selected_quote>\n\n이 부분을 설명해 주세요.',
+          },
+        ],
+      }),
+    )
+  })
+
+  it('여러 PDF 인용문을 각각 구분해 엔진에 전달한다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const adapter = createWebLlmChatModelAdapter(async () => engine)
+    const options = createRunOptions([
+      createMessage(
+        'user',
+        '공통점을 설명해 주세요.',
+        encodeQuoteTexts(['첫 번째 인용문', '두 번째 인용문']),
+      ),
+    ])
+
+    for await (const _result of adapter.run(options)) {
+      // 엔진에 전달된 메시지만 검증한다.
+    }
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'system', content: '현재 PDF 5페이지를 읽고 있습니다.' },
+          {
+            role: 'user',
+            content:
+              '<selected_quote>\n첫 번째 인용문\n</selected_quote>\n\n' +
+              '<selected_quote>\n두 번째 인용문\n</selected_quote>\n\n' +
+              '공통점을 설명해 주세요.',
+          },
+        ],
+      }),
+    )
+  })
+
+  it('자세히 설명 질문은 선택 문장용 상세 지시문으로 바꿔 엔진에 전달한다', async () => {
+    const { create, engine } = createEngine(['설명'])
+    const adapter = createWebLlmChatModelAdapter(async () => engine)
+    const options = createRunOptions([
+      createMessage(
+        'user',
+        '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.',
+        '선택한 문장',
+      ),
+    ])
+
+    for await (const _result of adapter.run(options)) {
+      // 엔진에 전달된 메시지만 검증한다.
+    }
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'system', content: '현재 PDF 5페이지를 읽고 있습니다.' },
+          {
+            role: 'user',
+            content: [
+              '<selected_quote>',
+              '선택한 문장',
+              '</selected_quote>',
+              '',
+              'Explain the selected quote using the provided book metadata and current page context.',
+              '',
+              'Instructions:',
+              '- You MUST answer in Korean.',
+              '- Begin with a concise paraphrase of the quote in plain language.',
+              '- Clarify the key terms, references, and reasoning needed to understand it.',
+              '- Connect it to the surrounding page and book only when the provided context supports the connection.',
+              '- If the context is insufficient or ambiguous, state exactly what cannot be determined.',
+              '- Do not infer or add information that is not present in the provided context.',
+              '- Avoid repeating the quote verbatim unless needed for the explanation.',
+            ].join('\n'),
+          },
+        ],
+      }),
+    )
+  })
+
+  it('페이지 요약 질문은 상세 지시문으로 바꿔 엔진에 전달한다', async () => {
+    const { create, engine } = createEngine(['요약'])
+    const adapter = createWebLlmChatModelAdapter(async () => engine)
+    const options = createRunOptions([createMessage('user', '이 페이지에 대해 요약해줘')])
+
+    for await (const _result of adapter.run(options)) {
+      // 엔진에 전달된 메시지만 검증한다.
+    }
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'system', content: '현재 PDF 5페이지를 읽고 있습니다.' },
+          {
+            role: 'user',
+            content: [
+              'Write a three-sentence summary of the content above, then organize the key concepts.',
+              '',
+              'Summarize the entire content in exactly three natural prose sentences.',
+              'Organize the key concepts as bullet points.',
+              '',
+              'Instructions:',
+              '- You MUST answer in Korean.',
+              '- Write the summary as exactly three prose sentences, not as bullet points.',
+              '- Include only the key concepts found on the page, up to five.',
+              '- Write an introduction and a conclusion.',
+              '- Do not infer or add information that is not present on the page.',
+            ].join('\n'),
+          },
+        ],
+      }),
+    )
   })
 
   it('생성 중단을 WebLLM 엔진에 전달한다', async () => {
