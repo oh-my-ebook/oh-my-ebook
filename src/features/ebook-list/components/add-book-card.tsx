@@ -41,7 +41,7 @@ export function AddBookCard({
       />
       <button
         aria-label="책 추가"
-        className="book-card-cover h-full w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none"
+        className="book-card-cover w-full flex-col gap-2 border-dashed text-muted-foreground shadow-none"
         data-dragging={dragActive}
         disabled={unavailable}
         onClick={() => inputRef.current?.click()}

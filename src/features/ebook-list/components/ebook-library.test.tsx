@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
+import * as ocrAnalysis from '../lib/ebook-analysis/ocr-analysis'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { createPromiseController } from '@/test/promise-controller'
 import { toast, Toaster } from '@/components/ui/toast'
@@ -45,16 +46,58 @@ function createStoredBook(title: string) {
 }
 
 describe('EbookLibrary', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.documentElement.classList.remove('dark')
+    localStorage.removeItem('theme')
+  })
+
+  it('서재 상단에 PDF 보관 범위를 안내하고 기존 소개 문구는 표시하지 않는다', async () => {
+    render(<EbookLibrary store={createStore()} />, { wrapper: TestRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+
+    expect(
+      within(screen.getByRole('banner')).getByText(
+        'PDF는 이 브라우저에만 보관되며, 서버나 다른 기기에 동기화되지 않습니다.',
+      ),
+    ).toBeVisible()
+    expect(screen.queryByText('이 브라우저에만 보관되는 오프라인 서재')).not.toBeInTheDocument()
+  })
+
+  it('서재 탐색 바에서 어두운 테마와 밝은 테마를 전환한다', async () => {
+    const user = userEvent.setup()
+    render(<EbookLibrary store={createStore()} />, { wrapper: TestRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.click(screen.getByRole('button', { name: '다크 모드로 전환' }))
+    expect(document.documentElement).toHaveClass('dark')
+
+    await user.click(screen.getByRole('button', { name: '라이트 모드로 전환' }))
+    expect(document.documentElement).not.toHaveClass('dark')
+  })
+
+  it('어두운 테마에서 서재에 진입하면 밝은 테마로 바꿀 수 있다', async () => {
+    localStorage.setItem('theme', 'dark')
+    const user = userEvent.setup()
+    render(<EbookLibrary store={createStore()} />, { wrapper: TestRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.click(screen.getByRole('button', { name: '라이트 모드로 전환' }))
+
+    expect(document.documentElement).not.toHaveClass('dark')
+    expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
+  })
+
   it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const initialization = createPromiseController<unknown>()
     const store = createStore()
     store.request.mockImplementationOnce(() => initialization.promise)
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('서재를 불러오고 있습니다.')
-    expect(screen.getByText('책 표지를 준비하고 있어요.')).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('책장을 불러오는 중입니다.')
+    expect(screen.queryByText('서재를 불러오고 있습니다.')).not.toBeInTheDocument()
+    expect(screen.queryByText('책 표지를 준비하고 있어요.')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '책 추가' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
@@ -68,7 +111,7 @@ describe('EbookLibrary', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.request.mockRejectedValueOnce(new Error('failed'))
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
@@ -88,7 +131,7 @@ describe('EbookLibrary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const addToast = vi.spyOn(toast, 'add')
 
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('failBookAnalysis', failedBook.id)
@@ -107,10 +150,62 @@ describe('EbookLibrary', () => {
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
+  })
+
+  it('책장 화면을 다시 마운트해도 이미 진행 중인 OCR 분석을 중복 실행하지 않는다', async () => {
+    const analyzingBook = createStoredBook('분석 중인 책')
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [analyzingBook]
+      return null
+    })
+    const analysis = createPromiseController<'completed' | 'failed'>()
+    const runOcrAnalysisSpy = vi
+      .spyOn(ocrAnalysis, 'runOcrAnalysis')
+      .mockReturnValue(analysis.promise)
+
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+    await waitFor(() => expect(runOcrAnalysisSpy).toHaveBeenCalledOnce())
+
+    // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
+    // 분석이 아직 끝나지 않아 책 목록 상 상태는 여전히 'analyzing'이다.
+    unmount()
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    expect(runOcrAnalysisSpy).toHaveBeenCalledOnce()
+
+    analysis.resolve('completed')
+  })
+
+  it('다시 마운트된 화면도 진행 중이던 OCR 분석의 실제 결과(실패)를 반영한다', async () => {
+    const analyzingBook = createStoredBook('분석 중인 책')
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [analyzingBook]
+      return null
+    })
+    const analysis = createPromiseController<'completed' | 'failed'>()
+    vi.spyOn(ocrAnalysis, 'runOcrAnalysis').mockReturnValue(analysis.promise)
+
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
+    unmount()
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    // 분석이 실패로 끝나면, 다시 마운트된 화면(=다른 실행에 합류한 호출자)도
+    // "분석 중"에 머무르지 않고 실제 결과를 받아 재시도 버튼을 보여줘야 한다.
+    analysis.resolve('failed')
+
+    expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
   })
 
   it('사용량 조회 여부와 무관하게 업로드한다', async () => {
@@ -134,11 +229,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -172,11 +267,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -197,7 +292,7 @@ describe('EbookLibrary', () => {
 
   it('파일이 아닌 항목을 페이지에 끌어다 놓아도 브라우저 기본 동작(이동)을 막는다', async () => {
     const store = createStore()
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     await screen.findByRole('button', { name: '책 추가' })
     const main = screen.getByRole('main')
@@ -227,7 +322,7 @@ describe('EbookLibrary', () => {
       coverMime: null,
       coverStatus: 'fallback',
     })
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     await screen.findByRole('button', { name: '책 추가' })
     const main = screen.getByRole('main')
@@ -270,7 +365,7 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
     await screen.findByRole('button', { name: '책 추가' })
 
     await user.upload(screen.getByLabelText('PDF 파일 선택'), [
@@ -296,7 +391,7 @@ describe('EbookLibrary', () => {
     })
     const usage = vi.spyOn(storage, 'getStorageUsage')
     usage.mockResolvedValueOnce(1).mockResolvedValueOnce(2)
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByText('기존 책')).toBeInTheDocument()
     expect(screen.getByText('읽지 않음 · 전체 1페이지')).toBeInTheDocument()
@@ -321,7 +416,7 @@ describe('EbookLibrary', () => {
       if (listRequestCount === 2) throw new Error('failed')
       return [createStoredBook('새 책')]
     })
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByText('기존 책')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '새로고침' }))
@@ -340,7 +435,7 @@ describe('EbookLibrary', () => {
       if (command === 'listBooks') return [createStoredBook('기존 책')]
       return null
     })
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     await screen.findByText('기존 책')
     await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
@@ -373,7 +468,7 @@ describe('EbookLibrary', () => {
       return null
     })
     vi.spyOn(storage, 'getStorageUsage').mockResolvedValueOnce(10).mockResolvedValueOnce(2)
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     await screen.findByText('첫 번째 책')
     await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
@@ -429,11 +524,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -468,11 +563,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByText('기존 책')
@@ -496,11 +591,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByText('기존 책')
@@ -524,7 +619,7 @@ describe('EbookLibrary', () => {
       }
       return null
     })
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
 
     await screen.findByText('기존 책')
     await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
@@ -545,11 +640,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <Toaster>
           <EbookLibrary onOpenBook={onOpenBook} store={store} />
         </Toaster>
-      </MemoryRouter>,
+      </TestRouter>,
     )
 
     await screen.findByText('기존 책')

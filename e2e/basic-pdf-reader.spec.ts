@@ -58,7 +58,7 @@ test.describe('기본 PDF 리더', () => {
   test('상단 독서 도구에서 테마와 빈 목차 패널을 전환한다', async ({ page }) => {
     await openPdf(page, textPdfPath)
 
-    await page.getByRole('button', { name: '어두운 테마' }).click()
+    await page.getByRole('button', { name: '다크 모드로 전환' }).click()
     await expect(page.locator('html')).toHaveClass(/dark/)
 
     await page.getByRole('button', { name: '목차 열기' }).click()

@@ -1,14 +1,8 @@
-import { useState, type RefObject } from 'react'
-import {
-  ArrowLeftIcon,
-  BookmarkIcon,
-  ListIcon,
-  MoonIcon,
-  PanelRightIcon,
-  SunIcon,
-} from 'lucide-react'
+import type { RefObject } from 'react'
+import { ArrowLeftIcon, BookmarkIcon, ListIcon, PanelRightIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { ThemeToggle } from '@/components/theme-toggle'
 import type { PageViewMode } from '../lib/page-spread'
 import { FullscreenToggle } from './fullscreen-toggle'
 import { ViewModeControl } from './view-mode-control'
@@ -39,14 +33,7 @@ export function ReaderToolbar({
   isSpreadAvailable,
   onViewChange,
 }: ReaderToolbarProps) {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   const navigation = useNavigate()
-
-  const toggleTheme = () => {
-    const nextDark = !dark
-    document.documentElement.classList.toggle('dark', nextDark)
-    setDark(nextDark)
-  }
 
   return (
     <header
@@ -96,14 +83,7 @@ export function ReaderToolbar({
           className="h-5 data-vertical:w-[1.5px] data-vertical:self-center"
           orientation="vertical"
         />
-        <Button
-          aria-label={dark ? '밝은 테마' : '어두운 테마'}
-          onClick={toggleTheme}
-          size="icon-sm"
-          variant="ghost"
-        >
-          {dark ? <SunIcon /> : <MoonIcon />}
-        </Button>
+        <ThemeToggle />
         <Button
           aria-label={panelOpen ? '함께 읽기 패널 닫기' : '함께 읽기 패널 열기'}
           aria-pressed={panelOpen}

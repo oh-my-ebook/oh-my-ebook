@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
@@ -14,6 +14,13 @@ import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const prepareCachedModelMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('./features/reader/lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./features/reader/lib/web-llm/webllm-model')>()),
+  prepareCachedWebLlmModel: prepareCachedModelMock,
+}))
+
 // 레이아웃을 확인하는 테스트라 실제 OCR 경로까지 들어가지 않는다.
 const recognizePdfPageMock = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ width: 1, height: 1, lines: [] }),
@@ -84,9 +91,9 @@ function resizeReaderTo(width: number, height: number) {
 
 async function renderApp() {
   const result = render(
-    <MemoryRouter initialEntries={['/sample-reader']}>
+    <TestRouter initialEntries={['/sample-reader']}>
       <App />
-    </MemoryRouter>,
+    </TestRouter>,
   )
   await act(async () => {
     await vi.dynamicImportSettled()
@@ -98,6 +105,7 @@ describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
     prepareOcrMock.mockClear()
+    prepareCachedModelMock.mockClear()
     disconnectResizeObserver.mockReset()
     resizeNotifications.length = 0
     vi.stubGlobal('devicePixelRatio', 1)
@@ -127,6 +135,7 @@ describe('App', () => {
 
     await screen.findByRole('heading', { name: '기본 PDF 리더 샘플' })
     expect(prepareOcrMock).toHaveBeenCalledOnce()
+    expect(prepareCachedModelMock).toHaveBeenCalledOnce()
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '페이지 위치' })).not.toBeInTheDocument()
@@ -167,7 +176,7 @@ describe('App', () => {
   it('제목이 없으면 전체 파일명을 제목으로 표시한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: TestRouter })
 
     expect(screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })).toBeInTheDocument()
   })

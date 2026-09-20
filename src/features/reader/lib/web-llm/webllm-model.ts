@@ -1,4 +1,4 @@
-import type { ChatCompletionRequestStreaming } from '@mlc-ai/web-llm'
+import type { ChatCompletionRequestStreaming, InitProgressReport } from '@mlc-ai/web-llm'
 import { create } from 'zustand'
 
 export const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
@@ -19,17 +19,44 @@ export interface WebLlmEngine {
 }
 
 export type WebLlmModelStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type WebLlmModelPhase = 'preparing' | 'downloading' | 'loading-gpu' | 'compiling'
 
 interface WebLlmModelState {
   status: WebLlmModelStatus
   progress: number
+  phase: WebLlmModelPhase
+  progressDetail?: string
   error?: string
 }
 
 export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
   status: 'idle',
   progress: 0,
+  phase: 'preparing',
 }))
+
+function getLoadingProgress({ text, progress }: InitProgressReport) {
+  const phase: WebLlmModelPhase = text.startsWith('Fetching param cache')
+    ? 'downloading'
+    : text.startsWith('Loading model from cache')
+      ? 'loading-gpu'
+      : text.startsWith('Loading GPU shader modules')
+        ? 'compiling'
+        : 'preparing'
+  const count = text.match(/\[(\d+\/\d+)\]/)?.[1]
+  const megabytes = text.match(/(\d+)MB (?:fetched|loaded)/)?.[1]
+  const progressDetail =
+    phase === 'preparing'
+      ? undefined
+      : [
+          count && `${count}개${phase === 'compiling' ? '' : ' 파일'}`,
+          megabytes && `${megabytes}MB`,
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined
+
+  return { phase, progress: Math.round(Math.max(0, Math.min(1, progress)) * 100), progressDetail }
+}
 
 // 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
 // "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
@@ -92,10 +119,8 @@ async function createEngine(): Promise<WebLlmEngine> {
       currentWorker,
       WEBLLM_MODEL_ID,
       {
-        initProgressCallback: ({ progress }) => {
-          useWebLlmModelStore.setState({
-            progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
-          })
+        initProgressCallback: (report) => {
+          useWebLlmModelStore.setState(getLoadingProgress(report))
         },
       },
       { context_window_size: 8192 },
@@ -113,7 +138,13 @@ export function invalidateDefaultEngine(error: unknown) {
 
 function loadDefaultEngine() {
   if (!enginePromise) {
-    useWebLlmModelStore.setState({ status: 'loading', progress: 0, error: undefined })
+    useWebLlmModelStore.setState({
+      status: 'loading',
+      phase: 'preparing',
+      progress: 0,
+      progressDetail: undefined,
+      error: undefined,
+    })
     enginePromise = createEngine().then(
       (engine) => {
         useWebLlmModelStore.setState({ status: 'ready', progress: 100 })
@@ -133,7 +164,19 @@ export async function prepareWebLlmModel() {
   await loadDefaultEngine()
 }
 
-// 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
+export async function prepareCachedWebLlmModel() {
+  if (typeof caches === 'undefined' || useWebLlmModelStore.getState().status !== 'idle') return
+  if (!(await caches.has('webllm/model'))) return
+
+  const { hasModelInCache } = await import('@mlc-ai/web-llm')
+  // 일부만 받은 모델은 자동 다운로드하지 않는다. 라이브러리가 모든 가중치 파일을 확인한다.
+  const cached = await hasModelInCache(WEBLLM_MODEL_ID)
+  if (cached && useWebLlmModelStore.getState().status === 'idle') {
+    await loadDefaultEngine()
+  }
+}
+
+// 캐시가 없는 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
 // 채팅 요청이 로딩을 대신 시작하면 idle·error 상태에서 질문만 보내도 수백 MB 다운로드가 시작된다.
 export async function getReadyEngine() {
   if (useWebLlmModelStore.getState().status !== 'ready' || !enginePromise) {

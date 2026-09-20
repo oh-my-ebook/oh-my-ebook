@@ -55,6 +55,12 @@ assistant-ui의 `SelectionToolbarPrimitive`는 채팅 메시지 안의 선택만
 
 새 대화의 인용문이 없는 상태에는 `ThreadPrimitive.Suggestion`으로 `이 페이지 요약`을 표시하고 즉시 전송한다. 대화에는 `이 페이지에 대해 요약해줘`만 표시하며, WebLLM 어댑터에서 줄글 3문장과 본문의 핵심 개념을 최대 5개 불렛포인트로 요구하는 상세 영어 지시문으로 바꾼다. 여러 페이지를 가로지르는 선택은 제외한다.
 
+## 모델 준비 상태와 캐시 사전 로딩 (FR-013)
+
+`webllm-model.ts`에서 WebLLM 0.2.85의 `InitProgressReport.text`를 읽어 다운로드·GPU 로딩·GPU 실행 준비를 구분하고, 단계별 진행률과 파일 수·처리 용량을 상태에 저장한다. 알 수 없는 메시지는 준비 중으로 표시한다. 기존 Alert·Progress·Button으로 한국어 안내와 단계별 진행률을 보여준다.
+
+`App`의 시작 effect에서 `prepareCachedWebLlmModel()`을 호출한다. Cache Storage를 지원하고 상태가 idle일 때 모델 캐시 저장소의 존재 여부를 먼저 확인한다. 저장소가 없으면 WebLLM 모듈도 불러오지 않는다. 저장소가 있으면 라이브러리의 `hasModelInCache()`로 가중치 전체를 확인한 뒤 기존 단일 엔진 준비 경로를 재사용한다. 캐시 확인 실패는 자동 로딩을 건너뛰고, GPU 준비 실패는 기존 오류·재시도 경로로 처리한다. 모델·컨텍스트 크기·캐시 백엔드·다운로드 호스트는 유지한다. 단위 테스트에서 캐시 유무·확인 실패·수동 요청과의 중첩을, 컴포넌트 테스트에서 한국어 단계 표시와 앱 시작 연결을 검증한다.
+
 ## 컴포넌트 배치
 
 - `src/features/reader/components/reader-panel.tsx`: `WideReaderPanel`·`NarrowReaderPanel`의 빈 콘텐츠 영역에 `ReaderChat`을 렌더링하도록 수정. 패널이 Base UI `Collapsible.Panel`/`Dialog.Popup`으로 닫힐 때 콘텐츠가 DOM에서 언마운트되는 기존 동작을 그대로 활용해 FR-006(패널을 닫으면 대화 내역 초기화)을 별도 리셋 로직 없이 만족시킨다.
