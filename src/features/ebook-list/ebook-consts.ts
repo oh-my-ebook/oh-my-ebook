@@ -9,6 +9,7 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
 } as const
 
 export const COMMAND = {
+  CLEAR_STORAGE: 'clearStorage',
   SAVE_BOOK: 'saveBook',
   LIST_BOOKS: 'listBooks',
   GET_BOOK: 'getBook',

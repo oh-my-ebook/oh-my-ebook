@@ -1,6 +1,7 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearOpfs,
   deletePdf,
   executeOpfsCommand,
   hasPdf,
@@ -11,6 +12,7 @@ import {
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
 vi.mock('./ebook-db.worker.opfs', () => ({
+  clearOpfs: vi.fn(),
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
   deletePdf: vi.fn(),
@@ -26,6 +28,20 @@ afterEach(() => {
 })
 
 describe('ebook-db.worker', () => {
+  it('SQLite를 닫은 뒤 OPFS 전체 삭제 명령을 처리한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(new MessageEvent('message', { data: { requestId: 1, command: 'clearStorage' } }))
+
+    expect(clearOpfs).toHaveBeenCalledOnce()
+    expect(responses).toHaveBeenCalledWith({ requestId: 1, result: null })
+  })
+
   it('OPFS PDF 저장·조회·삭제 명령을 처리한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }

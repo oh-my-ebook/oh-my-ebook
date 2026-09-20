@@ -200,6 +200,12 @@ export function getDatabase(): Promise<Database> {
   return databasePromise
 }
 
+export async function closeDatabase(): Promise<void> {
+  const database = await databasePromise
+  database?.close()
+  databasePromise = undefined
+}
+
 export function getBookId(request: WorkerRequest): string {
   return getPayload(
     request,
