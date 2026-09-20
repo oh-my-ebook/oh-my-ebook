@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ModelContext } from '@assistant-ui/react'
+import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
+import { TestRouter } from '@/test/test-router'
 import type { BookMetadata } from '../lib/book-metadata'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
@@ -153,6 +153,7 @@ async function renderLoadedReader(
   resizeObserverMock: ReturnType<typeof setupResizeObserverMock>,
   pageCount = 1,
   bookMetadata?: BookMetadata,
+  chatModel?: ChatModelAdapter,
 ) {
   vi.stubGlobal('devicePixelRatio', 1)
   recognizePdfPageMock.mockImplementation(async (page: { pageNumber: number }) => ({
@@ -172,9 +173,12 @@ async function renderLoadedReader(
   }))
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  const view = render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, {
-    wrapper: TestRouter,
-  })
+  const view = render(
+    <Reader bookMetadata={bookMetadata} chatModel={chatModel} url="/sample.pdf" />,
+    {
+      wrapper: TestRouter,
+    },
+  )
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -348,6 +352,54 @@ describe('Reader 보조 패널 연결', () => {
     expect(respondSpy.mock.calls[1]?.[1]?.system).toContain('2')
     expect(respondSpy.mock.calls[1]?.[1]?.system).toContain('2페이지 OCR 본문')
     expect(respondSpy.mock.calls[1]?.[1]?.system).not.toContain('1페이지 OCR 본문')
+  })
+
+  it('답변 근거로 이동한 뒤 이전 읽던 페이지로 돌아온다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const evidenceAdapter: ChatModelAdapter = {
+      async *run() {
+        yield {
+          content: [
+            { type: 'text', text: '답변' },
+            {
+              type: 'data',
+              name: 'book-evidence',
+              data: {
+                chunks: [
+                  {
+                    id: 'chunk-2',
+                    ordinal: 1,
+                    text: '2페이지 근거 본문',
+                    tokenCount: 4,
+                    score: 2,
+                    sources: [{ pageNumber: 2, startLineIndex: 0, endLineIndex: 0 }],
+                  },
+                ],
+              },
+            },
+          ],
+        } satisfies ChatModelRunResult
+      },
+    }
+    await renderLoadedReader(resizeObserverMock, 2, undefined, evidenceAdapter)
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
+    await user.keyboard('{Enter}')
+    const evidenceTrigger = await screen.findByRole('button', { name: '근거 보기' })
+    await user.hover(evidenceTrigger)
+    await user.click(await screen.findByRole('button', { name: '2페이지 근거로 이동' }))
+
+    await screen.findByRole('img', { name: 'PDF 2페이지' })
+    expect(await screen.findByText('2페이지 OCR 본문')).toHaveAttribute(
+      'data-evidence-highlight',
+      'true',
+    )
+    await user.click(screen.getByRole('button', { name: '이전 위치로 돌아가기' }))
+    expect(await screen.findByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
   })
 
   it('리더가 받은 도서 메타데이터를 질문 컨텍스트에 전달한다', async () => {

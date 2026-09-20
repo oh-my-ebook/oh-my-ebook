@@ -11,6 +11,8 @@ import type {
   OcrLineRecord,
   OcrPageRecord,
   SearchChunkInput,
+  SearchChunkResult,
+  SearchChunkSource,
   SearchChunkPage,
   SearchChunkRecord,
   SearchPostingPage,
@@ -56,6 +58,8 @@ import {
   SELECT_SEARCH_CHUNKS_SQL,
   SELECT_SEARCH_POSTING_COUNT_SQL,
   SELECT_SEARCH_POSTINGS_SQL,
+  createSearchChunksSql,
+  createSearchChunkSourcesSql,
   SELECT_SEARCH_TERM_ID_SQL,
   SELECT_SEARCH_TERM_COUNT_SQL,
   SELECT_SEARCH_TERMS_SQL,
@@ -84,6 +88,7 @@ import {
 import {
   getPayload,
   isRowAffected,
+  isSearchChunkQuery,
   isInitializeOcrPagesInput,
   isGetStoredOcrPageInput,
   isListOcrLinesInput,
@@ -620,6 +625,94 @@ function listSearchChunks(database: Database, request: WorkerRequest): SearchChu
   return { chunks, total }
 }
 
+function isSearchChunkResultRow(value: unknown): value is {
+  id: string
+  ordinal: number
+  text: string
+  token_count: number
+  score: number
+} {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'id' in value &&
+    typeof value.id === 'string' &&
+    'ordinal' in value &&
+    typeof value.ordinal === 'number' &&
+    'text' in value &&
+    typeof value.text === 'string' &&
+    'token_count' in value &&
+    typeof value.token_count === 'number' &&
+    'score' in value &&
+    typeof value.score === 'number' &&
+    Number.isFinite(value.score)
+  )
+}
+
+function isSearchChunkSourceRow(value: unknown): value is {
+  chunk_id: string
+  page_number: number
+  start_line_index: number
+  end_line_index: number
+} {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'chunk_id' in value &&
+    typeof value.chunk_id === 'string' &&
+    'page_number' in value &&
+    typeof value.page_number === 'number' &&
+    'start_line_index' in value &&
+    typeof value.start_line_index === 'number' &&
+    'end_line_index' in value &&
+    typeof value.end_line_index === 'number'
+  )
+}
+
+function searchChunks(database: Database, request: WorkerRequest): SearchChunkResult[] {
+  const query = getPayload(request, request.command, isSearchChunkQuery)
+  if (query.terms.length === 0) return []
+
+  const rows = database.exec(createSearchChunksSql(query.terms.length), {
+    bind: [...query.terms, query.bookId, query.limit],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
+
+  const chunks: Omit<SearchChunkResult, 'sources'>[] = []
+  for (const row of rows) {
+    if (!isSearchChunkResultRow(row)) throw new Error('Invalid search chunks')
+    chunks.push({
+      id: row.id,
+      ordinal: row.ordinal,
+      text: row.text,
+      tokenCount: row.token_count,
+      score: row.score,
+    })
+  }
+  if (chunks.length === 0) return []
+
+  const sourceRows = database.exec(createSearchChunkSourcesSql(chunks.length), {
+    bind: chunks.map(({ id }) => id),
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(sourceRows)) throw new Error('Invalid search chunk sources')
+
+  const sourcesByChunkId = new Map<string, SearchChunkSource[]>()
+  for (const row of sourceRows) {
+    if (!isSearchChunkSourceRow(row)) throw new Error('Invalid search chunk sources')
+    const sources = sourcesByChunkId.get(row.chunk_id) ?? []
+    sources.push({
+      pageNumber: row.page_number,
+      startLineIndex: row.start_line_index,
+      endLineIndex: row.end_line_index,
+    })
+    sourcesByChunkId.set(row.chunk_id, sources)
+  }
+
+  return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
+}
+
 function isSearchTermRecord(value: unknown): value is SearchTermRecord {
   if (typeof value !== 'object' || value === null) return false
   if (!('id' in value) || typeof value.id !== 'number') return false
@@ -754,6 +847,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return listSearchTerms(database, request)
     case SQLITE_COMMAND.LIST_SEARCH_POSTINGS:
       return listSearchPostings(database, request)
+    case SQLITE_COMMAND.SEARCH_CHUNKS:
+      return searchChunks(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }
