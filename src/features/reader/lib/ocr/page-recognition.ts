@@ -128,10 +128,25 @@ export async function prepareOcr() {
   await Promise.all([getPaddle(), postprocessWithKiwi('', new AbortController().signal)])
 }
 
-// PaddleOCR worker 인스턴스에는 predict() 취소 API가 없어, 중단된 인스턴스는 캐시에서
-// 즉시 떼어내 다음 페이지가 새 인스턴스로 바로 시작하게 한다. 인스턴스가 이미 만들어져
-// 있었다면 dispose()가 그 자리에서 Worker를 종료시켜 진행 중이던 predict()도 함께
-// 끊어지고, 아직 초기화 중이었다면 초기화가 끝난 뒤에 정리된다.
+// Reader의 실시간 인식과 백그라운드 분석 파이프라인이 같은 인스턴스를 함께 쓸 수 있어,
+// 진행 중인 요청 수를 세어 마지막 요청이 중단될 때만 정리한다. 새 인스턴스는 이전
+// 인스턴스가 이 카운트로 완전히 정리된 뒤에만 만들어지므로 인스턴스별로 따로 셀 필요는 없다.
+let activePaddleRequests = 0
+
+function trackPaddleRequest() {
+  activePaddleRequests += 1
+}
+
+// 남은 요청 수를 반환한다.
+function untrackPaddleRequest(): number {
+  activePaddleRequests = Math.max(0, activePaddleRequests - 1)
+  return activePaddleRequests
+}
+
+// PaddleOCR worker 인스턴스에는 predict() 취소 API가 없어, 중단된 요청이 마지막
+// 사용자였다면 캐시에서 즉시 떼어내 다음 페이지가 새 인스턴스로 바로 시작하게 한다.
+// 인스턴스가 이미 만들어져 있었다면 dispose()가 그 자리에서 Worker를 종료시켜
+// 진행 중이던 predict()도 함께 끊어지고, 아직 초기화 중이었다면 초기화가 끝난 뒤에 정리된다.
 function abandonPaddle(instancePromise: Promise<PaddleOcr>) {
   if (paddle === instancePromise) {
     paddle = undefined
@@ -167,24 +182,34 @@ async function recognizeWithPaddleOcr(
   signal: AbortSignal,
 ): Promise<TextBox[]> {
   const instancePromise = getPaddle()
-  // 작은 글자까지 탐지하되 신뢰도가 낮은 상자와 인식 결과는 제외한다.
-  const [recognized] = await raceWithAbort(
-    instancePromise.then((instance) =>
-      instance.predict(canvas, {
-        textDetLimitSideLen: 1_216,
-        textDetLimitType: 'max',
-        textDetMaxSideLimit: 3_000,
-        textDetBoxThresh: 0.45,
-        textRecScoreThresh: 0.25,
-      }),
-    ),
-    signal,
-    () => abandonPaddle(instancePromise),
-  )
+  trackPaddleRequest()
+  let abandoned = false
 
-  return recognized.items
-    .filter(({ text }) => text.trim())
-    .map(({ poly, text }) => ({ text: text.trim(), bbox: toBoundingBox(poly) }))
+  try {
+    // 작은 글자까지 탐지하되 신뢰도가 낮은 상자와 인식 결과는 제외한다.
+    const [recognized] = await raceWithAbort(
+      instancePromise.then((instance) =>
+        instance.predict(canvas, {
+          textDetLimitSideLen: 1_216,
+          textDetLimitType: 'max',
+          textDetMaxSideLimit: 3_000,
+          textDetBoxThresh: 0.45,
+          textRecScoreThresh: 0.25,
+        }),
+      ),
+      signal,
+      () => {
+        abandoned = true
+        if (untrackPaddleRequest() <= 0) abandonPaddle(instancePromise)
+      },
+    )
+
+    return recognized.items
+      .filter(({ text }) => text.trim())
+      .map(({ poly, text }) => ({ text: text.trim(), bbox: toBoundingBox(poly) }))
+  } finally {
+    if (!abandoned) untrackPaddleRequest()
+  }
 }
 
 async function postprocessOcrLines(sourceLines: readonly TextBox[], signal: AbortSignal) {

@@ -39,6 +39,7 @@ export const SQLITE_COMMAND = {
   LIST_CHUNK_SOURCES: 'listChunkSources',
   LIST_SEARCH_TERMS: 'listSearchTerms',
   LIST_SEARCH_POSTINGS: 'listSearchPostings',
+  SEARCH_CHUNKS: 'searchChunks',
 } as const
 
 export const OPFS_COMMAND = {

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
-import { createOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
+import { getOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
 import type { OcrAnalysisFailure, OcrAnalysisResult } from '../lib/ebook-analysis/ocr-analysis'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
@@ -52,11 +52,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [refreshing, setRefreshing] = useState(false)
   const storage = useLibraryStorage()
   const { refreshUsage } = storage
-  const ocrCoordinatorRef = useRef<ReturnType<typeof createOcrAnalysisCoordinator> | null>(null)
-  if (ocrCoordinatorRef.current === null) {
-    ocrCoordinatorRef.current = createOcrAnalysisCoordinator()
-  }
-  const ocrCoordinator = ocrCoordinatorRef.current
+  const ocrCoordinator = getOcrAnalysisCoordinator(store)
 
   function reportOcrFailure(failure: OcrAnalysisFailure) {
     const page = failure.pageNumber === undefined ? '' : ` ${failure.pageNumber}페이지`
@@ -77,7 +73,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   }
 
   const startOcrAnalysis = useCallback(
-    async (bookId: string): Promise<OcrAnalysisResult | undefined> => {
+    async (bookId: string): Promise<OcrAnalysisResult> => {
       return await ocrCoordinator.startOcrAnalysis(bookId, store, reportOcrFailure)
     },
     [ocrCoordinator, store],
