@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Separator } from '@/components/ui/separator'
@@ -7,6 +7,7 @@ import { ErrorAlert } from '@/components/error-alert'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
+import type { BookMetadata } from '../lib/book-metadata'
 import type { PdfDocumentSource } from '../lib/pdf-document'
 import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
@@ -21,13 +22,15 @@ import {
   type ReaderZoom,
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
-import { PdfViewport } from './pdf-viewport'
+import { PdfViewport, type OcrText } from './pdf-viewport'
+import { ReaderChat, type ReaderQuoteRequest } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
 interface ReaderProps {
+  bookMetadata?: BookMetadata
   url?: string
   data?: Uint8Array
   title?: string
@@ -132,6 +135,7 @@ function getArrowKeyTargetPage(
 }
 
 export function Reader({
+  bookMetadata,
   data,
   getStoredOcrPage,
   initialPage,
@@ -150,6 +154,25 @@ export function Reader({
   const panelButtonRef = useRef<HTMLButtonElement>(null)
   const [tocOpen, setTocOpen] = useState(false)
   const tocButtonRef = useRef<HTMLButtonElement>(null)
+  const [ocrText, setOcrText] = useState<OcrText | null>(null)
+  const [quoteRequest, setQuoteRequest] = useState<ReaderQuoteRequest | null>(null)
+  const quoteRequestIdRef = useRef(0)
+
+  const handleTextSelectionAction = useCallback(
+    (
+      action: ReaderQuoteRequest['action'],
+      selection: Omit<ReaderQuoteRequest, 'action' | 'id'>,
+    ) => {
+      quoteRequestIdRef.current += 1
+      setQuoteRequest({ action, id: quoteRequestIdRef.current, ...selection })
+      setPanelOpen(true)
+    },
+    [],
+  )
+
+  const handleQuoteRequestHandled = useCallback((requestId: number) => {
+    setQuoteRequest((currentRequest) => (currentRequest?.id === requestId ? null : currentRequest))
+  }, [])
 
   useEffect(() => {
     if (documentState.status !== 'ready') return
@@ -274,6 +297,8 @@ export function Reader({
         <PdfViewport
           document={documentState.document}
           getStoredOcrPage={getStoredOcrPage}
+          onOcrTextChange={setOcrText}
+          onTextSelectionAction={handleTextSelectionAction}
           pages={pageSpread.pages}
           scale={displayScale}
         />
@@ -281,15 +306,25 @@ export function Reader({
     </main>
   )
 
+  const currentPageText =
+    ocrText?.document === documentState.document ? ocrText.textByPage.get(currentPage) : undefined
+
   const readerPanel = (
     <ReaderPanel
-      chatSessionKey={url}
-      currentPage={currentPage}
       isWideScreen={isWideScreen}
       onOpenChange={setPanelOpen}
       open={panelOpen}
       openButtonRef={panelButtonRef}
-    />
+    >
+      <ReaderChat
+        bookMetadata={bookMetadata}
+        currentPage={currentPage}
+        currentPageText={currentPageText}
+        key={url}
+        onQuoteRequestHandled={handleQuoteRequestHandled}
+        quoteRequest={quoteRequest}
+      />
+    </ReaderPanel>
   )
 
   return (

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import type { BookMetadata } from '../features/reader/lib/book-metadata'
 import { createPromiseController } from '../test/promise-controller'
 import { EbookReaderPage } from './ebook-reader-page'
 
@@ -8,6 +9,7 @@ const readerProps = vi.hoisted(() => vi.fn())
 
 vi.mock('../features/reader/components/reader', () => ({
   Reader: (props: {
+    bookMetadata?: BookMetadata
     initialPage?: number
     onPageChange?(pageNumber: number): void
     title?: string
@@ -29,6 +31,10 @@ function createBook(overrides: Record<string, unknown> = {}) {
     id: 'book-id',
     file_name: 'book.pdf',
     title: '저장한 책',
+    author: '저자',
+    pdf_subject: '주제',
+    pdf_keywords: null,
+    publisher: '출판사',
     pdf_data: new Uint8Array([1, 2, 3]),
     last_page: 12,
     ...overrides,
@@ -63,6 +69,12 @@ describe('EbookReaderPage', () => {
     expect(readerProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: new Uint8Array([1, 2, 3]),
+        bookMetadata: {
+          author: '저자',
+          publisher: '출판사',
+          subject: '주제',
+          title: '저장한 책',
+        },
         initialPage: 12,
         title: '저장한 책',
       }),

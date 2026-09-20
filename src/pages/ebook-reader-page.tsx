@@ -81,11 +81,12 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
 
   return (
     <Reader
+      bookMetadata={state.book.metadata}
       data={state.book.pdfData}
       initialPage={state.book.lastPage ?? 1}
       getStoredOcrPage={getStoredOcrPage}
       onPageChange={saveReadingPosition}
-      title={state.book.title}
+      title={state.book.metadata.title}
     />
   )
 }

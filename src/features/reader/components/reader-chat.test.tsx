@@ -71,6 +71,112 @@ describe('ReaderChat', () => {
     )
   })
 
+  it('인용이 없으면 이 페이지 요약 질문을 바로 보낼 수 있다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const respond = vi.fn<MockResponder>(async function* respond() {
+      yield '요약 답변'
+    })
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} currentPage={3} />)
+
+    await user.click(screen.getByRole('button', { name: '이 페이지 요약' }))
+
+    await waitFor(() => expect(respond).toHaveBeenCalledOnce())
+    expect(respond.mock.calls[0]?.[0]).toBe('이 페이지에 대해 요약해줘')
+    expect(screen.getByText('이 페이지에 대해 요약해줘')).toBeInTheDocument()
+    expect(screen.queryByText(/현재 페이지의 핵심 내용을 2문장으로/)).not.toBeInTheDocument()
+  })
+
+  it('선택 문장을 채팅에 추가하면 전송하지 않고 인용 미리보기를 표시한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const { respond } = createControllableRespond(0)
+    const onQuoteRequestHandled = vi.fn()
+    render(
+      <ReaderChat
+        chatModel={createMockChatModelAdapter(respond)}
+        onQuoteRequestHandled={onQuoteRequestHandled}
+        quoteRequest={{
+          action: 'attach',
+          id: 1,
+          pageNumber: 3,
+          text: '선택한 문장',
+        }}
+      />,
+    )
+
+    expect(await screen.findByText('선택한 문장')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이 페이지 요약' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })).toHaveValue('')
+    expect(respond).not.toHaveBeenCalled()
+    expect(onQuoteRequestHandled).toHaveBeenCalledWith(1)
+
+    await user.click(screen.getByRole('button', { name: '인용 삭제' }))
+    expect(screen.getByRole('button', { name: '이 페이지 요약' })).toBeInTheDocument()
+  })
+
+  it('여러 선택 문장을 인용 블록으로 누적하고 각각 삭제할 수 있다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const { respond } = createControllableRespond(0)
+    const chatModel = createMockChatModelAdapter(respond)
+    const onQuoteRequestHandled = vi.fn()
+    const { rerender } = render(
+      <ReaderChat
+        chatModel={chatModel}
+        onQuoteRequestHandled={onQuoteRequestHandled}
+        quoteRequest={{ action: 'attach', id: 1, pageNumber: 3, text: '첫 번째 인용문' }}
+      />,
+    )
+
+    expect(await screen.findByText('첫 번째 인용문')).toBeInTheDocument()
+    rerender(
+      <ReaderChat
+        chatModel={chatModel}
+        onQuoteRequestHandled={onQuoteRequestHandled}
+        quoteRequest={{ action: 'attach', id: 2, pageNumber: 4, text: '두 번째 인용문' }}
+      />,
+    )
+
+    expect(await screen.findByText('두 번째 인용문')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '첨부한 인용문' })).toHaveClass('flex-wrap')
+    expect(screen.getByRole('button', { name: '인용 1 삭제' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '인용 2 삭제' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '인용 1 삭제' }))
+    expect(screen.queryByText('첫 번째 인용문')).not.toBeInTheDocument()
+    expect(screen.getByText('두 번째 인용문')).toBeInTheDocument()
+  })
+
+  it('자세히 설명을 선택하면 인용과 설명 프롬프트를 함께 전송한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const respond = vi.fn<MockResponder>(async function* respond() {
+      yield '설명 답변'
+    })
+    render(
+      <ReaderChat
+        chatModel={createMockChatModelAdapter(respond)}
+        onQuoteRequestHandled={vi.fn()}
+        quoteRequest={{
+          action: 'explain',
+          id: 1,
+          pageNumber: 3,
+          text: '선택한 문장',
+        }}
+      />,
+    )
+
+    await waitFor(() => expect(respond).toHaveBeenCalledOnce())
+    expect(respond.mock.calls[0]?.[0]).toBe(
+      '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.',
+    )
+    expect(await screen.findByText('선택한 문장')).toBeInTheDocument()
+  })
+
   it('모델 다운로드 버튼으로 준비 상태를 확인할 수 있다', async () => {
     setupResizeObserverMock()
     const user = userEvent.setup()
@@ -363,6 +469,72 @@ describe('ReaderChat', () => {
 
     await waitFor(() => expect(receivedContexts).toHaveLength(1))
     expect(receivedContexts[0]?.system).toContain('5')
+  })
+
+  it('전송한 질문에 현재 페이지 본문이 함께 전달된다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const receivedContexts: Parameters<MockResponder>[1][] = []
+    const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
+      receivedContexts.push(context)
+      yield '답변'
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(
+      <ReaderChat chatModel={adapter} currentPage={5} currentPageText={'첫 문장.\n둘째 문장.'} />,
+    )
+
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '질문')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(receivedContexts).toHaveLength(1))
+    expect(receivedContexts[0]?.system).toContain('<page_context>')
+    expect(receivedContexts[0]?.system).toContain('첫 문장.\n둘째 문장.')
+    expect(receivedContexts[0]?.system).toContain('You MUST answer in Korean.')
+    expect(receivedContexts[0]?.system).toContain(
+      'The user is currently reading page 5 of the PDF.',
+    )
+    expect(receivedContexts[0]?.system).toMatch(
+      /If space is limited, omit details but always complete the final sentence\.$/,
+    )
+  })
+
+  it('값이 있는 도서 메타데이터만 컨텍스트에 함께 전달한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const receivedContexts: Parameters<MockResponder>[1][] = []
+    const respond = vi.fn<MockResponder>(async function* respond(_question, context) {
+      receivedContexts.push(context)
+      yield '답변'
+    })
+    const adapter = createMockChatModelAdapter(respond)
+    render(
+      <ReaderChat
+        bookMetadata={{
+          author: '저자',
+          publisher: '출판사',
+          title: '도서 제목',
+        }}
+        chatModel={adapter}
+        currentPage={5}
+        currentPageText="페이지 본문"
+      />,
+    )
+
+    await user.type(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME }), '질문')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(receivedContexts).toHaveLength(1))
+    expect(receivedContexts[0]?.system).toContain('<book_metadata>')
+    expect(receivedContexts[0]?.system).toContain('제목: 도서 제목')
+    expect(receivedContexts[0]?.system).toContain('저자: 저자')
+    expect(receivedContexts[0]?.system).toContain('출판사: 출판사')
+    expect(receivedContexts[0]?.system).not.toContain('주제:')
+    expect(receivedContexts[0]?.system).not.toContain('키워드:')
+    expect(receivedContexts[0]?.system).not.toContain('null')
   })
 
   it('Tab으로 입력 중인 질문에서 전송 조작부로 이동할 수 있다', async () => {

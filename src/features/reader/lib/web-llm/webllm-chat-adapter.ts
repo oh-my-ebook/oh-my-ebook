@@ -5,20 +5,78 @@ import type {
   ThreadMessage,
 } from '@assistant-ui/react'
 import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
+import { decodeQuoteTexts } from '@/lib/quote'
 import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './webllm-model'
+
+const PAGE_SUMMARY_QUESTION = '이 페이지에 대해 요약해줘'
+const EXPLAIN_SELECTION_QUESTION =
+  '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.'
+
+const EXPLAIN_SELECTION_PROMPT = [
+  'Explain the selected quote using the provided book metadata and current page context.',
+  '',
+  'Instructions:',
+  '- You MUST answer in Korean.',
+  '- Begin with a concise paraphrase of the quote in plain language.',
+  '- Clarify the key terms, references, and reasoning needed to understand it.',
+  '- Connect it to the surrounding page and book only when the provided context supports the connection.',
+  '- If the context is insufficient or ambiguous, state exactly what cannot be determined.',
+  '- Do not infer or add information that is not present in the provided context.',
+  '- Avoid repeating the quote verbatim unless needed for the explanation.',
+].join('\n')
+
+const PAGE_SUMMARY_PROMPT = [
+  'Write a three-sentence summary of the content above, then organize the key concepts.',
+  '',
+  'Summarize the entire content in exactly three natural prose sentences.',
+  'Organize the key concepts as bullet points.',
+  '',
+  'Instructions:',
+  '- You MUST answer in Korean.',
+  '- Write the summary as exactly three prose sentences, not as bullet points.',
+  '- Include only the key concepts found on the page, up to five.',
+  '- Write an introduction and a conclusion.',
+  '- Do not infer or add information that is not present on the page.',
+].join('\n')
 
 function isTextPart(part: { type: string }): part is TextMessagePart {
   return part.type === 'text'
 }
 
 function getText(message: ThreadMessage) {
-  return message.content
+  const visibleText = message.content
     .filter(isTextPart)
     .map((part) => part.text)
     .join('')
+  const text =
+    message.role !== 'user'
+      ? visibleText
+      : visibleText === PAGE_SUMMARY_QUESTION
+        ? PAGE_SUMMARY_PROMPT
+        : visibleText === EXPLAIN_SELECTION_QUESTION
+          ? EXPLAIN_SELECTION_PROMPT
+          : visibleText
+  const quote = message.metadata.custom?.quote
+  if (
+    typeof quote !== 'object' ||
+    quote === null ||
+    !('text' in quote) ||
+    typeof quote.text !== 'string'
+  ) {
+    return text
+  }
+
+  const quoteContext = decodeQuoteTexts(quote.text)
+    .map((quoteText) => `<selected_quote>\n${quoteText}\n</selected_quote>`)
+    .join('\n\n')
+  return `${quoteContext}\n\n${text}`
 }
 
 function toWebLlmMessages({ context, messages }: ChatModelRunOptions) {
+  if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+    console.debug('[ReaderChat] getContext', context.system ?? '')
+  }
+
   const history = messages.map((message): ChatCompletionMessageParam => ({
     role: message.role,
     content: getText(message),
@@ -48,6 +106,8 @@ export function createWebLlmChatModelAdapter(
       try {
         const chunks = await engine.chat.completions.create({
           messages: toWebLlmMessages(options),
+          // WebLLM은 Qwen 권장 설정의 top_k(20)를 지원하지 않아, 온도를 낮춰 확률이 낮은 토큰을 줄인다.
+          temperature: 0.3,
           max_tokens: 512,
           stream: true,
         })
