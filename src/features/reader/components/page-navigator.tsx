@@ -9,12 +9,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { getSinglePageNavigation } from '../lib/page-navigation'
+import { getPageNavigation } from '../lib/page-navigation'
 
 interface PageNavigatorProps {
   currentPage: number
   disabled?: boolean
+  nextPage: number | null
   onPageChange: (pageNumber: number) => void
+  previousPage: number | null
   totalPages: number
 }
 
@@ -64,12 +66,14 @@ function PageNavigationButton({
 export function PageNavigator({
   currentPage,
   disabled = false,
+  nextPage,
   onPageChange,
+  previousPage,
   totalPages,
 }: PageNavigatorProps) {
   const [previewPage, setPreviewPage] = useState<number | null>(null)
   const sliderPage = previewPage ?? currentPage
-  const navigation = getSinglePageNavigation(currentPage, totalPages)
+  const navigation = getPageNavigation(currentPage, totalPages, previousPage, nextPage)
 
   return (
     <TooltipProvider>
