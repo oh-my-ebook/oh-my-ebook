@@ -1,4 +1,4 @@
-import type { ChatCompletionRequestStreaming } from '@mlc-ai/web-llm'
+import type { ChatCompletionRequestStreaming, InitProgressReport } from '@mlc-ai/web-llm'
 import { create } from 'zustand'
 
 export const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
@@ -19,17 +19,44 @@ export interface WebLlmEngine {
 }
 
 export type WebLlmModelStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type WebLlmModelPhase = 'preparing' | 'downloading' | 'loading-gpu' | 'compiling'
 
 interface WebLlmModelState {
   status: WebLlmModelStatus
   progress: number
+  phase: WebLlmModelPhase
+  progressDetail?: string
   error?: string
 }
 
 export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
   status: 'idle',
   progress: 0,
+  phase: 'preparing',
 }))
+
+function getLoadingProgress({ text, progress }: InitProgressReport) {
+  const phase: WebLlmModelPhase = text.startsWith('Fetching param cache')
+    ? 'downloading'
+    : text.startsWith('Loading model from cache')
+      ? 'loading-gpu'
+      : text.startsWith('Loading GPU shader modules')
+        ? 'compiling'
+        : 'preparing'
+  const count = text.match(/\[(\d+\/\d+)\]/)?.[1]
+  const megabytes = text.match(/(\d+)MB (?:fetched|loaded)/)?.[1]
+  const progressDetail =
+    phase === 'preparing'
+      ? undefined
+      : [
+          count && `${count}개${phase === 'compiling' ? '' : ' 파일'}`,
+          megabytes && `${megabytes}MB`,
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined
+
+  return { phase, progress: Math.round(Math.max(0, Math.min(1, progress)) * 100), progressDetail }
+}
 
 // 최초 로딩 실패와 생성 도중 실패(invalidateDefaultEngine) 양쪽에서 공유하므로,
 // "시작 실패"로 단정하는 문구 대신 두 경우 모두에 맞는 "실행 실패" 표현을 쓴다.
@@ -92,10 +119,8 @@ async function createEngine(): Promise<WebLlmEngine> {
       currentWorker,
       WEBLLM_MODEL_ID,
       {
-        initProgressCallback: ({ progress }) => {
-          useWebLlmModelStore.setState({
-            progress: Math.round(Math.max(0, Math.min(1, progress)) * 100),
-          })
+        initProgressCallback: (report) => {
+          useWebLlmModelStore.setState(getLoadingProgress(report))
         },
       },
       { context_window_size: 8192 },
@@ -113,7 +138,13 @@ export function invalidateDefaultEngine(error: unknown) {
 
 function loadDefaultEngine() {
   if (!enginePromise) {
-    useWebLlmModelStore.setState({ status: 'loading', progress: 0, error: undefined })
+    useWebLlmModelStore.setState({
+      status: 'loading',
+      phase: 'preparing',
+      progress: 0,
+      progressDetail: undefined,
+      error: undefined,
+    })
     enginePromise = createEngine().then(
       (engine) => {
         useWebLlmModelStore.setState({ status: 'ready', progress: 100 })

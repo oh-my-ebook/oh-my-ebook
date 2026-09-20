@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../../test/promise-controller'
 import { stubGpu, stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
+import type { InitProgressReport } from '@mlc-ai/web-llm'
 import type { WebLlmEngine } from './webllm-model'
 
 const NETWORK_ERROR_MESSAGE =
@@ -70,9 +71,13 @@ describe('WebLLM 모델 로딩과 상태', () => {
         async (
           _worker: unknown,
           _modelId: string,
-          config: { initProgressCallback: (report: { progress: number }) => void },
+          config: { initProgressCallback: (report: InitProgressReport) => void },
         ) => {
-          config.initProgressCallback({ progress: 0.5 })
+          config.initProgressCallback({
+            progress: 0.5,
+            text: 'Fetching param cache[15/30]: 414MB fetched.',
+            timeElapsed: 10,
+          })
           return engineController.promise
         },
       ),
@@ -172,5 +177,67 @@ describe('WebLLM 모델 로딩과 상태', () => {
 
     await expect(preparePromise).rejects.toThrow()
     expect(getState()).toMatchObject({ status: 'error', error: UNKNOWN_ERROR_MESSAGE })
+  })
+
+  it('다운로드와 GPU 로딩·실행 준비의 진행률을 구분하고 이전 단계의 상세를 지운다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const controller = createPromiseController<WebLlmEngine>()
+    const createEngine = vi.fn(
+      async (
+        _worker: unknown,
+        _model: string,
+        config: {
+          initProgressCallback: (report: InitProgressReport) => void
+        },
+      ) => {
+        config.initProgressCallback({
+          progress: 1,
+          text: 'Fetching param cache[30/30]: 829MB fetched.',
+          timeElapsed: 30,
+        })
+        return controller.promise
+      },
+    )
+    mockCreateWebWorkerMLCEngine(createEngine)
+    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const loading = prepareWebLlmModel()
+    await vi.waitFor(() =>
+      expect(getState()).toMatchObject({
+        status: 'loading',
+        phase: 'downloading',
+        progress: 100,
+        progressDetail: '30/30개 파일 · 829MB',
+      }),
+    )
+    const report = createEngine.mock.calls[0]?.[2].initProgressCallback
+    if (!report) throw new Error('진행률 콜백이 없습니다.')
+
+    report({
+      progress: 0.25,
+      text: 'Loading model from cache[4/30]: 208MB loaded.',
+      timeElapsed: 2,
+    })
+    expect(getState()).toMatchObject({
+      phase: 'loading-gpu',
+      progress: 25,
+      progressDetail: '4/30개 파일 · 208MB',
+    })
+    report({
+      progress: 0.5,
+      text: 'Loading GPU shader modules[10/20]: 50% completed, 1 secs elapsed.',
+      timeElapsed: 1,
+    })
+    expect(getState()).toMatchObject({
+      phase: 'compiling',
+      progress: 50,
+      progressDetail: '10/20개',
+    })
+    report({ progress: 0, text: 'An unknown future phase', timeElapsed: 0 })
+    expect(getState()).toMatchObject({ phase: 'preparing', progress: 0, progressDetail: undefined })
+
+    controller.resolve(createIdleEngine())
+    await loading
+    expect(getState().status).toBe('ready')
   })
 })
