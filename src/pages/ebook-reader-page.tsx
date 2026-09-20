@@ -4,6 +4,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ErrorAlert } from '@/components/error-alert'
 import { Reader } from '@/features/reader/components/reader'
 import type { StoredOcrPageResult } from '@/features/reader/lib/ocr/page-recognition'
+import type { SearchChunks } from '@/features/reader/lib/rag/search-book-chunks'
 import { BookOpen, RefreshCw } from 'lucide-react'
 import {
   type EbookReaderStore,
@@ -44,6 +45,10 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
     },
     [bookId, store],
   )
+  const searchChunks = useCallback<SearchChunks>(
+    async (query) => await store.request('searchChunks', query),
+    [store],
+  )
 
   if (state.status === 'loading') {
     return (
@@ -82,10 +87,12 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   return (
     <Reader
       bookMetadata={state.book.metadata}
+      bookId={bookId}
       data={state.book.pdfData}
       initialPage={state.book.lastPage ?? 1}
       getStoredOcrPage={getStoredOcrPage}
       onPageChange={saveReadingPosition}
+      searchChunks={searchChunks}
       title={state.book.metadata.title}
     />
   )

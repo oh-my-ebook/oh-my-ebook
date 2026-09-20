@@ -98,6 +98,42 @@ describe('createWebLlmChatModelAdapter', () => {
     })
   })
 
+  it('최신 질문의 검색 발췌와 근거 응답 지시를 system message에 넣는다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const retrieveChunks = vi.fn(async () => [
+      {
+        id: 'chunk-1',
+        ordinal: 0,
+        text: '검색된 책 본문',
+        tokenCount: 3,
+        score: 1.2,
+        sources: [{ pageNumber: 7, startLineIndex: 0, endLineIndex: 1 }],
+      },
+    ])
+    const adapter = createWebLlmChatModelAdapter(async () => engine, undefined, retrieveChunks)
+    const options = createRunOptions([createMessage('user', '검색 질문')])
+
+    for await (const _result of adapter.run(options)) {
+      // 엔진에 전달된 system message를 검증한다.
+    }
+
+    expect(retrieveChunks).toHaveBeenCalledWith(options.messages, options.abortSignal)
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: 'system',
+            content: expect.stringContaining(
+              'If the excerpts do not support an answer, say that you do not know.\n\n' +
+                '[문서 발췌 | p.7]\n검색된 책 본문',
+            ),
+          },
+          { role: 'user', content: '검색 질문' },
+        ],
+      }),
+    )
+  })
+
   it('사용자 메시지의 PDF 인용문을 질문과 함께 엔진에 전달한다', async () => {
     const { create, engine } = createEngine(['답변'])
     const adapter = createWebLlmChatModelAdapter(async () => engine)

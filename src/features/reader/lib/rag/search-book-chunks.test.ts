@@ -65,7 +65,7 @@ describe('searchBookChunks', () => {
           createUserMessage('최신 질문'),
         ],
         signal,
-        store: { request },
+        searchChunks: request,
       }),
     ).resolves.toEqual([
       {
@@ -78,7 +78,7 @@ describe('searchBookChunks', () => {
       },
     ])
     expect(extractSearchTermsWithKiwi).toHaveBeenCalledWith('최신 질문', signal)
-    expect(request).toHaveBeenCalledWith('searchChunks', {
+    expect(request).toHaveBeenCalledWith({
       bookId: 'book-id',
       terms: ['전자책', '검색'],
       limit: 5,
@@ -94,7 +94,7 @@ describe('searchBookChunks', () => {
         bookId: 'book-id',
         messages: [createUserMessage('검색되지 않는 질문')],
         signal: new AbortController().signal,
-        store: { request },
+        searchChunks: request,
       }),
     ).resolves.toEqual([])
     await expect(
@@ -102,7 +102,7 @@ describe('searchBookChunks', () => {
         bookId: 'book-id',
         messages: [],
         signal: new AbortController().signal,
-        store: { request },
+        searchChunks: request,
       }),
     ).resolves.toEqual([])
     expect(request).not.toHaveBeenCalled()

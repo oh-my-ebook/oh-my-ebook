@@ -69,6 +69,7 @@ describe('EbookReaderPage', () => {
     expect(readerProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: new Uint8Array([1, 2, 3]),
+        bookId: 'book-id',
         bookMetadata: {
           author: '저자',
           publisher: '출판사',
@@ -76,6 +77,7 @@ describe('EbookReaderPage', () => {
           title: '저장한 책',
         },
         initialPage: 12,
+        searchChunks: expect.any(Function),
         title: '저장한 책',
       }),
     )

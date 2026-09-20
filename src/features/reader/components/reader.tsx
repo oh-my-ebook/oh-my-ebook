@@ -8,6 +8,7 @@ import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { BookMetadata } from '../lib/book-metadata'
+import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import type { PdfDocumentSource } from '../lib/pdf-document'
 import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
@@ -30,6 +31,7 @@ import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
 interface ReaderProps {
+  bookId?: string
   bookMetadata?: BookMetadata
   url?: string
   data?: Uint8Array
@@ -37,6 +39,7 @@ interface ReaderProps {
   initialPage?: number
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   onPageChange?(pageNumber: number): void
+  searchChunks?: SearchChunks
 }
 
 interface ReaderErrorProps {
@@ -136,10 +139,12 @@ function getArrowKeyTargetPage(
 
 export function Reader({
   bookMetadata,
+  bookId,
   data,
   getStoredOcrPage,
   initialPage,
   onPageChange,
+  searchChunks,
   title,
   url,
 }: ReaderProps) {
@@ -318,11 +323,13 @@ export function Reader({
     >
       <ReaderChat
         bookMetadata={bookMetadata}
+        bookId={bookId}
         currentPage={currentPage}
         currentPageText={currentPageText}
         key={url}
         onQuoteRequestHandled={handleQuoteRequestHandled}
         quoteRequest={quoteRequest}
+        searchChunks={searchChunks}
       />
     </ReaderPanel>
   )

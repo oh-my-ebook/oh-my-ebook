@@ -8,15 +8,13 @@ import type {
 
 const SEARCH_CHUNK_LIMIT = 5
 
-export interface SearchChunkStore {
-  request(command: 'searchChunks', payload: SearchChunkQuery): Promise<unknown>
-}
+export type SearchChunks = (query: SearchChunkQuery) => Promise<unknown>
 
 interface SearchBookChunksOptions {
   bookId: string
   messages: readonly ThreadMessage[]
   signal: AbortSignal
-  store: SearchChunkStore
+  searchChunks: SearchChunks
 }
 
 function isTextPart(part: { type: string }): part is TextMessagePart {
@@ -66,8 +64,8 @@ function isSearchChunkResult(value: unknown): value is SearchChunkResult {
 export async function searchBookChunks({
   bookId,
   messages,
+  searchChunks,
   signal,
-  store,
 }: SearchBookChunksOptions): Promise<SearchChunkResult[]> {
   const question = getLatestUserQuestion(messages)
   if (!question.trim()) return []
@@ -76,7 +74,7 @@ export async function searchBookChunks({
   const terms = [...new Set(searchTerms.map(({ term }) => term.trim()).filter(Boolean))]
   if (terms.length === 0) return []
 
-  const result = await store.request('searchChunks', { bookId, terms, limit: SEARCH_CHUNK_LIMIT })
+  const result = await searchChunks({ bookId, terms, limit: SEARCH_CHUNK_LIMIT })
   if (!Array.isArray(result) || !result.every(isSearchChunkResult)) {
     throw new Error('Invalid search chunks')
   }
