@@ -20,9 +20,10 @@ export function TocPageThumbnail({ document, isCurrent, onSelect, page }: TocPag
   const [isRendered, setIsRendered] = useState(false)
 
   // 현재 페이지가 목차 스크롤 범위 밖에 있으면, 보이는 범위의 가장자리에 걸치도록 스스로를 스크롤한다.
+  // 화살표를 눌렀을 때 스크롤이 순간이동하듯 튀지 않도록 부드럽게 움직인다.
   useEffect(() => {
     if (isCurrent) {
-      rowRef.current?.scrollIntoView({ block: 'nearest' })
+      rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
   }, [isCurrent])
 

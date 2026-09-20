@@ -167,6 +167,6 @@ describe('TocPageThumbnail', () => {
       />,
     )
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
   })
 })
