@@ -277,10 +277,14 @@ export function Reader({
 
       <div className="flex min-h-0 flex-1">
         <ReaderToc
+          currentPage={currentPage}
+          document={documentState.document}
           isWideScreen={isWideScreen}
           onOpenChange={setTocOpen}
+          onPageChange={handlePageChange}
           open={tocOpen}
           openButtonRef={tocButtonRef}
+          pages={documentState.pages}
         />
         <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize="70%" id="reader" minSize="45%">
