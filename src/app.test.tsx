@@ -13,11 +13,17 @@ import type {
 import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
+const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const disconnectResizeObserver = vi.fn()
 
 vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
+})
+vi.mock('./features/reader/lib/ocr/page-recognition', async (importOriginal) => {
+  const pageRecognition =
+    await importOriginal<typeof import('./features/reader/lib/ocr/page-recognition')>()
+  return { ...pageRecognition, prepareOcr: prepareOcrMock }
 })
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -79,6 +85,7 @@ function renderApp() {
 describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
+    prepareOcrMock.mockClear()
     disconnectResizeObserver.mockReset()
     resizeNotifications.length = 0
     vi.stubGlobal('devicePixelRatio', 1)
@@ -106,6 +113,7 @@ describe('App', () => {
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
     renderApp()
 
+    expect(prepareOcrMock).toHaveBeenCalledOnce()
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '페이지 위치' })).not.toBeInTheDocument()
