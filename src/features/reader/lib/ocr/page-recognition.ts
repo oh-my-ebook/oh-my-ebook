@@ -185,7 +185,7 @@ async function recognizeWithPaddleOcr(
   trackPaddleRequest()
   let abandoned = false
 
-try {
+  try {
     // 작은 글자까지 탐지하되 신뢰도가 낮은 상자와 인식 결과는 제외한다.
     const [recognized] = await raceWithAbort(
       instancePromise.then((instance) =>

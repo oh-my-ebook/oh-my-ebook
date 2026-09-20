@@ -168,14 +168,14 @@ describe('EbookLibrary', () => {
       .spyOn(ocrAnalysis, 'runOcrAnalysis')
       .mockReturnValue(analysis.promise)
 
-    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
     await screen.findByText(analyzingBook.title)
     await waitFor(() => expect(runOcrAnalysisSpy).toHaveBeenCalledOnce())
 
     // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
     // 분석이 아직 끝나지 않아 책 목록 상 상태는 여전히 'analyzing'이다.
     unmount()
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
     await screen.findByText(analyzingBook.title)
 
     expect(runOcrAnalysisSpy).toHaveBeenCalledOnce()
@@ -193,12 +193,12 @@ describe('EbookLibrary', () => {
     const analysis = createPromiseController<'completed' | 'failed'>()
     vi.spyOn(ocrAnalysis, 'runOcrAnalysis').mockReturnValue(analysis.promise)
 
-    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
     await screen.findByText(analyzingBook.title)
 
     // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
     unmount()
-    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
     await screen.findByText(analyzingBook.title)
 
     // 분석이 실패로 끝나면, 다시 마운트된 화면(=다른 실행에 합류한 호출자)도
