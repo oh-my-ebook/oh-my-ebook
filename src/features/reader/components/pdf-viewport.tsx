@@ -3,8 +3,10 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  extractPdfPageImages,
   extractPdfPageText,
   PDF_CSS_SCALE,
+  type PageImageRegions,
   type PdfDocumentHandle,
   type PdfPageHandle,
   type PdfPageInfo,
@@ -64,6 +66,12 @@ interface TextLayerOutcome {
   document: PdfDocumentHandle
   pageNumbers: string
   pages: ReadonlyMap<number, PageTextLayer>
+}
+
+interface ImageRegionOutcome {
+  document: PdfDocumentHandle
+  pageNumbers: string
+  pages: ReadonlyMap<number, PageImageRegions>
 }
 
 function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
@@ -129,6 +137,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const [attempt, setAttempt] = useState(0)
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [textLayerOutcome, setTextLayerOutcome] = useState<TextLayerOutcome | null>(null)
+  const [imageRegionOutcome, setImageRegionOutcome] = useState<ImageRegionOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
   const status = getPdfViewportStatus(outcome, request)
 
@@ -237,29 +246,40 @@ export function PdfViewport(props: PdfViewportProps) {
     }
 
     const controller = new AbortController()
-    const loadTextLayers = async () => {
-      const textLayers = await Promise.all(
+    const collectPages = async <T,>(load: (page: PdfPageHandle) => Promise<T | null>) => {
+      const loaded = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
             const page = await document.getPage(pageNumber)
-            const embeddedText = await extractPdfPageText(page, controller.signal)
-            const textLayer = embeddedText ?? (await recognizePdfPage(page, controller.signal))
-            return [pageNumber, textLayer] as const
+            const result = await load(page)
+            return result === null ? null : ([pageNumber, result] as const)
           } catch {
             return null
           }
         }),
       )
+      return new Map(loaded.filter((entry) => entry !== null))
+    }
+
+    const loadTextLayers = async () => {
+      const pages = await collectPages(async (page) => {
+        const embeddedText = await extractPdfPageText(page, controller.signal)
+        return embeddedText ?? (await recognizePdfPage(page, controller.signal))
+      })
       if (!controller.signal.aborted) {
-        setTextLayerOutcome({
-          document,
-          pageNumbers,
-          pages: new Map(textLayers.filter((textLayer) => textLayer !== null)),
-        })
+        setTextLayerOutcome({ document, pageNumbers, pages })
       }
     }
 
-    void loadTextLayers()
+    // 이미지 영역은 바로 계산되므로, OCR까지 갈 수 있는 텍스트와 따로 표시한다.
+    const loadImageRegions = async () => {
+      const pages = await collectPages((page) => extractPdfPageImages(page, controller.signal))
+      if (!controller.signal.aborted) {
+        setImageRegionOutcome({ document, pageNumbers, pages })
+      }
+    }
+
+    void Promise.all([loadTextLayers(), loadImageRegions()])
     return () => controller.abort()
   }, [document, firstPageNumber, pageNumbers, secondPageNumber])
 
@@ -267,6 +287,10 @@ export function PdfViewport(props: PdfViewportProps) {
     textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
       ? textLayerOutcome.pages
       : new Map<number, PageTextLayer>()
+  const imageRegionPages =
+    imageRegionOutcome?.document === document && imageRegionOutcome.pageNumbers === pageNumbers
+      ? imageRegionOutcome.pages
+      : new Map<number, PageImageRegions>()
 
   return (
     <section aria-busy={status === 'loading'} aria-label="PDF 본문" className="h-full min-h-0">
@@ -279,6 +303,7 @@ export function PdfViewport(props: PdfViewportProps) {
       >
         {pages.map((page) => {
           const textLayer = textLayerPages.get(page.pageNumber)
+          const imageRegions = imageRegionPages.get(page.pageNumber)
           return (
             <div
               className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none [container-type:inline-size]"
@@ -291,6 +316,25 @@ export function PdfViewport(props: PdfViewportProps) {
                 data-slot="pdf-page-canvas"
                 hidden={status !== 'ready'}
               />
+              {status === 'ready' && imageRegions && imageRegions.regions.length > 0 && (
+                <div
+                  aria-label={`PDF ${page.pageNumber}페이지 이미지 영역`}
+                  className="pointer-events-none absolute inset-0"
+                >
+                  {imageRegions.regions.map((region) => (
+                    <div
+                      className="absolute rounded-xs outline-2 outline-offset-2 outline-dashed outline-image-region/70"
+                      key={`${region.x0}-${region.y0}-${region.x1}-${region.y1}`}
+                      style={{
+                        left: `${(region.x0 / imageRegions.width) * 100}%`,
+                        top: `${(region.y0 / imageRegions.height) * 100}%`,
+                        width: `${((region.x1 - region.x0) / imageRegions.width) * 100}%`,
+                        height: `${((region.y1 - region.y0) / imageRegions.height) * 100}%`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
               {status === 'ready' && textLayer && (
                 <div
                   aria-label={`PDF ${page.pageNumber}페이지 텍스트 레이어`}

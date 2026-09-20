@@ -5,7 +5,8 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { extractPdfPageText, recognizePdfPage } = vi.hoisted(() => ({
+const { extractPdfPageImages, extractPdfPageText, recognizePdfPage } = vi.hoisted(() => ({
+  extractPdfPageImages: vi.fn(),
   extractPdfPageText: vi.fn(),
   recognizePdfPage: vi.fn(),
 }))
@@ -13,6 +14,7 @@ const { extractPdfPageText, recognizePdfPage } = vi.hoisted(() => ({
 vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
 vi.mock('../lib/pdf-document', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/pdf-document')>()),
+  extractPdfPageImages,
   extractPdfPageText,
 }))
 
@@ -77,6 +79,7 @@ function getRenderedCanvas(pageNumber = 1) {
 describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
+    extractPdfPageImages.mockResolvedValue({ width: 1, height: 1, regions: [] })
     extractPdfPageText.mockResolvedValue(null)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
@@ -134,6 +137,28 @@ describe('PdfViewport', () => {
 
     expect(getRenderedCanvas()).toBe(canvas)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('PDF에 그림이 있으면 그 영역에 박스를 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    extractPdfPageImages.mockResolvedValueOnce({
+      width: 600,
+      height: 900,
+      regions: [{ x0: 60, y0: 90, x1: 360, y1: 315 }],
+    })
+
+    render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    const imageLayer = await screen.findByLabelText('PDF 1페이지 이미지 영역')
+    const [box] = imageLayer.children
+    expect(box).toHaveStyle({ left: '10%', top: '10%', width: '50%', height: '25%' })
   })
 
   it('PDF에 텍스트가 있으면 OCR 없이 그 텍스트를 표시한다', async () => {

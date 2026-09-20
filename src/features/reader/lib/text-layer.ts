@@ -1,6 +1,13 @@
+export interface BoundingBox {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
 export interface TextBox {
   text: string
-  bbox: { x0: number; y0: number; x1: number; y1: number }
+  bbox: BoundingBox
   rowHeight?: number
 }
 
@@ -20,7 +27,7 @@ export interface PageTextLayer {
   lines: readonly SelectableTextLine[]
 }
 
-export function toBoundingBox(points: readonly (readonly [number, number])[]): TextBox['bbox'] {
+export function toBoundingBox(points: readonly (readonly [number, number])[]): BoundingBox {
   const xs = points.map(([x]) => x)
   const ys = points.map(([, y]) => y)
   return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
