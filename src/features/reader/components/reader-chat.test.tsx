@@ -119,6 +119,33 @@ describe('ReaderChat', () => {
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
 
     expect(screen.getByText('모델을 다운로드하고 있습니다. 37%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '37')
+  })
+
+  // 첫 샤드가 받아지기 전엔 web-llm이 진행률 자체를 보고하지 않아 0%가 오래 유지될 수 있다.
+  // 값이 없다는 사실(0이 아니라 알 수 없음)을 그대로 알려야 멈춘 것처럼 보이지 않는다.
+  it('첫 진행률이 들어오기 전에는 진행률 표시줄을 알 수 없는 진행 중 상태로 보여준다', () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'loading', progress: 0 })
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
+  })
+
+  it.each<[string, WebLlmModelStatus]>([
+    ['다운로드 전', 'idle'],
+    ['준비 완료', 'ready'],
+    ['다운로드 실패', 'error'],
+  ])('%s 상태에는 진행률 표시줄을 보여주지 않는다', (_case, status) => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status })
+    const { respond } = createControllableRespond(0)
+
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
   it('모델 다운로드 실패 원인을 표시한다', () => {
