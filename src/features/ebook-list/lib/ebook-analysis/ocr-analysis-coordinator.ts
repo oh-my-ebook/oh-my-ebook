@@ -2,21 +2,23 @@ import { runOcrAnalysis, type OcrAnalysisFailure, type OcrAnalysisResult } from 
 import type { EbookLibraryStore } from '../ebook-library-store'
 
 export function createOcrAnalysisCoordinator() {
-  const activeBookIds = new Set<string>()
+  const activeRuns = new Map<string, Promise<OcrAnalysisResult>>()
 
-  async function startOcrAnalysis(
+  function startOcrAnalysis(
     bookId: string,
     store: EbookLibraryStore,
     onFailure?: (failure: OcrAnalysisFailure) => void,
-  ): Promise<OcrAnalysisResult | undefined> {
-    if (activeBookIds.has(bookId)) return undefined
+  ): Promise<OcrAnalysisResult> {
+    // 라이브러리 화면을 나갔다 돌아오는 등 다른 호출자가 이미 같은 책을 실행 중이면,
+    // 새로 실행을 시작하지 않고 그 실행의 실제 결과를 함께 기다린다.
+    const activeRun = activeRuns.get(bookId)
+    if (activeRun) return activeRun
 
-    activeBookIds.add(bookId)
-    try {
-      return await runOcrAnalysis(bookId, store, { onFailure })
-    } finally {
-      activeBookIds.delete(bookId)
-    }
+    const run = runOcrAnalysis(bookId, store, { onFailure }).finally(() => {
+      activeRuns.delete(bookId)
+    })
+    activeRuns.set(bookId, run)
+    return run
   }
 
   return { startOcrAnalysis }

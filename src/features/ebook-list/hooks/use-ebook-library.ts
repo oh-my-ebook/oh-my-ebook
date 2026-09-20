@@ -73,7 +73,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   }
 
   const startOcrAnalysis = useCallback(
-    async (bookId: string): Promise<OcrAnalysisResult | undefined> => {
+    async (bookId: string): Promise<OcrAnalysisResult> => {
       return await ocrCoordinator.startOcrAnalysis(bookId, store, reportOcrFailure)
     },
     [ocrCoordinator, store],
