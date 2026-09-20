@@ -1,5 +1,6 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
+import { sortInReadingOrder } from './reading-order'
 import {
   createTextMeasurer,
   fitTextLines,
@@ -210,7 +211,7 @@ export async function recognizePdfPage(
   const canvas = await renderPdfPageForOcr(page, signal)
 
   try {
-    const sourceLines = await recognizeWithPaddleOcr(canvas, signal)
+    const sourceLines = sortInReadingOrder(await recognizeWithPaddleOcr(canvas, signal))
     const lines = await postprocessOcrLines(sourceLines, signal)
 
     return { width: canvas.width, height: canvas.height, lines }
@@ -231,7 +232,8 @@ export async function recognizePdfPageRaw(
     return {
       width: canvas.width,
       height: canvas.height,
-      lines: await recognizeWithPaddleOcr(canvas, signal),
+      // 저장된 줄 순서가 리더 선택 순서와 검색 청크 순서를 결정하므로 저장 전에 정렬한다.
+      lines: sortInReadingOrder(await recognizeWithPaddleOcr(canvas, signal)),
     }
   } finally {
     canvas.width = 0
@@ -243,10 +245,13 @@ export async function postprocessStoredOcrPage(
   page: StoredOcrPageResult,
   signal: AbortSignal,
 ): Promise<PageTextLayer> {
-  const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
-    text: rawText,
-    bbox: { x0, y0, x1, y1 },
-  }))
+  // 정렬 전에 저장된 책도 다시 OCR하지 않고 읽기 순서로 보여준다.
+  const sourceLines = sortInReadingOrder(
+    page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+      text: rawText,
+      bbox: { x0, y0, x1, y1 },
+    })),
+  )
   const lines = await postprocessOcrLines(sourceLines, signal)
   return { width: page.width, height: page.height, lines }
 }

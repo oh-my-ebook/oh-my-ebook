@@ -6,14 +6,16 @@ import { ErrorAlert } from '@/components/error-alert'
 import {
   extractPdfPageImages,
   extractPdfPageText,
-  isRenderablePdfPage,
-  PDF_CSS_SCALE,
-  renderPdfPageImage,
   type PageImageRegions,
   type PdfDocumentHandle,
   type PdfPageHandle,
   type PdfPageInfo,
 } from '../lib/pdf-document'
+import {
+  isRenderablePdfPage,
+  renderPdfPageImage,
+  renderPdfPageToCanvas,
+} from '../lib/pdf-page-render'
 import {
   postprocessStoredOcrPage,
   recognizePdfPage,
@@ -123,10 +125,6 @@ function getPdfViewportStatus(
   return 'loading'
 }
 
-function getDevicePixelRatio() {
-  return Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1
-}
-
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
@@ -174,29 +172,7 @@ export function PdfViewport(props: PdfViewportProps) {
         throw new Error('PDF 페이지를 그릴 수 없습니다.')
       }
 
-      const viewport = pdfPage.getViewport({ scale: PDF_CSS_SCALE * scale })
-      const pixelRatio = getDevicePixelRatio()
-      canvas.width = Math.floor(viewport.width * pixelRatio)
-      canvas.height = Math.floor(viewport.height * pixelRatio)
-      canvas.style.width = '100%'
-      canvas.style.height = '100%'
-
-      // CSS 표시 크기는 유지하고 DPR만 Canvas 픽셀과 렌더링 좌표에 반영한다.
-      const renderTask = pdfPage.render({
-        canvas,
-        viewport,
-        transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
-      })
-      const cancelRender = () => {
-        renderTask.cancel()
-      }
-      controller.signal.addEventListener('abort', cancelRender, { once: true })
-      try {
-        await renderTask.promise
-      } finally {
-        controller.signal.removeEventListener('abort', cancelRender)
-      }
-      controller.signal.throwIfAborted()
+      await renderPdfPageToCanvas(pdfPage, canvas, scale, controller.signal)
     }
 
     // 페이지 순서대로 캔버스 슬롯을 비우거나(재검증 실패) 새 캔버스로 교체한다(렌더링 성공).

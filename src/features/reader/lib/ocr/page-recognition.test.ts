@@ -20,6 +20,39 @@ function createOcrPage() {
   return { getViewport, render }
 }
 
+// 좌우 페이지 줄이 y좌표 순으로 번갈아 나오는 양면 캡처 인식 결과
+function createSpreadItems() {
+  const item = (text: string, x0: number, y0: number, x1: number, y1: number) => ({
+    text,
+    poly: [
+      [x0, y0],
+      [x1, y0],
+      [x1, y1],
+      [x0, y1],
+    ],
+  })
+  return [
+    item('왼쪽 1', 100, 100, 900, 120),
+    item('오른쪽 1', 1_100, 110, 1_900, 130),
+    item('왼쪽 2', 100, 140, 900, 160),
+    item('오른쪽 2', 1_100, 150, 1_900, 170),
+  ]
+}
+
+function createSpreadPage() {
+  return {
+    getViewport: vi.fn(() => ({ width: 2_000, height: 1_000, rotation: 0 })),
+    render: vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() })),
+  }
+}
+
+function mockMeasuringContext() {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    font: '',
+    measureText: vi.fn(() => ({ width: 100 })),
+  } as unknown as CanvasRenderingContext2D)
+}
+
 describe('recognizePdfPage', () => {
   // page-recognition 모듈은 PaddleOCR 인스턴스를 모듈 스코프에 캐시한다.
   // 캐시 재사용·해제를 검증하는 테스트가 서로 영향을 주지 않도록 모듈을 매번 새로 불러온다.
@@ -240,5 +273,83 @@ describe('recognizePdfPage', () => {
     const rejection = await recognition.catch((error: unknown) => error)
     expect(rejection).toBe(controller.signal.reason)
     await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce())
+  })
+
+  it('양면 페이지의 OCR 줄을 읽기 순서로 Kiwi에 넘기고 좌표를 유지한다', async () => {
+    mockMeasuringContext()
+    predict.mockResolvedValue([{ items: createSpreadItems() }])
+    createPaddle.mockResolvedValue({ predict })
+    postprocessWithKiwi.mockImplementation(async (text: string) => text)
+
+    const signal = new AbortController().signal
+    const { lines } = await recognizePdfPage(createSpreadPage(), signal)
+
+    expect(postprocessWithKiwi).toHaveBeenCalledWith('왼쪽 1\n왼쪽 2\n오른쪽 1\n오른쪽 2', signal)
+    expect(lines.map(({ text, x0, y0 }) => ({ text, x0, y0 }))).toEqual([
+      { text: '왼쪽 1', x0: 100, y0: 100 },
+      { text: '왼쪽 2', x0: 100, y0: 140 },
+      { text: '오른쪽 1', x0: 1_100, y0: 110 },
+      { text: '오른쪽 2', x0: 1_100, y0: 150 },
+    ])
+  })
+})
+
+describe('recognizePdfPageRaw', () => {
+  let recognizePdfPageRaw: typeof import('./page-recognition').recognizePdfPageRaw
+
+  beforeEach(async () => {
+    vi.resetModules()
+    ;({ recognizePdfPageRaw } = await import('./page-recognition'))
+  })
+
+  afterEach(() => vi.restoreAllMocks())
+
+  // 저장된 줄 순서가 리더의 선택 순서와 검색 청크 순서를 모두 결정한다.
+  it('양면 페이지의 OCR 줄을 읽기 순서로 정렬해 돌려준다', async () => {
+    mockMeasuringContext()
+    predict.mockResolvedValue([{ items: createSpreadItems() }])
+    createPaddle.mockResolvedValue({ predict })
+
+    const { lines } = await recognizePdfPageRaw(createSpreadPage(), new AbortController().signal)
+
+    expect(lines.map(({ text }) => text)).toEqual(['왼쪽 1', '왼쪽 2', '오른쪽 1', '오른쪽 2'])
+  })
+})
+
+describe('postprocessStoredOcrPage', () => {
+  let postprocessStoredOcrPage: typeof import('./page-recognition').postprocessStoredOcrPage
+
+  beforeEach(async () => {
+    vi.resetModules()
+    ;({ postprocessStoredOcrPage } = await import('./page-recognition'))
+  })
+
+  afterEach(() => vi.restoreAllMocks())
+
+  // 정렬 전에 저장된 책도 다시 OCR하지 않고 읽기 순서로 보여준다.
+  it('저장된 양면 페이지의 줄을 읽기 순서로 Kiwi에 넘기고 좌표를 유지한다', async () => {
+    mockMeasuringContext()
+    postprocessWithKiwi.mockImplementation(async (text: string) => text)
+    const storedPage = {
+      width: 2_000,
+      height: 1_000,
+      lines: [
+        { rawText: '왼쪽 1', x0: 100, y0: 100, x1: 900, y1: 120 },
+        { rawText: '오른쪽 1', x0: 1_100, y0: 110, x1: 1_900, y1: 130 },
+        { rawText: '왼쪽 2', x0: 100, y0: 140, x1: 900, y1: 160 },
+        { rawText: '오른쪽 2', x0: 1_100, y0: 150, x1: 1_900, y1: 170 },
+      ],
+    }
+
+    const signal = new AbortController().signal
+    const { lines } = await postprocessStoredOcrPage(storedPage, signal)
+
+    expect(postprocessWithKiwi).toHaveBeenCalledWith('왼쪽 1\n왼쪽 2\n오른쪽 1\n오른쪽 2', signal)
+    expect(lines.map(({ text, x0, y0 }) => ({ text, x0, y0 }))).toEqual([
+      { text: '왼쪽 1', x0: 100, y0: 100 },
+      { text: '왼쪽 2', x0: 100, y0: 140 },
+      { text: '오른쪽 1', x0: 1_100, y0: 110 },
+      { text: '오른쪽 2', x0: 1_100, y0: 150 },
+    ])
   })
 })
