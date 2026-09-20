@@ -24,6 +24,13 @@ beforeEach(() => {
   if (typeof Element.prototype.scrollTo !== 'function') {
     Element.prototype.scrollTo = () => {}
   }
+
+  // jsdom은 Element.scrollIntoView도 구현하지 않는다. 목차에서 현재 페이지로 스크롤을 따라가는
+  // 효과처럼 이를 우연히 호출하는 테스트가 예외 없이 통과하도록 기본값을 채운다. 스크롤 동작
+  // 자체를 검증하는 테스트는 이 기본값에 기대지 말고 vi.spyOn으로 직접 준비한다.
+  if (typeof Element.prototype.scrollIntoView !== 'function') {
+    Element.prototype.scrollIntoView = () => {}
+  }
 })
 
 // jsdom은 canvas 2D 컨텍스트를 구현하지 않아 호출마다 "Not implemented" 로그를 남기고 null을 반환한다.
