@@ -4,6 +4,8 @@ import type {
   ChunkSourceInput,
   OcrLineInput,
   SearchChunkInput,
+  SearchIndexChunkInput,
+  SearchTermFrequencyInput,
 } from '../../ebook-types'
 import { InvalidPayloadError } from './ebook-db.worker.error'
 import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './ebook-db.worker.sql'
@@ -41,9 +43,9 @@ export interface StoreOcrPageInput {
   lines: readonly OcrLineInput[]
 }
 
-export interface StoreSearchChunksInput {
+export interface StoreSearchIndexInput {
   bookId: string
-  chunks: readonly SearchChunkInput[]
+  chunks: readonly SearchIndexChunkInput[]
 }
 
 export interface ListOcrLinesInput {
@@ -267,12 +269,27 @@ function isSearchChunkInput(value: unknown): value is SearchChunkInput {
   )
 }
 
-export function isStoreSearchChunksInput(value: unknown): value is StoreSearchChunksInput {
+function isSearchTermFrequencyInput(value: unknown): value is SearchTermFrequencyInput {
+  return (
+    isRecord(value) &&
+    typeof value.term === 'string' &&
+    value.term.trim().length > 0 &&
+    isPositiveInteger(value.termFrequency)
+  )
+}
+
+function isSearchIndexChunkInput(value: unknown): value is SearchIndexChunkInput {
+  if (!isSearchChunkInput(value) || !('terms' in value) || !Array.isArray(value.terms)) return false
+  if (!value.terms.every(isSearchTermFrequencyInput)) return false
+  return new Set(value.terms.map(({ term }) => term)).size === value.terms.length
+}
+
+export function isStoreSearchIndexInput(value: unknown): value is StoreSearchIndexInput {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
     Array.isArray(value.chunks) &&
-    value.chunks.every(isSearchChunkInput)
+    value.chunks.every(isSearchIndexChunkInput)
   )
 }
 

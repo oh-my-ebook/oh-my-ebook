@@ -87,6 +87,13 @@ export async function deletePdf(contentHash: string): Promise<void> {
   }
 }
 
+export async function clearOpfs(): Promise<void> {
+  const root = await navigator.storage.getDirectory()
+  for await (const [name] of root.entries()) {
+    await root.removeEntry(name, { recursive: true })
+  }
+}
+
 export async function executeOpfsCommand(request: WorkerRequest): Promise<unknown> {
   switch (request.command) {
     case OPFS_COMMAND.WRITE_PDF: {

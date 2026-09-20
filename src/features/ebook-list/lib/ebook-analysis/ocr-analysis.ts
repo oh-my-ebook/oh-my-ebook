@@ -1,5 +1,6 @@
 import { loadPdfDocument } from '@/features/reader/lib/pdf-document'
 import { recognizePdfPageRaw } from '@/features/reader/lib/ocr/page-recognition'
+import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
 import type { NextOcrPage, OcrLineForChunking } from '../../ebook-types'
 import type { EbookLibraryStore } from '../ebook-library-store'
 import { createSearchChunks } from './search-chunking'
@@ -101,7 +102,14 @@ export async function runOcrAnalysis(
         const ocrLines = await store.request('getOcrLinesForChunking', bookId)
         if (!isOcrLinesForChunking(ocrLines)) throw new Error('Invalid OCR lines for chunking')
         const chunks = await createSearchChunks(ocrLines, controller.signal)
-        await store.request('storeSearchChunks', { bookId, chunks })
+        const indexedChunks = []
+        for (const chunk of chunks) {
+          indexedChunks.push({
+            ...chunk,
+            terms: await extractSearchTermsWithKiwi(chunk.text, controller.signal),
+          })
+        }
+        await store.request('storeSearchIndex', { bookId, chunks: indexedChunks })
         return 'completed'
       }
       if (!isNextOcrPage(nextOcrPage)) throw new Error('Invalid next OCR page')

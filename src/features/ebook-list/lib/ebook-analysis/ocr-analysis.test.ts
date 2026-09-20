@@ -1,15 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EbookLibraryStore } from '../ebook-library-store'
 
-const { createSearchChunks, loadPdfDocument, recognizePdfPageRaw } = vi.hoisted(() => ({
-  createSearchChunks: vi.fn(),
-  loadPdfDocument: vi.fn(),
-  recognizePdfPageRaw: vi.fn(),
-}))
+const { createSearchChunks, extractSearchTermsWithKiwi, loadPdfDocument, recognizePdfPageRaw } =
+  vi.hoisted(() => ({
+    createSearchChunks: vi.fn(),
+    extractSearchTermsWithKiwi: vi.fn(),
+    loadPdfDocument: vi.fn(),
+    recognizePdfPageRaw: vi.fn(),
+  }))
 
 vi.mock('@/features/reader/lib/pdf-document', () => ({ loadPdfDocument }))
 vi.mock('@/features/reader/lib/ocr/page-recognition', () => ({ recognizePdfPageRaw }))
 vi.mock('./search-chunking', () => ({ createSearchChunks }))
+vi.mock('@/lib/kiwi/client', () => ({ extractSearchTermsWithKiwi }))
 
 import { runOcrAnalysis } from './ocr-analysis'
 
@@ -32,6 +35,7 @@ describe('runOcrAnalysis', () => {
     createSearchChunks.mockResolvedValue([
       { id: 'chunk-1', ordinal: 0, text: '검색 청크', tokenCount: 2, sources: [] },
     ])
+    extractSearchTermsWithKiwi.mockResolvedValue([{ term: '검색', termFrequency: 1 }])
     const request = vi
       .fn()
       .mockResolvedValueOnce({ pdf_data: new Uint8Array([1]) })
@@ -74,9 +78,19 @@ describe('runOcrAnalysis', () => {
       [{ ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '원문' }],
       expect.any(AbortSignal),
     )
-    expect(request).toHaveBeenNthCalledWith(11, 'storeSearchChunks', {
+    expect(extractSearchTermsWithKiwi).toHaveBeenCalledWith('검색 청크', expect.any(AbortSignal))
+    expect(request).toHaveBeenNthCalledWith(11, 'storeSearchIndex', {
       bookId: 'book-id',
-      chunks: [{ id: 'chunk-1', ordinal: 0, text: '검색 청크', tokenCount: 2, sources: [] }],
+      chunks: [
+        {
+          id: 'chunk-1',
+          ordinal: 0,
+          text: '검색 청크',
+          tokenCount: 2,
+          sources: [],
+          terms: [{ term: '검색', termFrequency: 1 }],
+        },
+      ],
     })
     expect(recognizePdfPageRaw).toHaveBeenCalledTimes(2)
     expect(abort).toHaveBeenCalledOnce()
@@ -164,13 +178,47 @@ describe('runOcrAnalysis', () => {
 
     expect(createSearchChunks).toHaveBeenCalledOnce()
     expect(request).toHaveBeenCalledWith('failBookAnalysis', 'book-id')
-    expect(request).not.toHaveBeenCalledWith('storeSearchChunks', expect.anything())
     expect(request.mock.calls.some(([command]) => String(command).includes('indexed'))).toBe(false)
+  })
+
+  it('역색인 저장에 실패하면 분석을 실패 처리한다', async () => {
+    loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
+    createSearchChunks.mockResolvedValueOnce([
+      { id: 'chunk-1', ordinal: 0, text: '검색 청크', tokenCount: 2, sources: [] },
+    ])
+    extractSearchTermsWithKiwi.mockResolvedValueOnce([{ term: '검색', termFrequency: 1 }])
+    const request = vi.fn(async (command: string) => {
+      if (command === 'getBook') return { pdf_data: new Uint8Array([1]) }
+      if (command === 'acquireNextOcrPage') return null
+      if (command === 'listOcrPages') return [{ status: 'ready' }]
+      if (command === 'getOcrLinesForChunking') return []
+      if (command === 'storeSearchIndex') throw new Error('index write failed')
+      return undefined
+    })
+    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+
+    await expect(runOcrAnalysis('book-id', store)).resolves.toBe('failed')
+
+    expect(request).toHaveBeenCalledWith('storeSearchIndex', {
+      bookId: 'book-id',
+      chunks: [
+        {
+          id: 'chunk-1',
+          ordinal: 0,
+          text: '검색 청크',
+          tokenCount: 2,
+          sources: [],
+          terms: [{ term: '검색', termFrequency: 1 }],
+        },
+      ],
+    })
+    expect(request).toHaveBeenCalledWith('failBookAnalysis', 'book-id')
   })
 
   it('모든 OCR 페이지가 저장된 뒤 청킹이 실패했으면 OCR을 다시 하지 않고 청킹부터 재시도한다', async () => {
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
     createSearchChunks.mockResolvedValueOnce([])
+    extractSearchTermsWithKiwi.mockResolvedValueOnce([])
     const request = vi
       .fn()
       .mockResolvedValueOnce({ pdf_data: new Uint8Array([1]) })
@@ -186,6 +234,6 @@ describe('runOcrAnalysis', () => {
 
     expect(recognizePdfPageRaw).not.toHaveBeenCalled()
     expect(createSearchChunks).toHaveBeenCalledOnce()
-    expect(request).toHaveBeenCalledWith('storeSearchChunks', { bookId: 'book-id', chunks: [] })
+    expect(request).toHaveBeenCalledWith('storeSearchIndex', { bookId: 'book-id', chunks: [] })
   })
 })

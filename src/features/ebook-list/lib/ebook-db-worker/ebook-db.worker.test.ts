@@ -1,6 +1,7 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearOpfs,
   deletePdf,
   executeOpfsCommand,
   hasPdf,
@@ -11,6 +12,7 @@ import {
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
 vi.mock('./ebook-db.worker.opfs', () => ({
+  clearOpfs: vi.fn(),
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
   deletePdf: vi.fn(),
@@ -26,6 +28,20 @@ afterEach(() => {
 })
 
 describe('ebook-db.worker', () => {
+  it('SQLite를 닫은 뒤 OPFS 전체 삭제 명령을 처리한다', async () => {
+    const responses = vi.fn()
+    const workerScope = { postMessage: responses, onmessage: null }
+    vi.stubGlobal('self', workerScope)
+
+    await import('./ebook-db.worker')
+    const handler: unknown = Reflect.get(workerScope, 'onmessage')
+    if (typeof handler !== 'function') throw new Error('Worker handler missing')
+    await handler(new MessageEvent('message', { data: { requestId: 1, command: 'clearStorage' } }))
+
+    expect(clearOpfs).toHaveBeenCalledOnce()
+    expect(responses).toHaveBeenCalledWith({ requestId: 1, result: null })
+  })
+
   it('OPFS PDF 저장·조회·삭제 명령을 처리한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
@@ -181,6 +197,17 @@ describe('ebook-db.worker', () => {
     expect(schema).toContain('source_order INTEGER NOT NULL')
     expect(schema).toContain('CREATE UNIQUE INDEX chunk_sources_chunk_order_idx')
     expect(schema).toContain('CREATE INDEX chunk_sources_page_line_idx')
+    expect(schema).toContain('CREATE TABLE search_terms')
+    expect(schema).toContain('term TEXT NOT NULL UNIQUE')
+    expect(schema).toContain('document_frequency INTEGER NOT NULL CHECK (document_frequency > 0)')
+    expect(schema).toContain('CREATE TABLE search_postings')
+    expect(schema).toContain('term_id INTEGER NOT NULL REFERENCES search_terms(id)')
+    expect(schema).toContain(
+      'chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE',
+    )
+    expect(schema).toContain('term_frequency INTEGER NOT NULL CHECK (term_frequency > 0)')
+    expect(schema).toContain('PRIMARY KEY (term_id, chunk_id)')
+    expect(schema).toContain('CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id)')
     expect(statements).toContain('PRAGMA foreign_keys = ON')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })
