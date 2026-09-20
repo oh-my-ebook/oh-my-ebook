@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
+import { TestRouter } from '@/test/test-router'
 import type { BookMetadata } from '../lib/book-metadata'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
@@ -176,7 +176,7 @@ async function renderLoadedReader(
   const view = render(
     <Reader bookMetadata={bookMetadata} chatModel={chatModel} url="/sample.pdf" />,
     {
-      wrapper: MemoryRouter,
+      wrapper: TestRouter,
     },
   )
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
