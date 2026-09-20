@@ -93,6 +93,22 @@ describe('EbookLibrary', () => {
     expect(store.request).toHaveBeenCalledWith('failBookAnalysis', failedBook.id)
   })
 
+  it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {
+    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocr_completed_at: 1 }
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [interruptedBook]
+      if (command === 'getBook') return null
+      return null
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    render(<EbookLibrary store={store} />)
+
+    expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
+    expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
+  })
+
   it('사용량 조회 여부와 무관하게 업로드한다', async () => {
     const user = userEvent.setup()
     const store = createStore()

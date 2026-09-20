@@ -140,9 +140,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
   useEffect(() => {
     if (state.status !== 'ready') return
-    const pendingBooks = state.books.filter(
-      (book) => book.analysis_status === 'analyzing' && book.ocr_completed_at === null,
-    )
+    const pendingBooks = state.books.filter((book) => book.analysis_status === 'analyzing')
 
     async function resumeOcrAnalysis() {
       for (const book of pendingBooks) {
