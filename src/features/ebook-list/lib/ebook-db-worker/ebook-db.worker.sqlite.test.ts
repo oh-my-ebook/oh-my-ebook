@@ -9,6 +9,7 @@ function createDatabase({
   nextPage = null,
   ocrLinesForChunking = [],
   searchChunkStoreFails = false,
+  searchIndexStoreFails = false,
   sourceBookId = 'book-id',
   storeFails = false,
 }: {
@@ -17,6 +18,7 @@ function createDatabase({
   nextPage?: Record<string, unknown> | null
   ocrLinesForChunking?: Record<string, unknown>[]
   searchChunkStoreFails?: boolean
+  searchIndexStoreFails?: boolean
   sourceBookId?: string
   storeFails?: boolean
 } = {}) {
@@ -36,12 +38,20 @@ function createDatabase({
     ) {
       throw new Error('chunk write failed')
     }
+    if (
+      searchIndexStoreFails &&
+      typeof sql === 'string' &&
+      sql.includes('INSERT INTO search_postings')
+    ) {
+      throw new Error('posting write failed')
+    }
     if (typeof sql === 'string' && sql.includes('ocr_page_id')) return ocrLinesForChunking
   })
   const selectValue = vi.fn((sql: string) => {
     if (sql === 'SELECT 1 FROM books WHERE id = ?') return 1
     if (sql.includes('SELECT page_count')) return 3
     if (sql === 'SELECT changes()') return 1
+    if (sql.includes('SELECT id FROM search_terms')) return 1
     if (sql.includes('COUNT(*)')) return incompletePages
     return undefined
   })
@@ -248,6 +258,74 @@ describe('OCR SQLite 계약', () => {
     })
     expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chunk_sources'), {
       bind: ['chunk-1', 'page-1', 0, 1, 0],
+    })
+  })
+
+  it('청크·원본 범위·term·posting·완료 상태를 하나의 트랜잭션으로 교체한다', () => {
+    const { database, exec } = createDatabase()
+
+    executeSqliteCommand(database, {
+      requestId: 61,
+      command: 'storeSearchIndex',
+      payload: {
+        bookId: 'book-id',
+        chunks: [
+          {
+            id: 'chunk-1',
+            ordinal: 0,
+            text: '전자책 검색',
+            tokenCount: 2,
+            sources: [],
+            terms: [{ term: '검색', termFrequency: 2 }],
+          },
+        ],
+      },
+    })
+
+    expect(exec.mock.calls.map(([sql]) => String(sql))).toEqual(
+      expect.arrayContaining([
+        'BEGIN IMMEDIATE',
+        expect.stringContaining('DELETE FROM search_chunks WHERE book_id = ?'),
+        expect.stringContaining('DELETE FROM search_terms'),
+        expect.stringContaining('SET document_frequency = ('),
+        expect.stringContaining('INSERT INTO search_chunks'),
+        expect.stringContaining('INSERT INTO search_terms'),
+        expect.stringContaining('INSERT INTO search_postings'),
+        expect.stringContaining("analysis_status = 'ready'"),
+        'COMMIT',
+      ]),
+    )
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO search_postings'), {
+      bind: [1, 'chunk-1', 2],
+    })
+  })
+
+  it('posting 저장에 실패하면 청크와 분석 완료 갱신을 모두 롤백한다', () => {
+    const { database, exec } = createDatabase({ searchIndexStoreFails: true })
+
+    expect(() =>
+      executeSqliteCommand(database, {
+        requestId: 62,
+        command: 'storeSearchIndex',
+        payload: {
+          bookId: 'book-id',
+          chunks: [
+            {
+              id: 'chunk-1',
+              ordinal: 0,
+              text: '전자책 검색',
+              tokenCount: 2,
+              sources: [],
+              terms: [{ term: '검색', termFrequency: 1 }],
+            },
+          ],
+        },
+      }),
+    ).toThrow('posting write failed')
+
+    expect(exec).toHaveBeenLastCalledWith('ROLLBACK')
+    expect(exec).not.toHaveBeenCalledWith(expect.stringContaining("analysis_status = 'ready'"), {
+      bind: expect.anything(),
     })
   })
 

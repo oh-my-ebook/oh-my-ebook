@@ -10,6 +10,7 @@ import type {
   OcrLinePage,
   OcrLineRecord,
   OcrPageRecord,
+  SearchChunkInput,
   SearchChunkPage,
   SearchChunkRecord,
   StoredOcrPage,
@@ -18,6 +19,7 @@ import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
   DELETE_BOOK_BY_ID_SQL,
+  DELETE_ORPHAN_SEARCH_TERMS_SQL,
   DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
   ENABLE_FOREIGN_KEYS_SQL,
   GET_SCHEMA_VERSION_SQL,
@@ -25,8 +27,10 @@ import {
   INSERT_BOOK_SQL,
   INSERT_CHUNK_SOURCE_SQL,
   INSERT_SEARCH_CHUNK_SQL,
+  INSERT_SEARCH_POSTING_SQL,
   ROLLBACK_TRANSACTION_SQL,
   RETRY_BOOK_ANALYSIS_SQL,
+  REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
   SELECT_BOOK_EXISTS_SQL,
   SELECT_BOOK_ANALYSIS_STATUS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
@@ -46,6 +50,8 @@ import {
   SELECT_CHUNK_SOURCES_SQL,
   SELECT_SEARCH_CHUNK_COUNT_SQL,
   SELECT_SEARCH_CHUNKS_SQL,
+  SELECT_SEARCH_TERM_ID_SQL,
+  SET_BOOK_INDEXED_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -58,6 +64,7 @@ import {
   UPDATE_BOOK_COVER_SQL,
   UPDATE_BOOK_PROGRESS_SQL,
   UPDATE_BOOK_TITLE_SQL,
+  UPSERT_SEARCH_TERM_SQL,
 } from './ebook-db.worker.sql'
 import {
   DeletedBookError,
@@ -74,6 +81,7 @@ import {
   isListOcrLinesInput,
   isStoreOcrPageInput,
   isStoreSearchChunksInput,
+  isStoreSearchIndexInput,
   isUpdateCoverInput,
   isUpdateProgressInput,
   isUpdateTitleInput,
@@ -501,6 +509,32 @@ function getOcrLinesForChunking(database: Database, request: WorkerRequest): Ocr
   return ocrLines
 }
 
+function storeSearchChunk(
+  database: Database,
+  bookId: string,
+  chunk: SearchChunkInput,
+  createdAt: number,
+): void {
+  database.exec(INSERT_SEARCH_CHUNK_SQL, {
+    bind: [chunk.id, bookId, chunk.ordinal, chunk.text, chunk.tokenCount, createdAt],
+  })
+  for (const source of chunk.sources) {
+    const sourcePage = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [source.ocrPageId])
+    if (sourcePage?.book_id !== bookId) {
+      throw new Error('Chunk source does not belong to book')
+    }
+    database.exec(INSERT_CHUNK_SOURCE_SQL, {
+      bind: [
+        chunk.id,
+        source.ocrPageId,
+        source.startLineIndex,
+        source.endLineIndex,
+        source.sourceOrder,
+      ],
+    })
+  }
+}
+
 function storeSearchChunks(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isStoreSearchChunksInput)
   if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
@@ -510,25 +544,42 @@ function storeSearchChunks(database: Database, request: WorkerRequest): undefine
   try {
     database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
     for (const chunk of input.chunks) {
-      database.exec(INSERT_SEARCH_CHUNK_SQL, {
-        bind: [chunk.id, input.bookId, chunk.ordinal, chunk.text, chunk.tokenCount, now],
-      })
-      for (const source of chunk.sources) {
-        const sourcePage = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [source.ocrPageId])
-        if (sourcePage?.book_id !== input.bookId) {
-          throw new Error('Chunk source does not belong to book')
+      storeSearchChunk(database, input.bookId, chunk, now)
+    }
+    database.exec(COMMIT_TRANSACTION_SQL)
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+  return undefined
+}
+
+function storeSearchIndex(database: Database, request: WorkerRequest): undefined {
+  const input = getPayload(request, request.command, isStoreSearchIndexInput)
+  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
+
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
+    database.exec(DELETE_ORPHAN_SEARCH_TERMS_SQL)
+    database.exec(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+
+    for (const chunk of input.chunks) {
+      storeSearchChunk(database, input.bookId, chunk, now)
+      for (const { term, termFrequency } of chunk.terms) {
+        database.exec(UPSERT_SEARCH_TERM_SQL, { bind: [term] })
+        const termId = database.selectValue(SELECT_SEARCH_TERM_ID_SQL, [term])
+        if (typeof termId !== 'number' || !Number.isSafeInteger(termId) || termId <= 0) {
+          throw new Error('Unable to store search term')
         }
-        database.exec(INSERT_CHUNK_SOURCE_SQL, {
-          bind: [
-            chunk.id,
-            source.ocrPageId,
-            source.startLineIndex,
-            source.endLineIndex,
-            source.sourceOrder,
-          ],
+        database.exec(INSERT_SEARCH_POSTING_SQL, {
+          bind: [termId, chunk.id, termFrequency],
         })
       }
     }
+    database.exec(SET_BOOK_INDEXED_SQL, { bind: [now, now, input.bookId] })
+    if (!isRowAffected(database)) throw new NotFoundBookError()
     database.exec(COMMIT_TRANSACTION_SQL)
   } catch (error) {
     database.exec(ROLLBACK_TRANSACTION_SQL)
@@ -636,6 +687,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return getOcrLinesForChunking(database, request)
     case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
       return storeSearchChunks(database, request)
+    case SQLITE_COMMAND.STORE_SEARCH_INDEX:
+      return storeSearchIndex(database, request)
     case SQLITE_COMMAND.LIST_SEARCH_CHUNKS:
       return listSearchChunks(database, request)
     case SQLITE_COMMAND.LIST_CHUNK_SOURCES:
