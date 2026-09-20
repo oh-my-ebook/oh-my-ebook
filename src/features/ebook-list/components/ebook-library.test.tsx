@@ -4,6 +4,7 @@ import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
+import * as ocrAnalysis from '../lib/ebook-analysis/ocr-analysis'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { createPromiseController } from '@/test/promise-controller'
 import { toast, Toaster } from '@/components/ui/toast'
@@ -153,6 +154,58 @@ describe('EbookLibrary', () => {
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
+  })
+
+  it('책장 화면을 다시 마운트해도 이미 진행 중인 OCR 분석을 중복 실행하지 않는다', async () => {
+    const analyzingBook = createStoredBook('분석 중인 책')
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [analyzingBook]
+      return null
+    })
+    const analysis = createPromiseController<'completed' | 'failed'>()
+    const runOcrAnalysisSpy = vi
+      .spyOn(ocrAnalysis, 'runOcrAnalysis')
+      .mockReturnValue(analysis.promise)
+
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+    await waitFor(() => expect(runOcrAnalysisSpy).toHaveBeenCalledOnce())
+
+    // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
+    // 분석이 아직 끝나지 않아 책 목록 상 상태는 여전히 'analyzing'이다.
+    unmount()
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    expect(runOcrAnalysisSpy).toHaveBeenCalledOnce()
+
+    analysis.resolve('completed')
+  })
+
+  it('다시 마운트된 화면도 진행 중이던 OCR 분석의 실제 결과(실패)를 반영한다', async () => {
+    const analyzingBook = createStoredBook('분석 중인 책')
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [analyzingBook]
+      return null
+    })
+    const analysis = createPromiseController<'completed' | 'failed'>()
+    vi.spyOn(ocrAnalysis, 'runOcrAnalysis').mockReturnValue(analysis.promise)
+
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
+    unmount()
+    render(<EbookLibrary store={store} />, { wrapper: TestRouter })
+    await screen.findByText(analyzingBook.title)
+
+    // 분석이 실패로 끝나면, 다시 마운트된 화면(=다른 실행에 합류한 호출자)도
+    // "분석 중"에 머무르지 않고 실제 결과를 받아 재시도 버튼을 보여줘야 한다.
+    analysis.resolve('failed')
+
+    expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
   })
 
   it('사용량 조회 여부와 무관하게 업로드한다', async () => {
