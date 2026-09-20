@@ -55,12 +55,12 @@ export function ModelDownloadAlert() {
 
   return (
     <Alert
-      className="shrink-0"
+      className="shrink-0 has-data-[slot=alert-action]:pr-2.5"
       role="status"
       variant={status === 'error' ? 'destructive' : 'default'}
     >
       {status === 'error' && <TriangleAlert />}
-      <AlertTitle>Qwen2.5 1.5B</AlertTitle>
+      <AlertTitle className="min-h-6 pr-18">Qwen2.5 1.5B</AlertTitle>
       <AlertDescription className={status === 'error' ? 'text-destructive/90' : undefined}>
         {status === 'loading' ? progressText : getStatusText(status, error)}
       </AlertDescription>
