@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deletePdf, readPdf, writePdf } from './ebook-db.worker.opfs'
+import { clearOpfs, deletePdf, readPdf, writePdf } from './ebook-db.worker.opfs'
 
 const contentHash = 'a'.repeat(64)
 
@@ -89,5 +89,21 @@ describe('ebook-db.worker.opfs', () => {
     await expect(readPdf('../unsafe')).rejects.toThrow('SHA-256 콘텐츠 해시')
 
     expect(fixture.getDirectory).not.toHaveBeenCalled()
+  })
+
+  it('OPFS 루트의 SQLite와 PDF를 재귀적으로 삭제한다', async () => {
+    const removeEntry = vi.fn(async () => undefined)
+    const entries = async function* () {
+      yield ['ebook-library.sqlite3', {}] as [string, FileSystemHandle]
+      yield ['pdfs', {}] as [string, FileSystemHandle]
+    }
+    vi.stubGlobal('navigator', {
+      storage: { getDirectory: vi.fn(async () => ({ entries, removeEntry })) },
+    })
+
+    await clearOpfs()
+
+    expect(removeEntry).toHaveBeenCalledWith('ebook-library.sqlite3', { recursive: true })
+    expect(removeEntry).toHaveBeenCalledWith('pdfs', { recursive: true })
   })
 })

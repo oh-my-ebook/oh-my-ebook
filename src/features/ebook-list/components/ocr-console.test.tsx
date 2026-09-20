@@ -43,6 +43,23 @@ describe('OcrConsole', () => {
       if (command === 'getBookAnalysisStatus') return 'analyzing'
       if (command === 'listSearchChunks') return { total: 0, chunks: [] }
       if (command === 'listChunkSources') return { total: 0, sources: [] }
+      if (command === 'listSearchTerms') {
+        return { total: 1, terms: [{ id: 1, term: '검색', document_frequency: 2 }] }
+      }
+      if (command === 'listSearchPostings') {
+        return {
+          total: 1,
+          postings: [
+            {
+              term_id: 1,
+              chunk_id: 'chunk-1',
+              term_frequency: 2,
+              term: '검색',
+              chunk_ordinal: 0,
+            },
+          ],
+        }
+      }
       return null
     })
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
@@ -58,6 +75,12 @@ describe('OcrConsole', () => {
     await user.click(await screen.findByRole('tab', { name: 'ocr_lines' }))
 
     expect(await screen.findByText('저장된 OCR 원문')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'search_terms' }))
+    expect(await screen.findByText('검색')).toBeInTheDocument()
+    expect(screen.queryByText('chunk-1')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'search_postings' }))
+    expect(await screen.findByText('검색')).toBeInTheDocument()
+    expect(screen.getByText('chunk-1')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'ocr_pages' }))
     expect(screen.getByText('pending')).toBeInTheDocument()
     expect(request).toHaveBeenCalledWith('listOcrLines', {
@@ -67,6 +90,16 @@ describe('OcrConsole', () => {
     })
     expect(request).toHaveBeenCalledWith('listOcrPages', 'book-11')
     expect(request).toHaveBeenCalledWith('getBookAnalysisStatus', 'book-11')
+    expect(request).toHaveBeenCalledWith('listSearchTerms', {
+      bookId: 'book-11',
+      limit: 50,
+      offset: 0,
+    })
+    expect(request).toHaveBeenCalledWith('listSearchPostings', {
+      bookId: 'book-11',
+      limit: 50,
+      offset: 0,
+    })
   })
 
   it('성공한 OCR 조회 뒤에는 이전 조회 오류를 표시하지 않는다', async () => {
@@ -88,6 +121,8 @@ describe('OcrConsole', () => {
       if (command === 'getBookAnalysisStatus') return 'analyzing'
       if (command === 'listSearchChunks') return { total: 0, chunks: [] }
       if (command === 'listChunkSources') return { total: 0, sources: [] }
+      if (command === 'listSearchTerms') return { total: 0, terms: [] }
+      if (command === 'listSearchPostings') return { total: 0, postings: [] }
       return null
     })
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore

@@ -9,6 +9,7 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
 } as const
 
 export const COMMAND = {
+  CLEAR_STORAGE: 'clearStorage',
   SAVE_BOOK: 'saveBook',
   LIST_BOOKS: 'listBooks',
   GET_BOOK: 'getBook',
@@ -33,9 +34,11 @@ export const SQLITE_COMMAND = {
   LIST_OCR_PAGES: 'listOcrPages',
   GET_BOOK_ANALYSIS_STATUS: 'getBookAnalysisStatus',
   GET_OCR_LINES_FOR_CHUNKING: 'getOcrLinesForChunking',
-  STORE_SEARCH_CHUNKS: 'storeSearchChunks',
+  STORE_SEARCH_INDEX: 'storeSearchIndex',
   LIST_SEARCH_CHUNKS: 'listSearchChunks',
   LIST_CHUNK_SOURCES: 'listChunkSources',
+  LIST_SEARCH_TERMS: 'listSearchTerms',
+  LIST_SEARCH_POSTINGS: 'listSearchPostings',
 } as const
 
 export const OPFS_COMMAND = {

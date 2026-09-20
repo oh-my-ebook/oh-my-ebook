@@ -55,6 +55,15 @@ export interface SearchChunkInput {
   sources: readonly ChunkSourceInput[]
 }
 
+export interface SearchTermFrequencyInput {
+  term: string
+  termFrequency: number
+}
+
+export interface SearchIndexChunkInput extends SearchChunkInput {
+  terms: readonly SearchTermFrequencyInput[]
+}
+
 export interface NextOcrPage {
   id: string
   pageNumber: number
@@ -108,6 +117,30 @@ export interface ChunkSourceRecord {
 
 export interface ChunkSourcePage {
   sources: ChunkSourceRecord[]
+  total: number
+}
+
+export interface SearchTermRecord {
+  id: number
+  term: string
+  document_frequency: number
+}
+
+export interface SearchTermPage {
+  terms: SearchTermRecord[]
+  total: number
+}
+
+export interface SearchPostingRecord {
+  term_id: number
+  chunk_id: string
+  term_frequency: number
+  term: string
+  chunk_ordinal: number
+}
+
+export interface SearchPostingPage {
+  postings: SearchPostingRecord[]
   total: number
 }
 
