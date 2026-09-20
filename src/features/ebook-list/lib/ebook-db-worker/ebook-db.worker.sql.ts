@@ -54,6 +54,27 @@ export const INITIAL_SCHEMA_SQL = `
   );
   CREATE UNIQUE INDEX ocr_lines_page_order_idx ON ocr_lines(ocr_page_id, line_index);
 
+  CREATE TABLE search_chunks (
+    id TEXT PRIMARY KEY,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    token_count INTEGER NOT NULL CHECK (token_count > 0),
+    created_at INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX search_chunks_book_order_idx ON search_chunks(book_id, ordinal);
+
+  CREATE TABLE chunk_sources (
+    id INTEGER PRIMARY KEY,
+    chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE,
+    ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE,
+    start_line_index INTEGER NOT NULL,
+    end_line_index INTEGER NOT NULL CHECK (end_line_index >= start_line_index),
+    source_order INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX chunk_sources_chunk_order_idx ON chunk_sources(chunk_id, source_order);
+  CREATE INDEX chunk_sources_page_line_idx ON chunk_sources(ocr_page_id, start_line_index);
+
   PRAGMA user_version = 1;
 `
 
@@ -74,6 +95,7 @@ export const SELECT_BOOKS_SQL = `SELECT id, content_hash, file_name, title,
   FROM books ORDER BY created_at DESC, id DESC`
 
 export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
+export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM books WHERE id = ?'
 
 export const SELECT_BOOK_METADATA_SQL = `SELECT id, content_hash, file_name, title,
   author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
@@ -117,6 +139,8 @@ export const SET_OCR_COMPLETED_AT_SQL = `UPDATE books
   SET ocr_completed_at = ?, updated_at = ? WHERE id = ? AND ocr_completed_at IS NULL`
 export const SET_BOOK_ANALYSIS_FAILED_SQL = `UPDATE books
   SET analysis_status = 'failed', updated_at = ? WHERE id = ?`
+export const RETRY_BOOK_ANALYSIS_SQL = `UPDATE books
+  SET analysis_status = 'analyzing', updated_at = ? WHERE id = ? AND analysis_status = 'failed'`
 export const SELECT_OCR_LINE_COUNT_SQL = `SELECT COUNT(*) FROM ocr_lines
   JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id WHERE ocr_pages.book_id = ?`
 export const SELECT_OCR_LINES_SQL = `SELECT ocr_pages.page_number, ocr_lines.line_index,
@@ -129,3 +153,28 @@ export const SELECT_OCR_PAGE_LINES_SQL = `SELECT raw_text, x0, y0, x1, y1 FROM o
   WHERE ocr_page_id = ? ORDER BY line_index`
 export const SELECT_OCR_PAGES_SQL = `SELECT page_number, status, width, height FROM ocr_pages
   WHERE book_id = ? ORDER BY page_number`
+export const SELECT_OCR_LINES_FOR_CHUNKING_SQL = `SELECT ocr_pages.id AS ocr_page_id,
+  ocr_pages.page_number, ocr_lines.line_index, ocr_lines.raw_text
+  FROM ocr_lines JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id
+  WHERE ocr_pages.book_id = ? ORDER BY ocr_pages.page_number, ocr_lines.line_index`
+export const DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL = 'DELETE FROM search_chunks WHERE book_id = ?'
+export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
+  id, book_id, ordinal, text, token_count, created_at
+) VALUES (?, ?, ?, ?, ?, ?)`
+export const INSERT_CHUNK_SOURCE_SQL = `INSERT INTO chunk_sources (
+  chunk_id, ocr_page_id, start_line_index, end_line_index, source_order
+) VALUES (?, ?, ?, ?, ?)`
+export const SELECT_SEARCH_CHUNK_COUNT_SQL = 'SELECT COUNT(*) FROM search_chunks WHERE book_id = ?'
+export const SELECT_SEARCH_CHUNKS_SQL = `SELECT id, ordinal, text, token_count, created_at
+  FROM search_chunks WHERE book_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`
+export const SELECT_CHUNK_SOURCE_COUNT_SQL = `SELECT COUNT(*) FROM chunk_sources
+  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_CHUNK_SOURCES_SQL = `SELECT chunk_sources.id, chunk_sources.chunk_id,
+  search_chunks.ordinal AS chunk_ordinal, chunk_sources.ocr_page_id, ocr_pages.page_number,
+  chunk_sources.start_line_index, chunk_sources.end_line_index, chunk_sources.source_order
+  FROM chunk_sources
+  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
+  JOIN ocr_pages ON ocr_pages.id = chunk_sources.ocr_page_id
+  WHERE search_chunks.book_id = ?
+  ORDER BY search_chunks.ordinal, chunk_sources.source_order LIMIT ? OFFSET ?`

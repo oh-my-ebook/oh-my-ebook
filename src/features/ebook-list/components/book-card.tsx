@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Ellipsis, Pencil, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
+import { Ellipsis, Pencil, RefreshCw, RotateCcw, Trash2, TriangleAlert } from 'lucide-react'
 import type { StoredBook } from '../ebook-types'
 import { DeleteBookDialog } from './delete-book-dialog'
 import { EditBookDialog } from './edit-book-dialog'
@@ -23,6 +23,7 @@ interface BookCardProps {
   onRegenerate?(): void
   onRename?(title: string): void
   onDelete?(): Promise<void>
+  onRetryAnalysis?(): void
 }
 
 const analysisStatusBadge = {
@@ -39,6 +40,7 @@ export function BookCard({
   onRegenerate,
   onRename,
   onDelete,
+  onRetryAnalysis,
 }: BookCardProps) {
   const imageRef = useRef<HTMLImageElement>(null)
   const [editing, setEditing] = useState(false)
@@ -104,6 +106,12 @@ export function BookCard({
                   {book.title}
                 </h2>
                 <Badge variant={analysis.variant}>{analysis.label}</Badge>
+                {book.analysis_status === 'failed' && onRetryAnalysis && (
+                  <Button onClick={onRetryAnalysis} size="sm" variant="outline">
+                    <RotateCcw data-icon="inline-start" />
+                    분석 다시 시도
+                  </Button>
+                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger

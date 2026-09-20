@@ -41,7 +41,7 @@ describe('postprocessWithKiwi', () => {
     await expect(postprocessWithKiwi('OCR 문장', new AbortController().signal)).resolves.toBe(
       'OCR 문장 후처리',
     )
-    expect(String(workerUrls[0])).toContain('/features/reader/workers/kiwi.worker.ts')
+    expect(String(workerUrls[0])).toContain('/workers/kiwi.worker.ts')
   })
 
   it('중단하면 Worker를 종료하고 다음 요청에서 다시 생성한다', async () => {

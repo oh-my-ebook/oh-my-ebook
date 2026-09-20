@@ -1,5 +1,5 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
-import { postprocessWithKiwi } from '../kiwi/client'
+import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 160 DPI 픽셀 좌표로 변환한다.

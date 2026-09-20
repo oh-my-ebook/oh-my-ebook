@@ -14,6 +14,7 @@ interface EbookShelfProps {
   regeneratingCover: string | null
   onRename(bookId: string, title: string): void
   onDelete(bookId: string): Promise<void>
+  onRetryAnalysis?(bookId: string): void
 }
 
 export function EbookShelf({
@@ -28,6 +29,7 @@ export function EbookShelf({
   regeneratingCover,
   onRename,
   onDelete,
+  onRetryAnalysis,
 }: EbookShelfProps) {
   return (
     <ul className="ebook-shelf" role="list">
@@ -48,6 +50,7 @@ export function EbookShelf({
             onRename={(title) => onRename(book.id, title)}
             onDelete={() => onDelete(book.id)}
             onRegenerate={() => onRegenerate(book)}
+            onRetryAnalysis={onRetryAnalysis ? () => onRetryAnalysis(book.id) : undefined}
             regenerating={regeneratingCover === book.id}
           />
         </li>

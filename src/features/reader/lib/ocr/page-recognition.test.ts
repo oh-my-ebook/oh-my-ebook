@@ -8,7 +8,7 @@ const { createPaddle, postprocessWithKiwi, predict } = vi.hoisted(() => ({
 }))
 
 vi.mock('@paddleocr/paddleocr-js', () => ({ PaddleOCR: { create: createPaddle } }))
-vi.mock('../kiwi/client', () => ({ postprocessWithKiwi }))
+vi.mock('@/lib/kiwi/client', () => ({ postprocessWithKiwi }))
 
 function createOcrPage() {
   const context = { font: '', measureText: vi.fn(() => ({ width: 200 })) }

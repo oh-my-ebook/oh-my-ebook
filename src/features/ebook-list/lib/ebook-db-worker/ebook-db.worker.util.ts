@@ -1,5 +1,10 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
-import type { AddBookInput, OcrLineInput } from '../../ebook-types'
+import type {
+  AddBookInput,
+  ChunkSourceInput,
+  OcrLineInput,
+  SearchChunkInput,
+} from '../../ebook-types'
 import { InvalidPayloadError } from './ebook-db.worker.error'
 import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './ebook-db.worker.sql'
 
@@ -34,6 +39,11 @@ export interface StoreOcrPageInput {
   width: number
   height: number
   lines: readonly OcrLineInput[]
+}
+
+export interface StoreSearchChunksInput {
+  bookId: string
+  chunks: readonly SearchChunkInput[]
 }
 
 export interface ListOcrLinesInput {
@@ -191,6 +201,10 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
 function isOcrLineInput(value: unknown): value is OcrLineInput {
   if (!isRecord(value)) return false
   return (
@@ -226,6 +240,39 @@ export function isStoreOcrPageInput(value: unknown): value is StoreOcrPageInput 
     isPositiveInteger(value.height) &&
     Array.isArray(value.lines) &&
     value.lines.every(isOcrLineInput)
+  )
+}
+
+function isChunkSourceInput(value: unknown): value is ChunkSourceInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.ocrPageId) &&
+    isNonNegativeInteger(value.startLineIndex) &&
+    isNonNegativeInteger(value.endLineIndex) &&
+    value.endLineIndex >= value.startLineIndex &&
+    isNonNegativeInteger(value.sourceOrder)
+  )
+}
+
+function isSearchChunkInput(value: unknown): value is SearchChunkInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.id) &&
+    isNonNegativeInteger(value.ordinal) &&
+    typeof value.text === 'string' &&
+    value.text.trim().length > 0 &&
+    isPositiveInteger(value.tokenCount) &&
+    Array.isArray(value.sources) &&
+    value.sources.every(isChunkSourceInput)
+  )
+}
+
+export function isStoreSearchChunksInput(value: unknown): value is StoreSearchChunksInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.bookId) &&
+    Array.isArray(value.chunks) &&
+    value.chunks.every(isSearchChunkInput)
   )
 }
 

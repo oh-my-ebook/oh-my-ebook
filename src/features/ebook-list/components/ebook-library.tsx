@@ -28,6 +28,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     regeneratingCover,
     renameBook,
     deleteBook,
+    retryOcrAnalysis,
   } = useEbookLibrary(store)
 
   const { isDraggingFile, dropZoneProps } = usePageFileDrop({
@@ -108,6 +109,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               }}
               onRegenerate={(book) => {
                 void regenerateCover(book)
+              }}
+              onRetryAnalysis={(bookId) => {
+                void retryOcrAnalysis(bookId)
               }}
               regeneratingCover={regeneratingCover}
               onDelete={(bookId) => {
