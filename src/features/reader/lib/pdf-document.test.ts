@@ -5,11 +5,11 @@ import { createPromiseController } from '../../../test/promise-controller'
 import {
   extractPdfPageImages,
   extractPdfPageText,
-  renderPdfPageImage,
   loadPdfDocument,
   type PdfDocumentHandle,
   type PdfPageHandle,
 } from './pdf-document'
+import { renderPdfPageImage } from './pdf-page-render'
 
 const getDocumentMock = vi.hoisted(() => vi.fn())
 

@@ -24,6 +24,9 @@ vi.mock('../lib/pdf-document', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/pdf-document')>()),
   extractPdfPageImages,
   extractPdfPageText,
+}))
+vi.mock('../lib/pdf-page-render', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/pdf-page-render')>()),
   renderPdfPageImage,
 }))
 
