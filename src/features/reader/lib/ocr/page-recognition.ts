@@ -1,7 +1,13 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { sortInReadingOrder } from './reading-order'
-import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
+import {
+  createTextMeasurer,
+  fitTextLines,
+  toBoundingBox,
+  type PageTextLayer,
+  type TextBox,
+} from '../text-layer'
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 160 DPI 픽셀 좌표로 변환한다.
 const OCR_SCALE = 160 / 72
@@ -23,16 +29,10 @@ interface OcrPdfPage extends PdfPageHandle {
   }): OcrRenderTask
 }
 
-export interface OcrPageResult {
-  width: number
-  height: number
-  lines: readonly SelectableTextLine[]
-}
-
 export interface RawOcrPageResult {
   width: number
   height: number
-  lines: readonly OcrLine[]
+  lines: readonly TextBox[]
 }
 
 export interface StoredOcrPageResult {
@@ -85,7 +85,7 @@ async function renderPdfPageForOcr(page: PdfPageHandle, signal: AbortSignal) {
   try {
     await renderTask.promise
     signal.throwIfAborted()
-    return { canvas, context }
+    return canvas
   } catch (error) {
     canvas.width = 0
     canvas.height = 0
@@ -165,7 +165,7 @@ function raceWithAbort<T>(
 async function recognizeWithPaddleOcr(
   canvas: HTMLCanvasElement,
   signal: AbortSignal,
-): Promise<OcrLine[]> {
+): Promise<TextBox[]> {
   const instancePromise = getPaddle()
   // 작은 글자까지 탐지하되 신뢰도가 낮은 상자와 인식 결과는 제외한다.
   const [recognized] = await raceWithAbort(
@@ -182,25 +182,12 @@ async function recognizeWithPaddleOcr(
     () => abandonPaddle(instancePromise),
   )
 
-  // PaddleOCR의 사각형 꼭짓점을 텍스트 레이어가 사용할 축 정렬 좌표로 바꾼다.
   return recognized.items
     .filter(({ text }) => text.trim())
-    .map(({ poly, text }) => ({
-      text: text.trim(),
-      bbox: {
-        x0: Math.min(...poly.map(([x]) => x)),
-        y0: Math.min(...poly.map(([, y]) => y)),
-        x1: Math.max(...poly.map(([x]) => x)),
-        y1: Math.max(...poly.map(([, y]) => y)),
-      },
-    }))
+    .map(({ poly, text }) => ({ text: text.trim(), bbox: toBoundingBox(poly) }))
 }
 
-async function postprocessOcrLines(
-  sourceLines: readonly OcrLine[],
-  context: CanvasRenderingContext2D,
-  signal: AbortSignal,
-) {
+async function postprocessOcrLines(sourceLines: readonly TextBox[], signal: AbortSignal) {
   // 줄 순서를 유지해 Kiwi 결과를 원래 OCR 좌표와 다시 연결한다.
   const processed = await postprocessWithKiwi(
     sourceLines.map(({ text }) => text).join('\n'),
@@ -208,27 +195,24 @@ async function postprocessOcrLines(
   )
   const processedLines = processed.split('\n')
 
-  return fitOcrLines(
+  return fitTextLines(
     sourceLines.map((line, index) => ({
       ...line,
       text: processedLines[index] ?? line.text,
     })),
-    (text, fontSize) => {
-      context.font = `${fontSize}px sans-serif`
-      return context.measureText(text).width
-    },
+    createTextMeasurer(),
   )
 }
 
 export async function recognizePdfPage(
   page: PdfPageHandle,
   signal: AbortSignal,
-): Promise<OcrPageResult> {
-  const { canvas, context } = await renderPdfPageForOcr(page, signal)
+): Promise<PageTextLayer> {
+  const canvas = await renderPdfPageForOcr(page, signal)
 
   try {
     const sourceLines = sortInReadingOrder(await recognizeWithPaddleOcr(canvas, signal))
-    const lines = await postprocessOcrLines(sourceLines, context, signal)
+    const lines = await postprocessOcrLines(sourceLines, signal)
 
     return { width: canvas.width, height: canvas.height, lines }
   } finally {
@@ -242,7 +226,7 @@ export async function recognizePdfPageRaw(
   page: PdfPageHandle,
   signal: AbortSignal,
 ): Promise<RawOcrPageResult> {
-  const { canvas } = await renderPdfPageForOcr(page, signal)
+  const canvas = await renderPdfPageForOcr(page, signal)
 
   try {
     return {
@@ -260,16 +244,12 @@ export async function recognizePdfPageRaw(
 export async function postprocessStoredOcrPage(
   page: StoredOcrPageResult,
   signal: AbortSignal,
-): Promise<OcrPageResult> {
-  const canvas = document.createElement('canvas')
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('OCR Canvas를 만들 수 없습니다.')
-
+): Promise<PageTextLayer> {
   // 저장 시점에 정렬해 두므로 line_index 순서를 그대로 쓴다.
   const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
     text: rawText,
     bbox: { x0, y0, x1, y1 },
   }))
-  const lines = await postprocessOcrLines(sourceLines, context, signal)
+  const lines = await postprocessOcrLines(sourceLines, signal)
   return { width: page.width, height: page.height, lines }
 }

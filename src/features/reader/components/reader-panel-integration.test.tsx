@@ -106,7 +106,7 @@ function setupMatchMediaMock(isWideScreen: boolean) {
 }
 
 function selectOcrText(text: string) {
-  const layer = screen.getByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+  const layer = screen.getByLabelText('PDF 1페이지 텍스트 레이어')
   const line = layer.querySelector('[data-slot="pdf-ocr-line"]')
   const textNode = line?.firstChild
   if (!(line instanceof Element) || !(textNode instanceof Text)) {
