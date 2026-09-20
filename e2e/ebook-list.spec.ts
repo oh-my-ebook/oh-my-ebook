@@ -26,7 +26,7 @@ for (const { saved, system, background } of [
     })
 
     try {
-      await page.goto('/', { waitUntil: 'commit' })
+      await page.goto('/library', { waitUntil: 'commit' })
       await expect(page.locator('#root')).toBeAttached()
       await expect(page.locator('#root')).toBeEmpty()
       await expect(page.locator('body')).toHaveCSS('background-color', background)
@@ -44,7 +44,7 @@ test('저장된 선택이 없으면 시스템 테마로 시작하고 직접 전�
   page,
 }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
   await expect(page.locator('html')).toHaveClass(/dark/)
   expect(await page.evaluate(() => localStorage.getItem('theme'))).toBeNull()
@@ -64,14 +64,14 @@ test('저장된 선택이 없으면 시스템 테마로 시작하고 직접 전�
 test('저장된 테마 값이 잘못되어도 시스템 설정을 따른다', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('theme', 'invalid'))
   await page.emulateMedia({ colorScheme: 'dark' })
-  await page.goto('/')
+  await page.goto('/library')
 
   await expect(page.locator('html')).toHaveClass(/dark/)
   await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
 })
 
 test('선택한 테마를 저장하고 새로고침 후 복원한다', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/library')
   await page.getByRole('button', { name: '다크 모드로 전환' }).click()
   expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark')
 
@@ -96,7 +96,7 @@ test('localStorage가 차단되어도 서재와 테마 전환을 사용할 수 �
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
 
-  await page.goto('/')
+  await page.goto('/library')
   await page.getByRole('button', { name: '다크 모드로 전환' }).click()
 
   await expect(page.locator('html')).toHaveClass(/dark/)
@@ -105,7 +105,7 @@ test('localStorage가 차단되어도 서재와 테마 전환을 사용할 수 �
 })
 
 test('테마 전환 시 책 추가 카드의 색도 즉시 적용한다', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/library')
   const card = page.getByRole('button', { name: '책 추가' })
   await expect(card).toBeVisible()
 
@@ -128,7 +128,7 @@ test('테마 전환 시 책 추가 카드의 색도 즉시 적용한다', async 
 
 test('서재 푸터는 화면 하단에 놓이고 내용이 길면 본문 다음으로 밀린다', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
 
   const footer = page.locator('footer')
@@ -164,7 +164,7 @@ test('리더에서 선택한 테마를 서재에서도 전환할 수 있다', as
 })
 
 test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장을 표시한다', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/library')
 
   await expect(page.getByRole('heading', { name: '내 서재' })).toBeVisible()
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
@@ -190,7 +190,7 @@ test('PDF를 추가하고 내용 중복을 막으며 새로고침 후 표지와 
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   const input = page.getByLabel('PDF 파일 선택')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
@@ -224,7 +224,7 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장�
       return Reflect.apply(original, this, [message, ...transfer])
     }
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -284,7 +284,7 @@ test('책 삭제 저장이 실패하면 책을 유지하고 재시도 안내를 
       return Reflect.apply(original, this, [message, ...transfer])
     }
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -307,7 +307,7 @@ test('메타데이터가 없는 책과 손상·암호 PDF를 파일별로 처리
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -328,7 +328,7 @@ test('표지 생성 실패를 복구하고 회전된 첫 페이지를 표지로 
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page.evaluate(() => {
@@ -385,7 +385,7 @@ test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않�
       Reflect.apply(original, this, [message, transfer])
     }
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -404,7 +404,7 @@ test('WebP 인코딩을 사용할 수 없으면 PNG 표지를 저장한다', asy
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page.evaluate(() => {
@@ -432,7 +432,7 @@ test('정밀 포인터에서 표지 hover 효과를 보이고 키보드로 책�
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page
@@ -467,7 +467,7 @@ test('320px와 동작 감소 환경에서도 터치로 책을 연다', async ({ 
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(1)
   await page

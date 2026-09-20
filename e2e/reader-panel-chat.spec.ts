@@ -14,7 +14,7 @@ async function openReader(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
   })
-  await page.goto('/')
+  await page.goto('/library')
   const fileChooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: '책 추가' }).click()
   await (await fileChooser).setFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))

@@ -1,0 +1,44 @@
+import { useEffect } from 'react'
+import { Route, Routes, useParams } from 'react-router'
+import { Reader } from '../features/reader/components/reader'
+import { ebookStore } from '../features/ebook-list/lib/ebook-store'
+import { prepareOcr } from '../features/reader/lib/ocr/page-recognition'
+import { prepareCachedWebLlmModel } from '../features/reader/lib/web-llm/webllm-model'
+import { EbookReaderPage } from '../pages/ebook-reader-page'
+import { EbookListPage } from '../pages/ebook-list-page'
+import { OcrConsolePage } from '../pages/ocr-console-page'
+import { PrivacyPolicyPage } from '../pages/privacy-policy-page'
+import { TermsOfServicePage } from '../pages/terms-of-service-page'
+import { OpenSourceLicensesPage } from '../pages/open-source-licenses-page'
+
+function EbookReaderRoute() {
+  const { bookId } = useParams()
+  if (!bookId || !ebookStore) return <EbookListPage />
+  return <EbookReaderPage key={bookId} bookId={bookId} store={ebookStore} />
+}
+
+function ReadingRoutes() {
+  useEffect(() => {
+    prepareOcr().catch(() => undefined)
+    prepareCachedWebLlmModel().catch((error: unknown) => {
+      console.warn('저장된 채팅 모델을 미리 준비하지 못했습니다.', error)
+    })
+  }, [])
+
+  return (
+    <Routes>
+      <Route path="/library" element={<EbookListPage />} />
+      <Route path="/books/:bookId" element={<EbookReaderRoute />} />
+      <Route path="/console" element={<OcrConsolePage store={ebookStore} />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="/licenses" element={<OpenSourceLicensesPage />} />
+      <Route
+        path="/sample-reader"
+        element={<Reader title="기본 PDF 리더 샘플" url="/samples/basic-reader.pdf" />}
+      />
+    </Routes>
+  )
+}
+
+export default ReadingRoutes

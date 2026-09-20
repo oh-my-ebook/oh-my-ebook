@@ -75,7 +75,7 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
             <RefreshCw data-icon="inline-start" />
             다시 시도
           </Button>
-          <a className={buttonVariants({ variant: 'outline' })} href="/">
+          <a className={buttonVariants({ variant: 'outline' })} href="/library">
             <BookOpen data-icon="inline-start" />
             책장으로 이동
           </a>

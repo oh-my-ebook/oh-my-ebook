@@ -43,7 +43,7 @@ export function ReaderToolbar({
       <div className="flex items-center gap-1">
         <Button
           aria-label="책장으로 돌아가기"
-          onClick={() => navigation('/')}
+          onClick={() => navigation('/library')}
           size="icon-sm"
           variant="ghost"
         >

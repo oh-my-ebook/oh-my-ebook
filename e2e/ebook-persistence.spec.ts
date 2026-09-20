@@ -19,7 +19,7 @@ test('브라우저 프로필을 닫고 같은 프로필로 다시 열어 책과 
       navigator.storage.persisted = async () => true
     })
     let page = context.pages()[0] ?? (await context.newPage())
-    await page.goto('/')
+    await page.goto('/library')
     await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
     await expect(page.getByRole('article')).toHaveCount(1)
     await page
@@ -30,7 +30,7 @@ test('브라우저 프로필을 닫고 같은 프로필로 다시 열어 책과 
 
     context = await openContext()
     page = context.pages()[0] ?? (await context.newPage())
-    await page.goto('/')
+    await page.goto('/library')
     await expect(page.getByText('The Local Library')).toBeVisible()
     await expect(page.getByRole('img', { name: 'The Local Library 표지' })).toBeVisible()
   } finally {
