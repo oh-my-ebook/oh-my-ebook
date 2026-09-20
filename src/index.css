@@ -85,6 +85,7 @@
   --reader-code: oklch(0.2386 0.0094 97.75);
   --reader-code-foreground: oklch(0.9154 0.0179 92.69);
   --ocr-highlight: oklch(0.8823 0.0571 254.13);
+  --image-region: oklch(0.6304 0.1503 254.28);
 }
 
 .dark {
@@ -121,6 +122,7 @@
   --reader-code: oklch(0.1688 0.0044 84.59);
   --reader-code-foreground: oklch(0.8611 0.0185 89.37);
   --ocr-highlight: oklch(0.7137 0.1434 254.62);
+  --image-region: oklch(0.7536 0.1289 254.45);
 }
 
 @theme inline {
@@ -152,6 +154,7 @@
   --color-reader-code: var(--reader-code);
   --color-reader-code-foreground: var(--reader-code-foreground);
   --color-ocr-highlight: var(--ocr-highlight);
+  --color-image-region: var(--image-region);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -269,10 +272,7 @@
     box-shadow: 0 1px 2px rgb(31 32 28 / 8%);
     transition:
       transform 180ms ease-out,
-      box-shadow 180ms ease-out,
-      border-color 180ms ease-out,
-      background-color 180ms ease-out,
-      color 180ms ease-out;
+      box-shadow 180ms ease-out;
   }
 
   .group:hover .book-card-cover,

@@ -1,16 +1,34 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { postprocessStoredOcrPage, recognizePdfPage } = vi.hoisted(() => ({
+const {
+  extractPdfPageImages,
+  extractPdfPageText,
+  postprocessStoredOcrPage,
+  recognizePdfPage,
+  renderPdfPageImage,
+} = vi.hoisted(() => ({
+  extractPdfPageImages: vi.fn(),
+  extractPdfPageText: vi.fn(),
   postprocessStoredOcrPage: vi.fn(),
   recognizePdfPage: vi.fn(),
+  renderPdfPageImage: vi.fn(),
 }))
 
 vi.mock('../lib/ocr/page-recognition', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
+vi.mock('../lib/pdf-document', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/pdf-document')>()),
+  extractPdfPageImages,
+  extractPdfPageText,
+}))
+vi.mock('../lib/pdf-page-render', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/pdf-page-render')>()),
+  renderPdfPageImage,
+}))
 
 function createRenderTask() {
   const completion = createPromiseController<void>()
@@ -58,6 +76,45 @@ function createPdfDocument(pages: ReadonlyMap<number, PdfPageHandle>) {
   return { document, getPage }
 }
 
+class FakeClipboardItem {
+  readonly items: Record<string, unknown>
+
+  constructor(items: Record<string, unknown>) {
+    this.items = items
+  }
+}
+
+// jsdom에는 클립보드 이미지 쓰기가 없어 테스트마다 새로 대신 채우고 끝나면 되돌린다.
+function stubClipboard() {
+  const write = vi.fn().mockResolvedValue(undefined)
+  const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } })
+  vi.stubGlobal('ClipboardItem', FakeClipboardItem)
+  onTestFinished(() => {
+    if (original) {
+      Object.defineProperty(navigator, 'clipboard', original)
+      return
+    }
+    Reflect.deleteProperty(navigator, 'clipboard')
+  })
+  return write
+}
+
+async function showPageWithImage(region: { x0: number; y0: number; x1: number; y1: number }) {
+  const renderTask = createRenderTask()
+  const pdfPage = createPdfPage([renderTask])
+  const { document } = createPdfDocument(new Map([[1, pdfPage.page]]))
+  extractPdfPageImages.mockResolvedValueOnce({ width: 600, height: 900, regions: [region] })
+
+  render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+  await act(async () => {
+    renderTask.completion.resolve(undefined)
+    await renderTask.completion.promise
+  })
+
+  return { page: pdfPage.page }
+}
+
 function createPageInfo(pageNumber: number): PdfPageInfo {
   return { pageNumber, width: 800, height: 1200, rotation: 0 }
 }
@@ -92,6 +149,8 @@ function selectText(startElement: Element, endElement = startElement) {
 describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
+    extractPdfPageImages.mockResolvedValue({ width: 1, height: 1, regions: [] })
+    extractPdfPageText.mockResolvedValue(null)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
     postprocessStoredOcrPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
@@ -151,7 +210,158 @@ describe('PdfViewport', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('200 DPI OCR 결과를 텍스트 레이어로 표시한다', async () => {
+  it('PDF에 그림이 있으면 그 영역에 박스를 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    extractPdfPageImages.mockResolvedValueOnce({
+      width: 600,
+      height: 900,
+      regions: [{ x0: 60, y0: 90, x1: 360, y1: 315 }],
+    })
+
+    render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    const imageLayer = await screen.findByLabelText('PDF 1페이지 이미지 영역')
+    const [box] = imageLayer.children
+    expect(box).toHaveStyle({ left: '10%', top: '10%', width: '50%', height: '25%' })
+  })
+
+  it('그림마다 복사 버튼을 둔다', async () => {
+    await showPageWithImage({ x0: 60, y0: 90, x1: 360, y1: 315 })
+
+    expect(
+      await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사' }),
+    ).toBeInTheDocument()
+  })
+
+  it('복사 버튼을 누르면 그림을 클립보드에 넣는다', async () => {
+    const user = userEvent.setup()
+    const write = stubClipboard()
+    const pngBlob = new Blob(['png'], { type: 'image/png' })
+    renderPdfPageImage.mockResolvedValue(pngBlob)
+    const region = { x0: 60, y0: 90, x1: 360, y1: 315 }
+    const { page } = await showPageWithImage(region)
+
+    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사' }))
+
+    expect(renderPdfPageImage).toHaveBeenCalledWith(page, region)
+    const [[clipboardItem]] = write.mock.calls[0]
+    await expect(clipboardItem.items['image/png']).resolves.toBe(pngBlob)
+    expect(
+      await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사됨' }),
+    ).toBeInTheDocument()
+  })
+
+  it('PDF에 텍스트가 있으면 저장된 OCR과 즉석 OCR 없이 그 텍스트를 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    extractPdfPageText.mockResolvedValueOnce({
+      width: 600,
+      height: 900,
+      lines: [
+        { text: 'PDF에 들어 있는 문장', x0: 60, y0: 90, x1: 300, y1: 108, fontSize: 18, scaleX: 1 },
+      ],
+    })
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => ({
+          width: 1_200,
+          height: 1_800,
+          lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+        }))}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
+    expect(layer).toHaveTextContent('PDF에 들어 있는 문장')
+    expect(postprocessStoredOcrPage).not.toHaveBeenCalled()
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
+  it('내장 텍스트 조회가 실패하면 저장된 OCR을 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1_200,
+      height: 1_800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+    extractPdfPageText.mockRejectedValueOnce(new Error('텍스트 조회 실패'))
+    postprocessStoredOcrPage.mockResolvedValueOnce({
+      width: 1_200,
+      height: 1_800,
+      lines: [{ text: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4, fontSize: 2, scaleX: 1 }],
+    })
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    expect(await screen.findByLabelText('PDF 1페이지 텍스트 레이어')).toHaveTextContent(
+      '저장한 원문',
+    )
+    expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal))
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
+  it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1_200,
+      height: 1_800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    await waitFor(() =>
+      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
+    )
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
+  it('PDF에 텍스트가 없으면 OCR 결과를 텍스트 레이어로 표시한다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
@@ -186,7 +396,7 @@ describe('PdfViewport', () => {
       await renderTask.completion.promise
     })
 
-    const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+    const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
     expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
     expect(onOcrTextChange).toHaveBeenCalledWith({
@@ -238,7 +448,7 @@ describe('PdfViewport', () => {
       renderTask.completion.resolve(undefined)
       await renderTask.completion.promise
     })
-    const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+    const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
     const lines = layer.querySelectorAll('[data-slot="pdf-ocr-line"]')
 
     selectText(lines[0], lines[1])
@@ -275,41 +485,6 @@ describe('PdfViewport', () => {
     await waitFor(() =>
       expect(onOcrTextChange).toHaveBeenCalledWith({ document, textByPage: new Map([[1, '']]) }),
     )
-  })
-
-  it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
-    const renderTask = createRenderTask()
-    const page = createPdfPage([renderTask])
-    const { document } = createPdfDocument(new Map([[1, page.page]]))
-    const storedOcrPage = {
-      width: 1200,
-      height: 1800,
-      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
-    }
-    postprocessStoredOcrPage.mockResolvedValueOnce({
-      width: 1200,
-      height: 1800,
-      lines: [],
-    })
-
-    render(
-      <PdfViewport
-        document={document}
-        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
-        page={createPageInfo(1)}
-        scale={1}
-      />,
-    )
-
-    await act(async () => {
-      renderTask.completion.resolve(undefined)
-      await renderTask.completion.promise
-    })
-
-    await waitFor(() =>
-      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
-    )
-    expect(recognizePdfPage).not.toHaveBeenCalled()
   })
 
   it('표시 크기가 바뀌면 이전 작업을 취소하고 늦은 완료를 무시한다', async () => {

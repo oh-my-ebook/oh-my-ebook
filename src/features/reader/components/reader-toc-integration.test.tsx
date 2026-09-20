@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -64,7 +64,7 @@ describe('Reader 목차 연결', () => {
 
   it('목차에서 썸네일을 클릭하면 해당 페이지로 이동한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: TestRouter })
 
     await user.click(screen.getByRole('button', { name: '목차 열기' }))
     const toc = screen.getByRole('region', { name: '목차' })
@@ -78,7 +78,7 @@ describe('Reader 목차 연결', () => {
   // 포커스를 옮긴 뒤(예: Tab으로 벗어나는 경우) 상황을 직접 만든다.
   it('목차가 열려 있어도 포커스가 목차 밖에 있으면 좌우 화살표로 페이지를 넘긴다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: TestRouter })
     const tocButton = screen.getByRole('button', { name: '목차 열기' })
 
     await user.click(tocButton)
@@ -90,7 +90,7 @@ describe('Reader 목차 연결', () => {
 
   it('포커스가 목차 안에 있으면 좌우 화살표는 막히고 위아래 화살표로 이전·다음 페이지로 이동한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: TestRouter })
 
     await user.click(screen.getByRole('button', { name: '목차 열기' }))
     const toc = screen.getByRole('region', { name: '목차' })

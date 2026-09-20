@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
@@ -106,7 +106,7 @@ function setupMatchMediaMock(isWideScreen: boolean) {
 }
 
 function selectOcrText(text: string) {
-  const layer = screen.getByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+  const layer = screen.getByLabelText('PDF 1페이지 텍스트 레이어')
   const line = layer.querySelector('[data-slot="pdf-ocr-line"]')
   const textNode = line?.firstChild
   if (!(line instanceof Element) || !(textNode instanceof Text)) {
@@ -173,7 +173,7 @@ async function renderLoadedReader(
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
   const view = render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, {
-    wrapper: MemoryRouter,
+    wrapper: TestRouter,
   })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
