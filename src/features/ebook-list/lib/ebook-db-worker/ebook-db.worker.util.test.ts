@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { isStoreSearchIndexInput } from './ebook-db.worker.util'
+import { isSearchChunkQuery, isStoreSearchIndexInput } from './ebook-db.worker.util'
+
+describe('BM25 검색 요청 검증', () => {
+  it('중복이 제거된 검색어와 최대 5개 결과를 허용한다', () => {
+    expect(isSearchChunkQuery({ bookId: 'book-id', terms: ['전자책', '검색'], limit: 5 })).toBe(
+      true,
+    )
+    expect(isSearchChunkQuery({ bookId: 'book-id', terms: [], limit: 3 })).toBe(true)
+  })
+
+  it.each([
+    { bookId: '', terms: ['검색'], limit: 3 },
+    { bookId: 'book-id', terms: ['검색', '검색'], limit: 3 },
+    { bookId: 'book-id', terms: [' 검색'], limit: 3 },
+    { bookId: 'book-id', terms: [''], limit: 3 },
+    { bookId: 'book-id', terms: ['검색'], limit: 0 },
+    { bookId: 'book-id', terms: ['검색'], limit: 6 },
+    { bookId: 'book-id', terms: ['검색'], limit: 1.5 },
+  ])('잘못된 책·검색어·결과 상한을 거부한다', (query) => {
+    expect(isSearchChunkQuery(query)).toBe(false)
+  })
+})
 
 describe('검색 역색인 저장 입력 검증', () => {
   it('청크별 term 빈도를 허용한다', () => {

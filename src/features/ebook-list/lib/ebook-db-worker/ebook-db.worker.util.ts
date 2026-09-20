@@ -4,6 +4,7 @@ import type {
   ChunkSourceInput,
   OcrLineInput,
   SearchChunkInput,
+  SearchChunkQuery,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
 } from '../../ebook-types'
@@ -58,6 +59,8 @@ export interface GetStoredOcrPageInput {
   bookId: string
   pageNumber: number
 }
+
+const MAX_SEARCH_CHUNK_RESULTS = 5
 
 export interface WorkerRequest {
   requestId: number
@@ -291,6 +294,19 @@ export function isStoreSearchIndexInput(value: unknown): value is StoreSearchInd
     Array.isArray(value.chunks) &&
     value.chunks.every(isSearchIndexChunkInput)
   )
+}
+
+function isSearchTerm(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && value.trim() === value
+}
+
+export function isSearchChunkQuery(value: unknown): value is SearchChunkQuery {
+  if (!isRecord(value)) return false
+  if (!isIdentifier(value.bookId)) return false
+  if (!Array.isArray(value.terms)) return false
+  if (!value.terms.every(isSearchTerm)) return false
+  if (new Set(value.terms).size !== value.terms.length) return false
+  return isPositiveInteger(value.limit) && value.limit <= MAX_SEARCH_CHUNK_RESULTS
 }
 
 export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput {

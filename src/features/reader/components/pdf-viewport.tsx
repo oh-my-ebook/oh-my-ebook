@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, CopyIcon, XIcon } from 'lucide-react'
+import type { SearchChunkSource } from '@/features/ebook-list/ebook-types'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'
@@ -36,6 +37,7 @@ export interface OcrText {
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
+  evidenceSource?: SearchChunkSource
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onOcrTextChange?: (ocrText: OcrText) => void
@@ -143,6 +145,7 @@ export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
   const {
     document,
+    evidenceSource,
     getStoredOcrPage,
     onOcrTextChange,
     onStatusChange,
@@ -359,22 +362,34 @@ export function PdfViewport(props: PdfViewportProps) {
                   aria-label={`PDF ${page.pageNumber}페이지 텍스트 레이어`}
                   className="absolute inset-0 overflow-hidden"
                 >
-                  {textLayer.lines.map((line, index) => (
-                    <span
-                      className="absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80"
-                      data-slot="pdf-ocr-line"
-                      key={`${line.x0}-${line.y0}-${index}`}
-                      style={{
-                        left: `${(line.x0 / textLayer.width) * 100}%`,
-                        top: `${(line.y0 / textLayer.height) * 100}%`,
-                        fontSize: `${(line.fontSize / textLayer.width) * 100}cqw`,
-                        lineHeight: 1,
-                        transform: `scaleX(${line.scaleX})`,
-                      }}
-                    >
-                      {line.text}
-                    </span>
-                  ))}
+                  {textLayer.lines.map((line, index) => {
+                    const isEvidenceLine =
+                      evidenceSource?.pageNumber === page.pageNumber &&
+                      index >= evidenceSource.startLineIndex &&
+                      index <= evidenceSource.endLineIndex
+                    return (
+                      <span
+                        className={
+                          isEvidenceLine
+                            ? 'absolute origin-top-left cursor-text select-text whitespace-pre bg-primary/15 text-transparent outline-1 outline-primary/30 selection:bg-ocr-highlight/80'
+                            : 'absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80'
+                        }
+                        data-evidence-highlight={isEvidenceLine ? 'true' : undefined}
+                        data-line-index={index}
+                        data-slot="pdf-ocr-line"
+                        key={`${line.x0}-${line.y0}-${index}`}
+                        style={{
+                          left: `${(line.x0 / textLayer.width) * 100}%`,
+                          top: `${(line.y0 / textLayer.height) * 100}%`,
+                          fontSize: `${(line.fontSize / textLayer.width) * 100}cqw`,
+                          lineHeight: 1,
+                          transform: `scaleX(${line.scaleX})`,
+                        }}
+                      >
+                        {line.text}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
               {status === 'ready' && imageRegions && imageRegions.regions.length > 0 && (
