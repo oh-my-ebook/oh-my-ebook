@@ -1,4 +1,4 @@
-import type { KeyboardEvent, RefObject } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
 import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -8,6 +8,7 @@ import { TocPageThumbnail } from './toc-page-thumbnail'
 
 const TOC_TITLE = '목차'
 const CLOSE_BUTTON_LABEL = '목차 닫기'
+const CURRENT_PAGE_SELECTOR = '[aria-current="page"]'
 
 interface ReaderTocProps {
   currentPage: number
@@ -48,8 +49,17 @@ function TocThumbnailList({ currentPage, document, onPageChange, pages }: TocLis
   )
 }
 
-// 넓은 화면에서는 헤더 없이 툴바의 목차 버튼으로만 여닫으므로 포커스는 그 버튼에 그대로 남는다.
+// 넓은 화면에서는 헤더 없이 툴바의 목차 버튼으로만 여닫는다. 열리면 바로 화살표 키로 페이지를
+// 넘길 수 있도록, 포커스를 여는 버튼 대신 현재 페이지 썸네일로 옮긴다.
 function WideReaderToc({ currentPage, document, onPageChange, open, pages }: TocSectionProps) {
+  const asideRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      asideRef.current?.querySelector<HTMLElement>(CURRENT_PAGE_SELECTOR)?.focus()
+    }
+  }, [open])
+
   if (!open) {
     return null
   }
@@ -58,6 +68,7 @@ function WideReaderToc({ currentPage, document, onPageChange, open, pages }: Toc
     <aside
       aria-label={TOC_TITLE}
       className="flex w-70 shrink-0 flex-col border-r bg-card"
+      ref={asideRef}
       role="region"
     >
       <TocThumbnailList
@@ -105,12 +116,18 @@ function NarrowReaderToc({
   pages,
   previousPage,
 }: TocSectionProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent
         aria-label={TOC_TITLE}
         finalFocus={openButtonRef}
+        initialFocus={() =>
+          contentRef.current?.querySelector<HTMLElement>(CURRENT_PAGE_SELECTOR) ?? null
+        }
         onKeyDown={(event) => handleTocKeyDown(event, previousPage, nextPage, onPageChange)}
+        ref={contentRef}
         showCloseButton={false}
         side="left"
       >

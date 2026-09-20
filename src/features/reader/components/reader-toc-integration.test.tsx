@@ -74,13 +74,15 @@ describe('Reader 목차 연결', () => {
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 3')
   })
 
-  // 넓은 화면에서 목차를 열어도 포커스는 여는 버튼에 그대로 남으므로(reader-toc.tsx 참고),
-  // 목차 밖에 포커스가 있는 상태다.
+  // 목차를 열면 포커스가 현재 페이지 썸네일로 이동하므로(reader-toc.tsx 참고), 목차 밖으로
+  // 포커스를 옮긴 뒤(예: Tab으로 벗어나는 경우) 상황을 직접 만든다.
   it('목차가 열려 있어도 포커스가 목차 밖에 있으면 좌우 화살표로 페이지를 넘긴다', async () => {
     const user = userEvent.setup()
     render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    const tocButton = screen.getByRole('button', { name: '목차 열기' })
 
-    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+    await user.click(tocButton)
+    tocButton.focus()
     await user.keyboard('{ArrowRight}')
 
     expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()

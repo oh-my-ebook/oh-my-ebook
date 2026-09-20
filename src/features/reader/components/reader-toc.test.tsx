@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
@@ -93,6 +93,15 @@ describe('ReaderToc', () => {
     expect(openButton).toHaveFocus()
   })
 
+  it('넓은 화면에서 목차를 열면 현재 페이지 썸네일에 포커스가 간다', async () => {
+    const user = userEvent.setup()
+    render(<TocHarness currentPage={2} isWideScreen pages={createPages(3)} />)
+
+    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+
+    expect(screen.getByRole('button', { name: '2페이지' })).toHaveFocus()
+  })
+
   it('페이지 수만큼 썸네일 버튼을 순서대로 보여준다', async () => {
     const user = userEvent.setup()
     render(<TocHarness isWideScreen pages={createPages(3)} />)
@@ -153,6 +162,16 @@ describe('ReaderToc', () => {
     // Sheet를 열어 둔 채 테스트를 끝내면 포커스 트랩 등 내부 상태가 다음 테스트로 새어 나가므로 닫는다.
     await user.click(within(toc).getByRole('button', { name: '목차 닫기' }))
     expect(screen.queryByRole('dialog', { name: '목차' })).not.toBeInTheDocument()
+  })
+
+  it('좁은 화면에서 목차를 열면 현재 페이지 썸네일에 포커스가 간다', async () => {
+    const user = userEvent.setup()
+    render(<TocHarness currentPage={2} isWideScreen={false} pages={createPages(3)} />)
+
+    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+    const thumbnail = await screen.findByRole('button', { name: '2페이지' })
+
+    await waitFor(() => expect(thumbnail).toHaveFocus())
   })
 
   // Sheet는 모달이라 열려 있는 동안 키보드 이벤트가 document까지 전달되지 않으므로,
