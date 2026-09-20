@@ -182,7 +182,7 @@ describe('ReaderChat', () => {
     const user = userEvent.setup()
     const controller = createPromiseController<void>()
     prepareWebLlmModelMock.mockImplementation(async () => {
-      useWebLlmModelStore.setState({ status: 'loading' })
+      useWebLlmModelStore.setState({ status: 'loading', phase: 'downloading' })
       await controller.promise
       useWebLlmModelStore.setState({ status: 'ready' })
     })
@@ -219,13 +219,34 @@ describe('ReaderChat', () => {
 
   it('모델 다운로드 진행률을 표시한다', () => {
     setupResizeObserverMock()
-    useWebLlmModelStore.setState({ status: 'loading', progress: 37 })
+    useWebLlmModelStore.setState({
+      status: 'loading',
+      phase: 'downloading',
+      progress: 37,
+      progressDetail: '4/30개 파일 · 123MB',
+    })
     const { respond } = createControllableRespond(0)
 
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
 
-    expect(screen.getByText('모델을 다운로드하고 있습니다. 37%')).toBeInTheDocument()
+    expect(screen.getByText('모델 다운로드 중 · 37% · 4/30개 파일 · 123MB')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '37')
+  })
+
+  it.each([
+    ['loading-gpu', '저장된 모델을 GPU에 올리는 중'],
+    ['compiling', 'GPU 실행 준비 중'],
+    ['preparing', '모델 준비 중'],
+  ] as const)('%s 단계는 다운로드와 구분해서 표시한다', (phase, label) => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'loading', phase, progress: 50 })
+    const { respond } = createControllableRespond(0)
+    render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
+
+    expect(screen.getByText(`${label} · 50%`)).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: label })).toHaveAttribute('aria-valuenow', '50')
+    expect(screen.getByRole('button', { name: '모델 준비 중' })).toBeDisabled()
+    expect(screen.queryByText(/다운로드 중/)).not.toBeInTheDocument()
   })
 
   // 첫 샤드가 받아지기 전엔 web-llm이 진행률 자체를 보고하지 않아 0%가 오래 유지될 수 있다.
@@ -266,7 +287,7 @@ describe('ReaderChat', () => {
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('모델 다운로드 연결에 실패했습니다.')
-    expect(screen.getByRole('button', { name: '모델 다운로드 재시도' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '모델 준비 재시도' })).toBeInTheDocument()
     expect(
       screen.getByText(
         '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
@@ -276,7 +297,7 @@ describe('ReaderChat', () => {
 
   it('모델 다운로드 중에는 버튼의 접근 가능한 이름도 진행 상태를 알려준다', () => {
     setupResizeObserverMock()
-    useWebLlmModelStore.setState({ status: 'loading' })
+    useWebLlmModelStore.setState({ status: 'loading', phase: 'downloading' })
     const { respond } = createControllableRespond(0)
 
     render(<ReaderChat chatModel={createMockChatModelAdapter(respond)} />)

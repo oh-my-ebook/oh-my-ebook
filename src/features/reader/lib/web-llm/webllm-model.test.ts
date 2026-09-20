@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../../test/promise-controller'
 import { stubGpu, stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
+import type { InitProgressReport } from '@mlc-ai/web-llm'
 import type { WebLlmEngine } from './webllm-model'
 
 const NETWORK_ERROR_MESSAGE =
@@ -70,9 +71,13 @@ describe('WebLLM 모델 로딩과 상태', () => {
         async (
           _worker: unknown,
           _modelId: string,
-          config: { initProgressCallback: (report: { progress: number }) => void },
+          config: { initProgressCallback: (report: InitProgressReport) => void },
         ) => {
-          config.initProgressCallback({ progress: 0.5 })
+          config.initProgressCallback({
+            progress: 0.5,
+            text: 'Fetching param cache[15/30]: 414MB fetched.',
+            timeElapsed: 10,
+          })
           return engineController.promise
         },
       ),
@@ -172,5 +177,178 @@ describe('WebLLM 모델 로딩과 상태', () => {
 
     await expect(preparePromise).rejects.toThrow()
     expect(getState()).toMatchObject({ status: 'error', error: UNKNOWN_ERROR_MESSAGE })
+  })
+
+  it('다운로드와 GPU 로딩·실행 준비의 진행률을 구분하고 이전 단계의 상세를 지운다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    const controller = createPromiseController<WebLlmEngine>()
+    const createEngine = vi.fn(
+      async (
+        _worker: unknown,
+        _model: string,
+        config: {
+          initProgressCallback: (report: InitProgressReport) => void
+        },
+      ) => {
+        config.initProgressCallback({
+          progress: 1,
+          text: 'Fetching param cache[30/30]: 829MB fetched.',
+          timeElapsed: 30,
+        })
+        return controller.promise
+      },
+    )
+    mockCreateWebWorkerMLCEngine(createEngine)
+    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const loading = prepareWebLlmModel()
+    await vi.waitFor(() =>
+      expect(getState()).toMatchObject({
+        status: 'loading',
+        phase: 'downloading',
+        progress: 100,
+        progressDetail: '30/30개 파일 · 829MB',
+      }),
+    )
+    const report = createEngine.mock.calls[0]?.[2].initProgressCallback
+    if (!report) throw new Error('진행률 콜백이 없습니다.')
+
+    report({
+      progress: 0.25,
+      text: 'Loading model from cache[4/30]: 208MB loaded.',
+      timeElapsed: 2,
+    })
+    expect(getState()).toMatchObject({
+      phase: 'loading-gpu',
+      progress: 25,
+      progressDetail: '4/30개 파일 · 208MB',
+    })
+    report({
+      progress: 0.5,
+      text: 'Loading GPU shader modules[10/20]: 50% completed, 1 secs elapsed.',
+      timeElapsed: 1,
+    })
+    expect(getState()).toMatchObject({
+      phase: 'compiling',
+      progress: 50,
+      progressDetail: '10/20개',
+    })
+    report({ progress: 0, text: 'An unknown future phase', timeElapsed: 0 })
+    expect(getState()).toMatchObject({ phase: 'preparing', progress: 0, progressDetail: undefined })
+
+    controller.resolve(createIdleEngine())
+    await loading
+    expect(getState().status).toBe('ready')
+  })
+
+  it.each([false, true])(
+    '완전한 모델 캐시 여부(%s)에 따라 자동 준비를 결정한다',
+    async (cached) => {
+      restoreGpu.push(stubSupportedGpu())
+      stubWorker()
+      vi.stubGlobal('caches', { has: async () => true })
+      const createEngine = vi.fn(async () => createIdleEngine())
+      const hasModelInCache = vi.fn(async () => cached)
+      vi.doMock('@mlc-ai/web-llm', () => ({
+        CreateWebWorkerMLCEngine: createEngine,
+        hasModelInCache,
+      }))
+      const { prepareCachedWebLlmModel, getState, WEBLLM_MODEL_ID } = await importFreshModule()
+
+      await prepareCachedWebLlmModel()
+
+      expect(hasModelInCache).toHaveBeenCalledWith(WEBLLM_MODEL_ID)
+      expect(getState().status).toBe(cached ? 'ready' : 'idle')
+      expect(createEngine).toHaveBeenCalledTimes(cached ? 1 : 0)
+    },
+  )
+
+  it('캐시 확인이 실패해도 수동 다운로드는 가능하다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    vi.stubGlobal('caches', { has: async () => true })
+    const createEngine = vi.fn(async () => createIdleEngine())
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: createEngine,
+      hasModelInCache: vi.fn().mockRejectedValue(new Error('cache unavailable')),
+    }))
+    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+
+    await expect(prepareCachedWebLlmModel()).rejects.toThrow('cache unavailable')
+    expect(getState().status).toBe('idle')
+    expect(createEngine).not.toHaveBeenCalled()
+    await prepareWebLlmModel()
+    expect(getState().status).toBe('ready')
+  })
+
+  it('캐시 확인 도중 수동 준비가 시작되면 엔진을 중복 생성하지 않는다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    stubWorker()
+    vi.stubGlobal('caches', { has: async () => true })
+    const cache = createPromiseController<boolean>()
+    const engine = createPromiseController<WebLlmEngine>()
+    const createEngine = vi.fn(() => engine.promise)
+    const hasModelInCache = vi.fn(() => cache.promise)
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: createEngine,
+      hasModelInCache,
+    }))
+    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+
+    const automatic = prepareCachedWebLlmModel()
+    await vi.waitFor(() => expect(hasModelInCache).toHaveBeenCalled())
+    const manual = prepareWebLlmModel()
+    cache.resolve(true)
+    await automatic
+    engine.resolve(createIdleEngine())
+    await manual
+
+    expect(getState().status).toBe('ready')
+    expect(createEngine).toHaveBeenCalledOnce()
+  })
+
+  it('자동 GPU 준비가 실패하면 재시도할 수 있고 자동으로 반복하지 않는다', async () => {
+    restoreGpu.push(stubSupportedGpu())
+    const workers = stubWorker()
+    vi.stubGlobal('caches', { has: async () => true })
+    const createEngine = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('GPU device lost'))
+      .mockResolvedValueOnce(createIdleEngine())
+    vi.doMock('@mlc-ai/web-llm', () => ({
+      CreateWebWorkerMLCEngine: createEngine,
+      hasModelInCache: vi.fn(async () => true),
+    }))
+    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+
+    await expect(prepareCachedWebLlmModel()).rejects.toThrow('GPU device lost')
+    await prepareCachedWebLlmModel()
+    expect(getState()).toMatchObject({ status: 'error', error: GPU_MEMORY_ERROR_MESSAGE })
+    expect(createEngine).toHaveBeenCalledOnce()
+    expect(workers[0]?.terminate).toHaveBeenCalledOnce()
+    await prepareWebLlmModel()
+    expect(getState().status).toBe('ready')
+  })
+
+  it('Cache Storage가 없으면 자동 준비를 건너뛴다', async () => {
+    vi.stubGlobal('caches', undefined)
+    const createEngine = vi.fn()
+    mockCreateWebWorkerMLCEngine(createEngine)
+    const { prepareCachedWebLlmModel, getState } = await importFreshModule()
+    await prepareCachedWebLlmModel()
+    expect(getState().status).toBe('idle')
+    expect(createEngine).not.toHaveBeenCalled()
+  })
+
+  it('모델 캐시 저장소가 없으면 WebLLM 모듈도 불러오지 않는다', async () => {
+    vi.stubGlobal('caches', { has: async () => false })
+    const loadLibrary = vi.fn(() => ({ hasModelInCache: vi.fn() }))
+    vi.doMock('@mlc-ai/web-llm', loadLibrary)
+    const { prepareCachedWebLlmModel, getState } = await importFreshModule()
+
+    await prepareCachedWebLlmModel()
+
+    expect(loadLibrary).not.toHaveBeenCalled()
+    expect(getState().status).toBe('idle')
   })
 })
