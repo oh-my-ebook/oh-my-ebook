@@ -2,11 +2,15 @@ import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
 import type {
   AddBookInput,
+  ChunkSourcePage,
+  ChunkSourceRecord,
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
   OcrLineRecord,
   OcrPageRecord,
+  SearchChunkPage,
+  SearchChunkRecord,
   StoredOcrPage,
 } from '../../ebook-types'
 import {
@@ -35,6 +39,10 @@ import {
   SELECT_READY_OCR_PAGE_SQL,
   SELECT_OCR_PAGES_SQL,
   SELECT_OCR_LINES_FOR_CHUNKING_SQL,
+  SELECT_CHUNK_SOURCE_COUNT_SQL,
+  SELECT_CHUNK_SOURCES_SQL,
+  SELECT_SEARCH_CHUNK_COUNT_SQL,
+  SELECT_SEARCH_CHUNKS_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -509,6 +517,67 @@ function storeSearchChunks(database: Database, request: WorkerRequest): undefine
   return undefined
 }
 
+function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'string') return false
+  if (!('ordinal' in value) || typeof value.ordinal !== 'number') return false
+  if (!('text' in value) || typeof value.text !== 'string') return false
+  if (!('token_count' in value) || typeof value.token_count !== 'number') return false
+  if (!('created_at' in value) || typeof value.created_at !== 'number') return false
+  return true
+}
+
+function listSearchChunks(database: Database, request: WorkerRequest): SearchChunkPage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_SEARCH_CHUNK_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid search chunk count')
+  const rows = database.exec(SELECT_SEARCH_CHUNKS_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
+
+  const chunks: SearchChunkRecord[] = []
+  for (const row of rows) {
+    if (!isSearchChunkRecord(row)) throw new Error('Invalid search chunks')
+    chunks.push(row)
+  }
+  return { chunks, total }
+}
+
+function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'number') return false
+  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
+  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
+  if (!('ocr_page_id' in value) || typeof value.ocr_page_id !== 'string') return false
+  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
+  if (!('start_line_index' in value) || typeof value.start_line_index !== 'number') return false
+  if (!('end_line_index' in value) || typeof value.end_line_index !== 'number') return false
+  if (!('source_order' in value) || typeof value.source_order !== 'number') return false
+  return true
+}
+
+function listChunkSources(database: Database, request: WorkerRequest): ChunkSourcePage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_CHUNK_SOURCE_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid chunk source count')
+  const rows = database.exec(SELECT_CHUNK_SOURCES_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid chunk sources')
+
+  const sources: ChunkSourceRecord[] = []
+  for (const row of rows) {
+    if (!isChunkSourceRecord(row)) throw new Error('Invalid chunk sources')
+    sources.push(row)
+  }
+  return { sources, total }
+}
+
 export function executeSqliteCommand(database: Database, request: WorkerRequest): unknown {
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
@@ -543,6 +612,10 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return getOcrLinesForChunking(database, request)
     case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
       return storeSearchChunks(database, request)
+    case SQLITE_COMMAND.LIST_SEARCH_CHUNKS:
+      return listSearchChunks(database, request)
+    case SQLITE_COMMAND.LIST_CHUNK_SOURCES:
+      return listChunkSources(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

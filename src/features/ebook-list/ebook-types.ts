@@ -82,6 +82,35 @@ export interface OcrLineForChunking {
   raw_text: string
 }
 
+export interface SearchChunkRecord {
+  id: string
+  ordinal: number
+  text: string
+  token_count: number
+  created_at: number
+}
+
+export interface SearchChunkPage {
+  chunks: SearchChunkRecord[]
+  total: number
+}
+
+export interface ChunkSourceRecord {
+  id: number
+  chunk_id: string
+  chunk_ordinal: number
+  ocr_page_id: string
+  page_number: number
+  start_line_index: number
+  end_line_index: number
+  source_order: number
+}
+
+export interface ChunkSourcePage {
+  sources: ChunkSourceRecord[]
+  total: number
+}
+
 export interface StoredOcrPage {
   width: number
   height: number

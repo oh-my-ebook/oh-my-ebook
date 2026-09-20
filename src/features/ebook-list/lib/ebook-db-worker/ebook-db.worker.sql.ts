@@ -161,3 +161,17 @@ export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
 export const INSERT_CHUNK_SOURCE_SQL = `INSERT INTO chunk_sources (
   chunk_id, ocr_page_id, start_line_index, end_line_index, source_order
 ) VALUES (?, ?, ?, ?, ?)`
+export const SELECT_SEARCH_CHUNK_COUNT_SQL = 'SELECT COUNT(*) FROM search_chunks WHERE book_id = ?'
+export const SELECT_SEARCH_CHUNKS_SQL = `SELECT id, ordinal, text, token_count, created_at
+  FROM search_chunks WHERE book_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`
+export const SELECT_CHUNK_SOURCE_COUNT_SQL = `SELECT COUNT(*) FROM chunk_sources
+  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_CHUNK_SOURCES_SQL = `SELECT chunk_sources.id, chunk_sources.chunk_id,
+  search_chunks.ordinal AS chunk_ordinal, chunk_sources.ocr_page_id, ocr_pages.page_number,
+  chunk_sources.start_line_index, chunk_sources.end_line_index, chunk_sources.source_order
+  FROM chunk_sources
+  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
+  JOIN ocr_pages ON ocr_pages.id = chunk_sources.ocr_page_id
+  WHERE search_chunks.book_id = ?
+  ORDER BY search_chunks.ordinal, chunk_sources.source_order LIMIT ? OFFSET ?`

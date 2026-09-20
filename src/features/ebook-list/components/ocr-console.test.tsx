@@ -39,6 +39,8 @@ describe('OcrConsole', () => {
           },
         ]
       }
+      if (command === 'listSearchChunks') return { total: 0, chunks: [] }
+      if (command === 'listChunkSources') return { total: 0, sources: [] }
       return null
     })
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
@@ -51,8 +53,10 @@ describe('OcrConsole', () => {
     expect(await screen.findByRole('button', { name: 'PDF 11' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'PDF 11' }))
+    await user.click(await screen.findByRole('tab', { name: 'ocr_lines' }))
 
     expect(await screen.findByText('저장된 OCR 원문')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'ocr_pages' }))
     expect(screen.getByText('pending')).toBeInTheDocument()
     expect(request).toHaveBeenCalledWith('listOcrLines', {
       bookId: 'book-11',
@@ -78,6 +82,8 @@ describe('OcrConsole', () => {
         return { total: 0, lines: [] }
       }
       if (command === 'listOcrPages') return []
+      if (command === 'listSearchChunks') return { total: 0, chunks: [] }
+      if (command === 'listChunkSources') return { total: 0, sources: [] }
       return null
     })
     const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
@@ -88,7 +94,8 @@ describe('OcrConsole', () => {
     expect(await screen.findByText('OCR 저장 내용을 불러오지 못했습니다.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '완료된 PDF' }))
-    expect(await screen.findByText('OCR 줄 0개')).toBeInTheDocument()
+    await user.click(await screen.findByRole('tab', { name: 'ocr_lines' }))
+    expect(await screen.findByText(/저장된 OCR 원문과 좌표, 0개/)).toBeInTheDocument()
     expect(screen.queryByText('OCR 저장 내용을 불러오지 못했습니다.')).not.toBeInTheDocument()
   })
 })
