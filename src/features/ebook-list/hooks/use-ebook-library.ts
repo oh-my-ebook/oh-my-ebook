@@ -4,7 +4,7 @@ import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
 import { createOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
-import type { OcrAnalysisFailure } from '../lib/ebook-analysis/ocr-analysis'
+import type { OcrAnalysisFailure, OcrAnalysisResult } from '../lib/ebook-analysis/ocr-analysis'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
@@ -76,8 +76,8 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   }
 
   const startOcrAnalysis = useCallback(
-    async (bookId: string): Promise<void> => {
-      await ocrCoordinator.startOcrAnalysis(bookId, store, reportOcrFailure)
+    async (bookId: string): Promise<OcrAnalysisResult | undefined> => {
+      return await ocrCoordinator.startOcrAnalysis(bookId, store, reportOcrFailure)
     },
     [ocrCoordinator, store],
   )
@@ -146,7 +146,19 @@ export function useEbookLibrary(store: EbookLibraryStore) {
 
     async function resumeOcrAnalysis() {
       for (const book of pendingBooks) {
-        await startOcrAnalysis(book.id)
+        const result = await startOcrAnalysis(book.id)
+        if (result !== 'failed') continue
+        setState((current) => {
+          if (current.status !== 'ready') return current
+          return {
+            status: 'ready',
+            books: current.books.map((currentBook) =>
+              currentBook.id === book.id
+                ? { ...currentBook, analysis_status: 'failed' }
+                : currentBook,
+            ),
+          }
+        })
       }
     }
 
@@ -163,7 +175,9 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     isLibraryReady: state.status === 'ready',
     refreshBooks,
     refreshUsage,
-    startOcrAnalysis,
+    startOcrAnalysis: async (bookId) => {
+      await startOcrAnalysis(bookId)
+    },
   })
   const coverRegeneration = useCoverRegeneration({
     store,

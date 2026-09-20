@@ -82,7 +82,7 @@ describe('runOcrAnalysis', () => {
     expect(abort).toHaveBeenCalledOnce()
   })
 
-  it('페이지 OCR 실패 후에도 남은 pending 페이지를 계속 처리한다', async () => {
+  it('페이지 OCR 실패 후에도 남은 pending 페이지를 처리하고 분석을 실패 상태로 남긴다', async () => {
     const abort = vi.spyOn(AbortController.prototype, 'abort')
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
     recognizePdfPageRaw.mockRejectedValueOnce(new Error('OCR failed')).mockResolvedValueOnce({
@@ -111,7 +111,7 @@ describe('runOcrAnalysis', () => {
       'storeOcrPage',
       expect.objectContaining({ pageId: 'page-2' }),
     )
-    expect(request).not.toHaveBeenCalledWith('failBookAnalysis', 'book-id')
+    expect(request).toHaveBeenCalledWith('failBookAnalysis', 'book-id')
     expect(request).not.toHaveBeenCalledWith('getOcrLinesForChunking', 'book-id')
     expect(abort).toHaveBeenCalledOnce()
   })

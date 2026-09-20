@@ -15,6 +15,8 @@ export interface OcrAnalysisFailure {
   stage: 'page-ocr' | 'whole-analysis'
 }
 
+export type OcrAnalysisResult = 'completed' | 'failed'
+
 interface OcrAnalysisOptions {
   onFailure?(failure: OcrAnalysisFailure): void
 }
@@ -72,7 +74,7 @@ export async function runOcrAnalysis(
   bookId: string,
   store: EbookLibraryStore,
   options: OcrAnalysisOptions = {},
-): Promise<void> {
+): Promise<OcrAnalysisResult> {
   const controller = new AbortController()
 
   try {
@@ -92,13 +94,15 @@ export async function runOcrAnalysis(
       const nextOcrPage = await store.request('acquireNextOcrPage', bookId)
       if (nextOcrPage === null) {
         const ocrPages = await store.request('listOcrPages', bookId)
-        if (!Array.isArray(ocrPages) || !ocrPages.every(isReadyOcrPage)) return
+        if (!Array.isArray(ocrPages) || !ocrPages.every(isReadyOcrPage)) {
+          throw new Error('OCR을 완료하지 못한 페이지가 있습니다.')
+        }
 
         const ocrLines = await store.request('getOcrLinesForChunking', bookId)
         if (!isOcrLinesForChunking(ocrLines)) throw new Error('Invalid OCR lines for chunking')
         const chunks = await createSearchChunks(ocrLines, controller.signal)
         await store.request('storeSearchChunks', { bookId, chunks })
-        return
+        return 'completed'
       }
       if (!isNextOcrPage(nextOcrPage)) throw new Error('Invalid next OCR page')
 
@@ -131,6 +135,7 @@ export async function runOcrAnalysis(
     // 6. 만약 전체 책 OCR 분석에 실패하면, 책 분석 상태를 failed로 남긴다.
     reportFailure(options, { bookId, error, stage: 'whole-analysis' })
     await store.request('failBookAnalysis', bookId)
+    return 'failed'
   } finally {
     controller.abort()
   }
