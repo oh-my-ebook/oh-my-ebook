@@ -7,19 +7,31 @@ function deleteDatabase(name: string): Promise<void> {
   })
 }
 
+function collectErrors(results: PromiseSettledResult<unknown>[]): unknown[] {
+  return results
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .map((result) => result.reason)
+}
+
 async function clearIndexedDatabases(): Promise<void> {
   if (typeof indexedDB.databases !== 'function') return
   const databases = await indexedDB.databases()
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     databases.map(({ name }) => (name ? deleteDatabase(name) : Promise.resolve())),
   )
+  const errors = collectErrors(results)
+  errors.forEach((error) => console.warn('IndexedDB 정리 실패:', error))
+  if (errors.length > 0) throw new AggregateError(errors, 'IndexedDB 정리 실패')
 }
 
 async function clearCaches(): Promise<void> {
   if (typeof caches === 'undefined') return
   const keys = await caches.keys()
-  await Promise.allSettled(keys.map((name) => caches.delete(name)))
+  const results = await Promise.allSettled(keys.map((name) => caches.delete(name)))
+  const errors = collectErrors(results)
+  errors.forEach((error) => console.warn('Cache Storage 정리 실패:', error))
+  if (errors.length > 0) throw new AggregateError(errors, 'Cache Storage 정리 실패')
 }
 
 function clearCookies(): void {
@@ -48,8 +60,7 @@ export async function clearOriginData(): Promise<void> {
 
   clearCookies()
 
-  await Promise.allSettled([
-    clearCaches().catch((error) => console.warn('Cache Storage 정리 실패:', error)),
-    clearIndexedDatabases().catch((error) => console.warn('IndexedDB 정리 실패:', error)),
-  ])
+  const results = await Promise.allSettled([clearCaches(), clearIndexedDatabases()])
+  const errors = collectErrors(results)
+  if (errors.length > 0) throw new AggregateError(errors, '저장소 정리 실패')
 }
