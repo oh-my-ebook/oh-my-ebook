@@ -55,6 +55,15 @@ export interface SearchChunkInput {
   sources: readonly ChunkSourceInput[]
 }
 
+export interface SearchTermFrequencyInput {
+  term: string
+  termFrequency: number
+}
+
+export interface SearchIndexChunkInput extends SearchChunkInput {
+  terms: readonly SearchTermFrequencyInput[]
+}
+
 export interface NextOcrPage {
   id: string
   pageNumber: number
