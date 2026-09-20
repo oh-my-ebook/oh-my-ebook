@@ -140,9 +140,18 @@ export function addBook(database: Database, input: AddBookInput): string {
 }
 
 export function deleteBookById(database: Database, id: string): void {
-  database.exec(DELETE_BOOK_BY_ID_SQL, { bind: [id] })
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    database.exec(DELETE_BOOK_BY_ID_SQL, { bind: [id] })
+    if (!isRowAffected(database)) throw new DeletedBookError()
 
-  if (!isRowAffected(database)) throw new DeletedBookError()
+    database.exec(DELETE_ORPHAN_SEARCH_TERMS_SQL)
+    database.exec(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+    database.exec(COMMIT_TRANSACTION_SQL)
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
 }
 
 async function openDatabase(): Promise<Database> {

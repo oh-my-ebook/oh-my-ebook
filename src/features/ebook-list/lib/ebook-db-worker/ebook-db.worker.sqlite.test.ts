@@ -1,7 +1,7 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
 import { describe, expect, it, vi } from 'vitest'
 import { SQLITE_COMMAND } from '../../ebook-consts'
-import { executeSqliteCommand } from './ebook-db.worker.sqlite'
+import { deleteBookById, executeSqliteCommand } from './ebook-db.worker.sqlite'
 
 function createDatabase({
   incompletePages = 1,
@@ -10,6 +10,7 @@ function createDatabase({
   ocrLinesForChunking = [],
   searchChunkStoreFails = false,
   searchIndexStoreFails = false,
+  searchTermCleanupFails = false,
   sourceBookId = 'book-id',
   storeFails = false,
 }: {
@@ -19,6 +20,7 @@ function createDatabase({
   ocrLinesForChunking?: Record<string, unknown>[]
   searchChunkStoreFails?: boolean
   searchIndexStoreFails?: boolean
+  searchTermCleanupFails?: boolean
   sourceBookId?: string
   storeFails?: boolean
 } = {}) {
@@ -44,6 +46,13 @@ function createDatabase({
       sql.includes('INSERT INTO search_postings')
     ) {
       throw new Error('posting write failed')
+    }
+    if (
+      searchTermCleanupFails &&
+      typeof sql === 'string' &&
+      sql.includes('DELETE FROM search_terms')
+    ) {
+      throw new Error('term cleanup failed')
     }
     if (typeof sql === 'string' && sql.includes('ocr_page_id')) return ocrLinesForChunking
   })
@@ -72,6 +81,29 @@ function createDatabase({
 }
 
 describe('OCR SQLite 계약', () => {
+  it('책 삭제 뒤 cascade된 posting을 기준으로 고아 term을 제거하고 남은 DF를 갱신한다', () => {
+    const { database, exec } = createDatabase()
+
+    deleteBookById(database, 'book-id')
+
+    expect(exec.mock.calls.map(([sql]) => String(sql))).toEqual([
+      'BEGIN IMMEDIATE',
+      'DELETE FROM books WHERE id = ?',
+      expect.stringContaining('DELETE FROM search_terms'),
+      expect.stringContaining('SET document_frequency = ('),
+      'COMMIT',
+    ])
+    expect(exec).toHaveBeenCalledWith('DELETE FROM books WHERE id = ?', { bind: ['book-id'] })
+  })
+
+  it('책 삭제 뒤 term 정리에 실패하면 책 삭제도 롤백한다', () => {
+    const { database, exec } = createDatabase({ searchTermCleanupFails: true })
+
+    expect(() => deleteBookById(database, 'book-id')).toThrow('term cleanup failed')
+
+    expect(exec).toHaveBeenLastCalledWith('ROLLBACK')
+  })
+
   it('페이지 행을 중복 없이 pending으로 만든다', () => {
     const { database, exec } = createDatabase()
 
