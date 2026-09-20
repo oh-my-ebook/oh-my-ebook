@@ -10,6 +10,11 @@ import {
   type StoredOcrPageResult,
 } from '../lib/ocr/page-recognition'
 import { isRenderablePdfPage, renderPdfPageToCanvas } from '../lib/pdf-page-render'
+import {
+  PdfSelectionToolbar,
+  type PdfSelectionAction,
+  type PdfTextSelection,
+} from './pdf-selection-toolbar'
 
 // 어떤 문서의 결과인지 함께 넘겨, 받는 쪽이 문서가 바뀐 뒤 남은 이전 결과를 걸러낼 수 있게 한다.
 export interface OcrText {
@@ -23,6 +28,7 @@ interface PdfViewportBaseProps {
   scale: number
   onOcrTextChange?: (ocrText: OcrText) => void
   onStatusChange?: (status: PdfViewportStatus) => void
+  onTextSelectionAction?: (selectionAction: PdfSelectionAction, selection: PdfTextSelection) => void
 }
 
 interface PdfViewportSinglePageProps extends PdfViewportBaseProps {
@@ -101,7 +107,14 @@ function getPdfViewportStatus(
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
-  const { document, getStoredOcrPage, onOcrTextChange, onStatusChange, scale } = props
+  const {
+    document,
+    getStoredOcrPage,
+    onOcrTextChange,
+    onStatusChange,
+    onTextSelectionAction,
+    scale,
+  } = props
   const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
@@ -253,6 +266,7 @@ export function PdfViewport(props: PdfViewportProps) {
           return (
             <div
               className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none [container-type:inline-size]"
+              data-pdf-page-number={page.pageNumber}
               data-slot="pdf-page-frame"
               key={page.pageNumber}
               style={{ height: page.height * scale, width: page.width * scale }}
@@ -270,6 +284,7 @@ export function PdfViewport(props: PdfViewportProps) {
                   {ocrPage.lines.map((line, index) => (
                     <span
                       className="absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80"
+                      data-slot="pdf-ocr-line"
                       key={`${line.x0}-${line.y0}-${index}`}
                       style={{
                         left: `${(line.x0 / ocrPage.width) * 100}%`,
@@ -289,6 +304,10 @@ export function PdfViewport(props: PdfViewportProps) {
           )
         })}
       </div>
+
+      {onTextSelectionAction && (
+        <PdfSelectionToolbar containerRef={canvasContainerRef} onAction={onTextSelectionAction} />
+      )}
 
       {status === 'error' && (
         <ErrorAlert

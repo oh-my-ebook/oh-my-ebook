@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
@@ -68,6 +68,25 @@ function getRenderedCanvas(pageNumber = 1) {
     throw new Error('PDF 페이지가 Canvas로 표시되지 않았습니다.')
   }
   return canvas
+}
+
+function selectText(startElement: Element, endElement = startElement) {
+  const startNode = startElement.firstChild
+  const endNode = endElement.firstChild
+  if (!(startNode instanceof Text) || !(endNode instanceof Text)) {
+    throw new Error('선택할 OCR 텍스트를 찾지 못했습니다.')
+  }
+
+  const range = document.createRange()
+  range.setStart(startNode, 0)
+  range.setEnd(endNode, endNode.textContent?.length ?? 0)
+  Object.defineProperty(range, 'getBoundingClientRect', {
+    value: () => new DOMRect(100, 120, 80, 20),
+  })
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  fireEvent.mouseUp(endElement)
 }
 
 describe('PdfViewport', () => {
@@ -173,6 +192,67 @@ describe('PdfViewport', () => {
     expect(onOcrTextChange).toHaveBeenCalledWith({
       document,
       textByPage: new Map([[1, '형태소로 다듬은 문장']]),
+    })
+  })
+
+  it('OCR 문장을 선택하면 채팅 추가와 자세히 설명 동작을 제공한다', async () => {
+    const user = userEvent.setup()
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    recognizePdfPage.mockResolvedValueOnce({
+      width: 1_200,
+      height: 1_800,
+      lines: [
+        {
+          text: '첫 문장',
+          x0: 120,
+          y0: 180,
+          x1: 600,
+          y1: 216,
+          fontSize: 36,
+          scaleX: 1,
+        },
+        {
+          text: '둘째 문장',
+          x0: 120,
+          y0: 220,
+          x1: 600,
+          y1: 256,
+          fontSize: 36,
+          scaleX: 1,
+        },
+      ],
+    })
+    const onTextSelectionAction = vi.fn()
+    render(
+      <PdfViewport
+        document={document}
+        onTextSelectionAction={onTextSelectionAction}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+    const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+    const lines = layer.querySelectorAll('[data-slot="pdf-ocr-line"]')
+
+    selectText(lines[0], lines[1])
+    await user.click(await screen.findByRole('button', { name: '채팅에 추가' }))
+    expect(onTextSelectionAction).toHaveBeenLastCalledWith('attach', {
+      pageNumber: 1,
+      text: '첫 문장\n둘째 문장',
+    })
+
+    selectText(lines[0], lines[1])
+    await user.click(await screen.findByRole('button', { name: '자세히 설명' }))
+    expect(onTextSelectionAction).toHaveBeenLastCalledWith('explain', {
+      pageNumber: 1,
+      text: '첫 문장\n둘째 문장',
     })
   })
 

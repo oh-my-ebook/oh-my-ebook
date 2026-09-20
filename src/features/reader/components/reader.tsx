@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Separator } from '@/components/ui/separator'
@@ -23,7 +23,7 @@ import {
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
 import { PdfViewport, type OcrText } from './pdf-viewport'
-import { ReaderChat } from './reader-chat'
+import { ReaderChat, type ReaderQuoteRequest } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
@@ -155,6 +155,24 @@ export function Reader({
   const [tocOpen, setTocOpen] = useState(false)
   const tocButtonRef = useRef<HTMLButtonElement>(null)
   const [ocrText, setOcrText] = useState<OcrText | null>(null)
+  const [quoteRequest, setQuoteRequest] = useState<ReaderQuoteRequest | null>(null)
+  const quoteRequestIdRef = useRef(0)
+
+  const handleTextSelectionAction = useCallback(
+    (
+      action: ReaderQuoteRequest['action'],
+      selection: Omit<ReaderQuoteRequest, 'action' | 'id'>,
+    ) => {
+      quoteRequestIdRef.current += 1
+      setQuoteRequest({ action, id: quoteRequestIdRef.current, ...selection })
+      setPanelOpen(true)
+    },
+    [],
+  )
+
+  const handleQuoteRequestHandled = useCallback((requestId: number) => {
+    setQuoteRequest((currentRequest) => (currentRequest?.id === requestId ? null : currentRequest))
+  }, [])
 
   useEffect(() => {
     if (documentState.status !== 'ready') return
@@ -280,6 +298,7 @@ export function Reader({
           document={documentState.document}
           getStoredOcrPage={getStoredOcrPage}
           onOcrTextChange={setOcrText}
+          onTextSelectionAction={handleTextSelectionAction}
           pages={pageSpread.pages}
           scale={displayScale}
         />
@@ -302,6 +321,8 @@ export function Reader({
         currentPage={currentPage}
         currentPageText={currentPageText}
         key={url}
+        onQuoteRequestHandled={handleQuoteRequestHandled}
+        quoteRequest={quoteRequest}
       />
     </ReaderPanel>
   )

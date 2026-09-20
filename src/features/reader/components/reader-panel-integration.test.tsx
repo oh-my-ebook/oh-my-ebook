@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -103,6 +103,26 @@ function setupMatchMediaMock(isWideScreen: boolean) {
       removeEventListener: vi.fn(),
     })),
   )
+}
+
+function selectOcrText(text: string) {
+  const layer = screen.getByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+  const line = layer.querySelector('[data-slot="pdf-ocr-line"]')
+  const textNode = line?.firstChild
+  if (!(line instanceof Element) || !(textNode instanceof Text)) {
+    throw new Error('선택할 OCR 텍스트를 찾지 못했습니다.')
+  }
+
+  const range = document.createRange()
+  range.selectNodeContents(textNode)
+  Object.defineProperty(range, 'getBoundingClientRect', {
+    value: () => new DOMRect(100, 120, 80, 20),
+  })
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  expect(selection?.toString()).toBe(text)
+  fireEvent.mouseUp(line)
 }
 
 function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
@@ -347,5 +367,23 @@ describe('Reader 보조 패널 연결', () => {
 
     expect(respondSpy).toHaveBeenCalledOnce()
     expect(respondSpy.mock.calls[0]?.[1]?.system).toContain('제목: 도서 제목')
+  })
+
+  it('PDF 선택 문장의 자세한 설명을 채팅 패널에서 바로 요청한다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    await renderLoadedReader(resizeObserverMock)
+
+    selectOcrText('1페이지 OCR 본문')
+    await user.click(await screen.findByRole('button', { name: '자세히 설명' }))
+
+    expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()
+    await waitFor(() => expect(respondSpy).toHaveBeenCalledOnce())
+    expect(respondSpy.mock.calls[0]?.[0]).toBe(
+      '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.',
+    )
+    expect(screen.getAllByText('1페이지 OCR 본문')).toHaveLength(2)
   })
 })
