@@ -181,6 +181,17 @@ describe('ebook-db.worker', () => {
     expect(schema).toContain('source_order INTEGER NOT NULL')
     expect(schema).toContain('CREATE UNIQUE INDEX chunk_sources_chunk_order_idx')
     expect(schema).toContain('CREATE INDEX chunk_sources_page_line_idx')
+    expect(schema).toContain('CREATE TABLE search_terms')
+    expect(schema).toContain('term TEXT NOT NULL UNIQUE')
+    expect(schema).toContain('document_frequency INTEGER NOT NULL CHECK (document_frequency > 0)')
+    expect(schema).toContain('CREATE TABLE search_postings')
+    expect(schema).toContain('term_id INTEGER NOT NULL REFERENCES search_terms(id)')
+    expect(schema).toContain(
+      'chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE',
+    )
+    expect(schema).toContain('term_frequency INTEGER NOT NULL CHECK (term_frequency > 0)')
+    expect(schema).toContain('PRIMARY KEY (term_id, chunk_id)')
+    expect(schema).toContain('CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id)')
     expect(statements).toContain('PRAGMA foreign_keys = ON')
     expect(schema).toContain('PRAGMA user_version = 1')
     expect(responses).toHaveBeenCalledWith({ requestId: 6, result: null })

@@ -75,6 +75,20 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE UNIQUE INDEX chunk_sources_chunk_order_idx ON chunk_sources(chunk_id, source_order);
   CREATE INDEX chunk_sources_page_line_idx ON chunk_sources(ocr_page_id, start_line_index);
 
+  CREATE TABLE search_terms (
+    id INTEGER PRIMARY KEY,
+    term TEXT NOT NULL UNIQUE,
+    document_frequency INTEGER NOT NULL CHECK (document_frequency > 0)
+  );
+
+  CREATE TABLE search_postings (
+    term_id INTEGER NOT NULL REFERENCES search_terms(id),
+    chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE,
+    term_frequency INTEGER NOT NULL CHECK (term_frequency > 0),
+    PRIMARY KEY (term_id, chunk_id)
+  );
+  CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id);
+
   PRAGMA user_version = 1;
 `
 
