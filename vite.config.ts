@@ -17,7 +17,10 @@ export default defineConfig({
         const origin = domain ? `https://${domain}` : 'http://localhost:5173'
         return html
           .replace('content="/"', `content="${origin}/"`)
-          .replace('content="/oh-my-ebook.jpg"', `content="${origin}/oh-my-ebook.jpg"`)
+          .replace(
+            'content="/oh-my-book-thumbnail.png"',
+            `content="${origin}/oh-my-book-thumbnail.png"`,
+          )
       },
     },
   ],
