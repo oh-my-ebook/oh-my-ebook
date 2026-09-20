@@ -1,5 +1,5 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
-import { postprocessWithKiwi } from '../kiwi/client'
+import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { sortInReadingOrder } from './reading-order'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
 

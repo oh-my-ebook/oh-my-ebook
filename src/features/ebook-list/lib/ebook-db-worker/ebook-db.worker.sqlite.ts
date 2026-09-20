@@ -2,22 +2,33 @@ import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
 import type {
   AddBookInput,
+  BookAnalysisStatus,
+  ChunkSourcePage,
+  ChunkSourceRecord,
   NextOcrPage,
+  OcrLineForChunking,
   OcrLinePage,
   OcrLineRecord,
   OcrPageRecord,
+  SearchChunkPage,
+  SearchChunkRecord,
   StoredOcrPage,
 } from '../../ebook-types'
 import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
   DELETE_BOOK_BY_ID_SQL,
+  DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
   ENABLE_FOREIGN_KEYS_SQL,
   GET_SCHEMA_VERSION_SQL,
   INITIAL_SCHEMA_SQL,
   INSERT_BOOK_SQL,
+  INSERT_CHUNK_SOURCE_SQL,
+  INSERT_SEARCH_CHUNK_SQL,
   ROLLBACK_TRANSACTION_SQL,
+  RETRY_BOOK_ANALYSIS_SQL,
   SELECT_BOOK_EXISTS_SQL,
+  SELECT_BOOK_ANALYSIS_STATUS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
   SELECT_BOOK_METADATA_SQL,
   SELECT_BOOKS_SQL,
@@ -30,6 +41,11 @@ import {
   SELECT_OCR_PAGE_LINES_SQL,
   SELECT_READY_OCR_PAGE_SQL,
   SELECT_OCR_PAGES_SQL,
+  SELECT_OCR_LINES_FOR_CHUNKING_SQL,
+  SELECT_CHUNK_SOURCE_COUNT_SQL,
+  SELECT_CHUNK_SOURCES_SQL,
+  SELECT_SEARCH_CHUNK_COUNT_SQL,
+  SELECT_SEARCH_CHUNKS_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -57,6 +73,7 @@ import {
   isGetStoredOcrPageInput,
   isListOcrLinesInput,
   isStoreOcrPageInput,
+  isStoreSearchChunksInput,
   isUpdateCoverInput,
   isUpdateProgressInput,
   isUpdateTitleInput,
@@ -310,6 +327,23 @@ function failBookAnalysis(database: Database, request: WorkerRequest): undefined
   return undefined
 }
 
+function getBookAnalysisStatus(database: Database, request: WorkerRequest): BookAnalysisStatus {
+  const bookId = getBookId(request)
+  const result = database.selectObject(SELECT_BOOK_ANALYSIS_STATUS_SQL, [bookId])
+  if (result?.analysis_status === 'analyzing') return result.analysis_status
+  if (result?.analysis_status === 'ready') return result.analysis_status
+  if (result?.analysis_status === 'failed') return result.analysis_status
+  if (result === null) throw new NotFoundBookError()
+  throw new Error('Invalid book analysis status')
+}
+
+function retryBookAnalysis(database: Database, request: WorkerRequest): undefined {
+  const bookId = getBookId(request)
+  database.exec(RETRY_BOOK_ANALYSIS_SQL, { bind: [Date.now(), bookId] })
+  if (!isRowAffected(database)) throw new NotFoundBookError()
+  return undefined
+}
+
 function isOcrLineRecord(value: unknown): value is OcrLineRecord {
   if (!isStoredOcrLine(value)) return false
   if (!('page_number' in value) || typeof value.page_number !== 'number') return false
@@ -431,6 +465,139 @@ function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
   return { lines: ocrLines, total }
 }
 
+function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'ocr_page_id' in value &&
+    typeof value.ocr_page_id === 'string' &&
+    'page_number' in value &&
+    typeof value.page_number === 'number' &&
+    'line_index' in value &&
+    typeof value.line_index === 'number' &&
+    'raw_text' in value &&
+    typeof value.raw_text === 'string'
+  )
+}
+
+function getOcrLinesForChunking(database: Database, request: WorkerRequest): OcrLineForChunking[] {
+  const bookId = getBookId(request)
+  const lines = database.exec(SELECT_OCR_LINES_FOR_CHUNKING_SQL, {
+    bind: [bookId],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(lines)) throw new Error('Invalid OCR lines for chunking')
+
+  const ocrLines: OcrLineForChunking[] = []
+  for (const line of lines) {
+    if (!isOcrLineForChunking(line)) throw new Error('Invalid OCR lines for chunking')
+    ocrLines.push({
+      ocr_page_id: line.ocr_page_id,
+      page_number: line.page_number,
+      line_index: line.line_index,
+      raw_text: line.raw_text,
+    })
+  }
+  return ocrLines
+}
+
+function storeSearchChunks(database: Database, request: WorkerRequest): undefined {
+  const input = getPayload(request, request.command, isStoreSearchChunksInput)
+  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
+
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
+    for (const chunk of input.chunks) {
+      database.exec(INSERT_SEARCH_CHUNK_SQL, {
+        bind: [chunk.id, input.bookId, chunk.ordinal, chunk.text, chunk.tokenCount, now],
+      })
+      for (const source of chunk.sources) {
+        const sourcePage = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [source.ocrPageId])
+        if (sourcePage?.book_id !== input.bookId) {
+          throw new Error('Chunk source does not belong to book')
+        }
+        database.exec(INSERT_CHUNK_SOURCE_SQL, {
+          bind: [
+            chunk.id,
+            source.ocrPageId,
+            source.startLineIndex,
+            source.endLineIndex,
+            source.sourceOrder,
+          ],
+        })
+      }
+    }
+    database.exec(COMMIT_TRANSACTION_SQL)
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+  return undefined
+}
+
+function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'string') return false
+  if (!('ordinal' in value) || typeof value.ordinal !== 'number') return false
+  if (!('text' in value) || typeof value.text !== 'string') return false
+  if (!('token_count' in value) || typeof value.token_count !== 'number') return false
+  if (!('created_at' in value) || typeof value.created_at !== 'number') return false
+  return true
+}
+
+function listSearchChunks(database: Database, request: WorkerRequest): SearchChunkPage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_SEARCH_CHUNK_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid search chunk count')
+  const rows = database.exec(SELECT_SEARCH_CHUNKS_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
+
+  const chunks: SearchChunkRecord[] = []
+  for (const row of rows) {
+    if (!isSearchChunkRecord(row)) throw new Error('Invalid search chunks')
+    chunks.push(row)
+  }
+  return { chunks, total }
+}
+
+function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'number') return false
+  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
+  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
+  if (!('ocr_page_id' in value) || typeof value.ocr_page_id !== 'string') return false
+  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
+  if (!('start_line_index' in value) || typeof value.start_line_index !== 'number') return false
+  if (!('end_line_index' in value) || typeof value.end_line_index !== 'number') return false
+  if (!('source_order' in value) || typeof value.source_order !== 'number') return false
+  return true
+}
+
+function listChunkSources(database: Database, request: WorkerRequest): ChunkSourcePage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_CHUNK_SOURCE_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid chunk source count')
+  const rows = database.exec(SELECT_CHUNK_SOURCES_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid chunk sources')
+
+  const sources: ChunkSourceRecord[] = []
+  for (const row of rows) {
+    if (!isChunkSourceRecord(row)) throw new Error('Invalid chunk sources')
+    sources.push(row)
+  }
+  return { sources, total }
+}
+
 export function executeSqliteCommand(database: Database, request: WorkerRequest): unknown {
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
@@ -455,12 +622,24 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return failOcrPage(database, request)
     case SQLITE_COMMAND.FAIL_BOOK_ANALYSIS:
       return failBookAnalysis(database, request)
+    case SQLITE_COMMAND.RETRY_BOOK_ANALYSIS:
+      return retryBookAnalysis(database, request)
     case SQLITE_COMMAND.LIST_OCR_LINES:
       return listOcrLines(database, request)
     case SQLITE_COMMAND.GET_STORED_OCR_PAGE:
       return getStoredOcrPage(database, request)
     case SQLITE_COMMAND.LIST_OCR_PAGES:
       return listOcrPages(database, request)
+    case SQLITE_COMMAND.GET_BOOK_ANALYSIS_STATUS:
+      return getBookAnalysisStatus(database, request)
+    case SQLITE_COMMAND.GET_OCR_LINES_FOR_CHUNKING:
+      return getOcrLinesForChunking(database, request)
+    case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
+      return storeSearchChunks(database, request)
+    case SQLITE_COMMAND.LIST_SEARCH_CHUNKS:
+      return listSearchChunks(database, request)
+    case SQLITE_COMMAND.LIST_CHUNK_SOURCES:
+      return listChunkSources(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }
