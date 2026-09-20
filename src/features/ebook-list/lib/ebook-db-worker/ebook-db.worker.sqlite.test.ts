@@ -90,6 +90,20 @@ describe('OCR SQLite 계약', () => {
     })
   })
 
+  it('실패한 책 분석을 재시도 가능한 상태로 되돌린다', () => {
+    const { database, exec } = createDatabase()
+
+    executeSqliteCommand(database, {
+      requestId: 21,
+      command: SQLITE_COMMAND.RETRY_BOOK_ANALYSIS,
+      payload: 'book-id',
+    })
+
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining("analysis_status = 'analyzing'"), {
+      bind: [expect.any(Number), 'book-id'],
+    })
+  })
+
   it('pending 중 가장 앞 페이지를 선점한다', () => {
     const { database, exec, selectObject } = createDatabase({
       nextPage: { id: 'page-2', page_number: 2 },

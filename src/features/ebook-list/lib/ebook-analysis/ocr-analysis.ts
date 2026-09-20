@@ -8,6 +8,17 @@ interface StoredPdf {
   pdf_data: Uint8Array
 }
 
+export interface OcrAnalysisFailure {
+  bookId: string
+  error: unknown
+  pageNumber?: number
+  stage: 'page-ocr' | 'whole-analysis'
+}
+
+interface OcrAnalysisOptions {
+  onFailure?(failure: OcrAnalysisFailure): void
+}
+
 function isStoredPdf(value: unknown): value is StoredPdf {
   return (
     typeof value === 'object' &&
@@ -47,7 +58,21 @@ function isOcrLinesForChunking(value: unknown): value is OcrLineForChunking[] {
   return value.every(isOcrLineForChunking)
 }
 
-export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): Promise<void> {
+function isReadyOcrPage(value: unknown): boolean {
+  return (
+    typeof value === 'object' && value !== null && 'status' in value && value.status === 'ready'
+  )
+}
+
+function reportFailure(options: OcrAnalysisOptions, failure: OcrAnalysisFailure) {
+  options.onFailure?.(failure)
+}
+
+export async function runOcrAnalysis(
+  bookId: string,
+  store: EbookLibraryStore,
+  options: OcrAnalysisOptions = {},
+): Promise<void> {
   const controller = new AbortController()
 
   try {
@@ -65,10 +90,18 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
     for (;;) {
       // 3. 다음 OCR 페이지를 하나씩 선택한다.
       const nextOcrPage = await store.request('acquireNextOcrPage', bookId)
-      if (nextOcrPage === null) return
+      if (nextOcrPage === null) {
+        const ocrPages = await store.request('listOcrPages', bookId)
+        if (!Array.isArray(ocrPages) || !ocrPages.every(isReadyOcrPage)) return
+
+        const ocrLines = await store.request('getOcrLinesForChunking', bookId)
+        if (!isOcrLinesForChunking(ocrLines)) throw new Error('Invalid OCR lines for chunking')
+        const chunks = await createSearchChunks(ocrLines, controller.signal)
+        await store.request('storeSearchChunks', { bookId, chunks })
+        return
+      }
       if (!isNextOcrPage(nextOcrPage)) throw new Error('Invalid next OCR page')
 
-      let completedOcr = false
       try {
         const page = await loaded.document.getPage(nextOcrPage.pageNumber)
         const result = await recognizePdfPageRaw(page, controller.signal)
@@ -80,23 +113,23 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
           height: result.height,
           lines: result.lines.map(({ text, bbox }) => ({ rawText: text, ...bbox })),
         })
-        completedOcr = storedOcrPage === true
-      } catch {
+        if (storedOcrPage !== true && storedOcrPage !== false)
+          throw new Error('Invalid OCR page storage result')
+      } catch (error) {
         // 5. OCR 페이지 인식에 실패하면 해당 페이지만 실패 처리하고 다음 페이지로 넘어간다.
+        reportFailure(options, {
+          bookId,
+          error,
+          pageNumber: nextOcrPage.pageNumber,
+          stage: 'page-ocr',
+        })
         await store.request('failOcrPage', nextOcrPage.id)
         continue
       }
-
-      // OCR이 완료되면 Chunking + Kiwi 진행
-      if (completedOcr) {
-        const ocrLines = await store.request('getOcrLinesForChunking', bookId)
-        if (!isOcrLinesForChunking(ocrLines)) throw new Error('Invalid OCR lines for chunking')
-        const chunks = await createSearchChunks(ocrLines, controller.signal)
-        await store.request('storeSearchChunks', { bookId, chunks })
-      }
     }
-  } catch {
+  } catch (error) {
     // 6. 만약 전체 책 OCR 분석에 실패하면, 책 분석 상태를 failed로 남긴다.
+    reportFailure(options, { bookId, error, stage: 'whole-analysis' })
     await store.request('failBookAnalysis', bookId)
   } finally {
     controller.abort()

@@ -25,6 +25,7 @@ import {
   INSERT_CHUNK_SOURCE_SQL,
   INSERT_SEARCH_CHUNK_SQL,
   ROLLBACK_TRANSACTION_SQL,
+  RETRY_BOOK_ANALYSIS_SQL,
   SELECT_BOOK_EXISTS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
   SELECT_BOOK_METADATA_SQL,
@@ -324,6 +325,13 @@ function failBookAnalysis(database: Database, request: WorkerRequest): undefined
   return undefined
 }
 
+function retryBookAnalysis(database: Database, request: WorkerRequest): undefined {
+  const bookId = getBookId(request)
+  database.exec(RETRY_BOOK_ANALYSIS_SQL, { bind: [Date.now(), bookId] })
+  if (!isRowAffected(database)) throw new NotFoundBookError()
+  return undefined
+}
+
 function isOcrLineRecord(value: unknown): value is OcrLineRecord {
   if (!isStoredOcrLine(value)) return false
   if (!('page_number' in value) || typeof value.page_number !== 'number') return false
@@ -602,6 +610,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return failOcrPage(database, request)
     case SQLITE_COMMAND.FAIL_BOOK_ANALYSIS:
       return failBookAnalysis(database, request)
+    case SQLITE_COMMAND.RETRY_BOOK_ANALYSIS:
+      return retryBookAnalysis(database, request)
     case SQLITE_COMMAND.LIST_OCR_LINES:
       return listOcrLines(database, request)
     case SQLITE_COMMAND.GET_STORED_OCR_PAGE:

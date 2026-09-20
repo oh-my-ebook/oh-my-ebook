@@ -138,6 +138,8 @@ export const SET_OCR_COMPLETED_AT_SQL = `UPDATE books
   SET ocr_completed_at = ?, updated_at = ? WHERE id = ? AND ocr_completed_at IS NULL`
 export const SET_BOOK_ANALYSIS_FAILED_SQL = `UPDATE books
   SET analysis_status = 'failed', updated_at = ? WHERE id = ?`
+export const RETRY_BOOK_ANALYSIS_SQL = `UPDATE books
+  SET analysis_status = 'analyzing', updated_at = ? WHERE id = ? AND analysis_status = 'failed'`
 export const SELECT_OCR_LINE_COUNT_SQL = `SELECT COUNT(*) FROM ocr_lines
   JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id WHERE ocr_pages.book_id = ?`
 export const SELECT_OCR_LINES_SQL = `SELECT ocr_pages.page_number, ocr_lines.line_index,

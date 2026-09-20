@@ -37,6 +37,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     regeneratingCover,
     renameBook,
     deleteBook,
+    retryOcrAnalysis,
   } = useEbookLibrary(store)
 
   async function openBook(bookId: string) {
@@ -132,6 +133,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               }}
               onRegenerate={(book) => {
                 void regenerateCover(book)
+              }}
+              onRetryAnalysis={(bookId) => {
+                void retryOcrAnalysis(bookId)
               }}
               regeneratingCover={regeneratingCover}
               onDelete={(bookId) => {

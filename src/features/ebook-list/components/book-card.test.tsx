@@ -71,6 +71,22 @@ describe('BookCard', () => {
     expect(screen.getByText('분석 실패')).toHaveAttribute('data-variant', 'destructive')
   })
 
+  it('분석 실패한 책은 저장된 OCR 결과를 이어서 다시 시도할 수 있다', async () => {
+    const user = userEvent.setup()
+    const onRetryAnalysis = vi.fn()
+    render(
+      <BookCard
+        book={{ ...book, analysis_status: 'failed' }}
+        onOpen={vi.fn()}
+        onRetryAnalysis={onRetryAnalysis}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '분석 다시 시도' }))
+
+    expect(onRetryAnalysis).toHaveBeenCalledOnce()
+  })
+
   it('긴 제목의 전체 텍스트를 제공하고 키보드로 책을 연다', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()
