@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorAlert } from '@/components/error-alert'
 import {
   PDF_CSS_SCALE,
   type PdfDocumentHandle,
@@ -330,15 +330,13 @@ export function PdfViewport(props: PdfViewportProps) {
       </div>
 
       {status === 'error' && (
-        <Alert className="mx-auto max-w-md" variant="destructive">
-          <AlertTitle>{pageRange}페이지를 표시하지 못했습니다.</AlertTitle>
-          <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
-          <AlertAction>
-            <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
-              다시 시도
-            </Button>
-          </AlertAction>
-        </Alert>
+        <ErrorAlert
+          className="mx-auto max-w-md"
+          description="페이지를 다시 그려 보세요."
+          title={`${pageRange}페이지를 표시하지 못했습니다.`}
+        >
+          <Button onClick={() => setAttempt((current) => current + 1)}>다시 시도</Button>
+        </ErrorAlert>
       )}
     </section>
   )

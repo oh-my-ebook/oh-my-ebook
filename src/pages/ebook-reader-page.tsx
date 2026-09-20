@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { ErrorAlert } from '@/components/error-alert'
 import { Reader } from '@/features/reader/components/reader'
 import type { StoredOcrPageResult } from '@/features/reader/lib/ocr/page-recognition'
-import { BookOpen, RefreshCw, TriangleAlert } from 'lucide-react'
+import { BookOpen, RefreshCw } from 'lucide-react'
 import {
   type EbookReaderStore,
   useEbookReadingSession,
@@ -56,24 +56,25 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   if (state.status === 'error') {
     return (
       <main className="mx-auto flex min-h-svh max-w-4xl items-center px-4 py-8">
-        <Alert className="mx-auto max-w-lg p-5" variant="destructive">
-          <TriangleAlert />
-          <AlertTitle>책을 불러오지 못했습니다.</AlertTitle>
-          <AlertDescription>
-            <p>{state.message}</p>
-            <p>잠시 후 다시 시도하거나 책장에서 다른 책을 선택해 주세요.</p>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={retry}>
-                <RefreshCw data-icon="inline-start" />
-                다시 시도
-              </Button>
-              <a className={buttonVariants({ variant: 'outline' })} href="/">
-                <BookOpen data-icon="inline-start" />
-                책장으로 이동
-              </a>
-            </div>
-          </AlertDescription>
-        </Alert>
+        <ErrorAlert
+          className="mx-auto max-w-lg p-5"
+          description={
+            <>
+              <p>{state.message}</p>
+              <p>잠시 후 다시 시도하거나 책장에서 다른 책을 선택해 주세요.</p>
+            </>
+          }
+          title="책을 불러오지 못했습니다."
+        >
+          <Button onClick={retry}>
+            <RefreshCw data-icon="inline-start" />
+            다시 시도
+          </Button>
+          <a className={buttonVariants({ variant: 'outline' })} href="/">
+            <BookOpen data-icon="inline-start" />
+            책장으로 이동
+          </a>
+        </ErrorAlert>
       </main>
     )
   }

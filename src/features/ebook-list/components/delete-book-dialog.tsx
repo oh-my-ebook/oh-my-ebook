@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/error-alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,10 +56,7 @@ export function DeleteBookDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {failed && (
-          <Alert variant="destructive">
-            <AlertTitle>책을 삭제하지 못했습니다.</AlertTitle>
-            <AlertDescription>잠시 후 다시 시도해 주세요.</AlertDescription>
-          </Alert>
+          <ErrorAlert description="잠시 후 다시 시도해 주세요." title="책을 삭제하지 못했습니다." />
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
