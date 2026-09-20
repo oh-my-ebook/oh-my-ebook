@@ -1,22 +1,21 @@
-import { useState } from 'react'
 import { MoonIcon, SunIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTheme } from '@/hooks/use-theme'
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
-
-  function toggleTheme() {
-    setDark(document.documentElement.classList.toggle('dark'))
-  }
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === 'dark'
+  const label = isDark ? '라이트 모드로 전환' : '다크 모드로 전환'
 
   return (
     <Button
-      aria-label={dark ? '밝은 테마' : '어두운 테마'}
-      onClick={toggleTheme}
+      aria-label={label}
+      title={label}
       size="icon-sm"
       variant="ghost"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
-      {dark ? <SunIcon /> : <MoonIcon />}
+      {isDark ? <SunIcon /> : <MoonIcon />}
     </Button>
   )
 }

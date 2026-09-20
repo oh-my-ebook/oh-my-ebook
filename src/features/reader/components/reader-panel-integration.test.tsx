@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
@@ -173,7 +173,7 @@ async function renderLoadedReader(
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
   const view = render(<Reader bookMetadata={bookMetadata} url="/sample.pdf" />, {
-    wrapper: MemoryRouter,
+    wrapper: TestRouter,
   })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 

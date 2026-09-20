@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -55,7 +55,7 @@ describe('Reader 두 페이지 보기 탐색', () => {
 
   it('두 페이지 보기에서는 하단 탐색 버튼이 두 장씩 이동하고 홀수로 남은 마지막 페이지는 한 장만 이동한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="두 페이지 탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="두 페이지 탐색 테스트" url="/sample.pdf" />, { wrapper: TestRouter })
 
     await user.click(screen.getByRole('button', { name: '두 페이지' }))
     await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
@@ -81,7 +81,7 @@ describe('Reader 두 페이지 보기 탐색', () => {
   it('두 페이지 보기에서 묶음의 두 번째 페이지에 있으면 첫 페이지 버튼도 비활성화한다', async () => {
     const user = userEvent.setup()
     render(<Reader initialPage={2} title="묶음 중간 페이지 테스트" url="/sample.pdf" />, {
-      wrapper: MemoryRouter,
+      wrapper: TestRouter,
     })
 
     await screen.findByRole('img', { name: 'PDF 2페이지' })
@@ -109,7 +109,7 @@ describe('Reader 두 페이지 보기 탐색', () => {
       status: 'ready',
     })
 
-    render(<Reader title="짝수 쪽수 탐색 테스트" url="/even.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="짝수 쪽수 탐색 테스트" url="/even.pdf" />, { wrapper: TestRouter })
 
     await user.click(screen.getByRole('button', { name: '두 페이지' }))
     await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
