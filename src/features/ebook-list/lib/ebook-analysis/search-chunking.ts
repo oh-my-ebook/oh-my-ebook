@@ -16,27 +16,75 @@ interface MutableSearchChunk {
   lines: OcrLineForChunking[]
 }
 
+interface TextRange {
+  text: string
+  start: number
+  end: number
+}
+
+interface SourceLineRange {
+  line: OcrLineForChunking
+  start: number
+  end: number
+}
+
 function countTokens(text: string) {
   const trimmed = text.trim()
   return trimmed ? trimmed.split(/\s+/).length : 0
 }
 
-function splitSentences(text: string) {
-  return (
-    text
-      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
-      ?.map((sentence) => sentence.trim())
-      .filter(Boolean) ?? []
-  )
+function splitSentences(text: string): TextRange[] {
+  return [...text.matchAll(/[^.!?]+[.!?]+|[^.!?]+$/g)]
+    .map((match) => {
+      const sentence = match[0]
+      const trimmed = sentence.trim()
+      const leadingWhitespace = sentence.length - sentence.trimStart().length
+      const start = (match.index ?? 0) + leadingWhitespace
+      return { text: trimmed, start, end: start + trimmed.length }
+    })
+    .filter(({ text }) => Boolean(text))
 }
 
-function splitByTokenTarget(text: string, tokenTarget: number) {
-  const tokens = text.trim().split(/\s+/).filter(Boolean)
-  const parts: string[] = []
-  for (let start = 0; start < tokens.length; start += tokenTarget) {
-    parts.push(tokens.slice(start, start + tokenTarget).join(' '))
+function splitByTokenTarget(text: string, tokenTarget: number): TextRange[] {
+  const tokens = [...text.matchAll(/\S+/g)]
+  const parts: TextRange[] = []
+  for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += tokenTarget) {
+    const firstToken = tokens[tokenIndex]
+    const lastToken = tokens[Math.min(tokenIndex + tokenTarget - 1, tokens.length - 1)]
+    if (
+      !firstToken ||
+      !lastToken ||
+      firstToken.index === undefined ||
+      lastToken.index === undefined
+    )
+      continue
+    const start = firstToken.index
+    const end = lastToken.index + lastToken[0].length
+    parts.push({ text: text.slice(start, end), start, end })
   }
   return parts
+}
+
+function joinProcessedLines(processedLines: string[], lines: OcrLineForChunking[]) {
+  let text = ''
+  const sourceLineRanges: SourceLineRange[] = []
+
+  processedLines.forEach((processedLine, index) => {
+    const line = lines[index]
+    if (!line || !processedLine) return
+    const separator = text ? ' ' : ''
+    const start = text.length + separator.length
+    text += `${separator}${processedLine}`
+    sourceLineRanges.push({ line, start, end: text.length })
+  })
+
+  return { sourceLineRanges, text }
+}
+
+function getSourceLines(sourceLineRanges: SourceLineRange[], start: number, end: number) {
+  return sourceLineRanges
+    .filter((range) => range.start < end && start < range.end)
+    .map((range) => range.line)
 }
 
 async function createParagraphUnits(
@@ -50,7 +98,7 @@ async function createParagraphUnits(
     throw new Error('Kiwi 처리 결과의 줄 수가 OCR 원문과 다릅니다.')
   }
 
-  const paragraphText = processedLines.filter(Boolean).join(' ')
+  const { sourceLineRanges, text: paragraphText } = joinProcessedLines(processedLines, lines)
   const paragraphTokenCount = countTokens(paragraphText)
   if (paragraphTokenCount === 0) return []
   if (paragraphTokenCount <= tokenTarget) {
@@ -65,18 +113,19 @@ async function createParagraphUnits(
   }
 
   const units: ChunkUnit[] = []
-  processedLines.forEach((processedLine, index) => {
-    const line = lines[index]
-    if (!line || !processedLine) return
-    splitSentences(processedLine).forEach((sentence) => {
-      splitByTokenTarget(sentence, tokenTarget).forEach((text) => {
+  splitSentences(paragraphText).forEach((sentence) => {
+    splitByTokenTarget(sentence.text, tokenTarget).forEach((part) => {
+      const start = sentence.start + part.start
+      const end = sentence.start + part.end
+      const sourceLines = getSourceLines(sourceLineRanges, start, end)
+      if (sourceLines.length) {
         units.push({
-          text,
-          tokenCount: countTokens(text),
-          lines: [line],
+          text: part.text,
+          tokenCount: countTokens(part.text),
+          lines: sourceLines,
           startsParagraph: units.length === 0,
         })
-      })
+      }
     })
   })
   return units

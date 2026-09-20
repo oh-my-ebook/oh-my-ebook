@@ -73,4 +73,30 @@ describe('createSearchChunks', () => {
       [{ ocrPageId: 'page-1', startLineIndex: 0, endLineIndex: 0, sourceOrder: 0 }],
     ])
   })
+
+  it('긴 문단에서 OCR 줄을 넘는 문장을 문장 경계로 분할하고 관련 줄 범위를 연결한다', async () => {
+    const lines: OcrLineForChunking[] = [
+      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '하나 둘 셋' },
+      {
+        ocr_page_id: 'page-1',
+        page_number: 1,
+        line_index: 1,
+        raw_text: '넷 다섯. 여섯 일곱 여덟 아홉.',
+      },
+    ]
+    postprocessWithKiwi.mockImplementation(async (text: string) => text)
+
+    const chunks = await createSearchChunks(lines, new AbortController().signal, 4)
+
+    expect(chunks.map(({ text, tokenCount }) => ({ text, tokenCount }))).toEqual([
+      { text: '하나 둘 셋 넷', tokenCount: 4 },
+      { text: '다섯.', tokenCount: 1 },
+      { text: '여섯 일곱 여덟 아홉.', tokenCount: 4 },
+    ])
+    expect(chunks.map(({ sources }) => sources)).toEqual([
+      [{ ocrPageId: 'page-1', startLineIndex: 0, endLineIndex: 1, sourceOrder: 0 }],
+      [{ ocrPageId: 'page-1', startLineIndex: 1, endLineIndex: 1, sourceOrder: 0 }],
+      [{ ocrPageId: 'page-1', startLineIndex: 1, endLineIndex: 1, sourceOrder: 0 }],
+    ])
+  })
 })
