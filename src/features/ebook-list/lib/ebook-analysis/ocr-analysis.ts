@@ -1,7 +1,8 @@
 import { loadPdfDocument } from '@/features/reader/lib/pdf-document'
 import { recognizePdfPageRaw } from '@/features/reader/lib/ocr/page-recognition'
-import type { NextOcrPage } from '../../ebook-types'
+import type { NextOcrPage, OcrLineForChunking } from '../../ebook-types'
 import type { EbookLibraryStore } from '../ebook-library-store'
+import { createSearchChunks } from './search-chunking'
 
 interface StoredPdf {
   pdf_data: Uint8Array
@@ -27,6 +28,25 @@ function isNextOcrPage(value: unknown): value is NextOcrPage {
   )
 }
 
+function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
+  if (typeof value !== 'object') return false
+  if (value === null) return false
+  if (!('ocr_page_id' in value)) return false
+  if (typeof value.ocr_page_id !== 'string') return false
+  if (!('page_number' in value)) return false
+  if (typeof value.page_number !== 'number') return false
+  if (!('line_index' in value)) return false
+  if (typeof value.line_index !== 'number') return false
+  if (!('raw_text' in value)) return false
+  if (typeof value.raw_text !== 'string') return false
+  return true
+}
+
+function isOcrLinesForChunking(value: unknown): value is OcrLineForChunking[] {
+  if (!Array.isArray(value)) return false
+  return value.every(isOcrLineForChunking)
+}
+
 export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): Promise<void> {
   const controller = new AbortController()
 
@@ -48,20 +68,31 @@ export async function runOcrAnalysis(bookId: string, store: EbookLibraryStore): 
       if (nextOcrPage === null) return
       if (!isNextOcrPage(nextOcrPage)) throw new Error('Invalid next OCR page')
 
+      let completedOcr = false
       try {
         const page = await loaded.document.getPage(nextOcrPage.pageNumber)
         const result = await recognizePdfPageRaw(page, controller.signal)
 
         // 4. OCR 결과를 저장한다. 기존 Line 데이터를 모두 삭제하고 새로 저장한다.
-        await store.request('storeOcrPage', {
+        const storedOcrPage = await store.request('storeOcrPage', {
           pageId: nextOcrPage.id,
           width: result.width,
           height: result.height,
           lines: result.lines.map(({ text, bbox }) => ({ rawText: text, ...bbox })),
         })
+        completedOcr = storedOcrPage === true
       } catch {
         // 5. OCR 페이지 인식에 실패하면 해당 페이지만 실패 처리하고 다음 페이지로 넘어간다.
         await store.request('failOcrPage', nextOcrPage.id)
+        continue
+      }
+
+      // OCR이 완료되면 Chunking + Kiwi 진행
+      if (completedOcr) {
+        const ocrLines = await store.request('getOcrLinesForChunking', bookId)
+        if (!isOcrLinesForChunking(ocrLines)) throw new Error('Invalid OCR lines for chunking')
+        const chunks = await createSearchChunks(ocrLines, controller.signal)
+        await store.request('storeSearchChunks', { bookId, chunks })
       }
     }
   } catch {
