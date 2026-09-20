@@ -88,7 +88,6 @@ import {
   isGetStoredOcrPageInput,
   isListOcrLinesInput,
   isStoreOcrPageInput,
-  isStoreSearchChunksInput,
   isStoreSearchIndexInput,
   isUpdateCoverInput,
   isUpdateProgressInput,
@@ -558,25 +557,6 @@ function storeSearchChunk(
   }
 }
 
-function storeSearchChunks(database: Database, request: WorkerRequest): undefined {
-  const input = getPayload(request, request.command, isStoreSearchChunksInput)
-  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
-
-  const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
-    for (const chunk of input.chunks) {
-      storeSearchChunk(database, input.bookId, chunk, now)
-    }
-    database.exec(COMMIT_TRANSACTION_SQL)
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
-  return undefined
-}
-
 function storeSearchIndex(database: Database, request: WorkerRequest): undefined {
   const input = getPayload(request, request.command, isStoreSearchIndexInput)
   if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
@@ -764,8 +744,6 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return getBookAnalysisStatus(database, request)
     case SQLITE_COMMAND.GET_OCR_LINES_FOR_CHUNKING:
       return getOcrLinesForChunking(database, request)
-    case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
-      return storeSearchChunks(database, request)
     case SQLITE_COMMAND.STORE_SEARCH_INDEX:
       return storeSearchIndex(database, request)
     case SQLITE_COMMAND.LIST_SEARCH_CHUNKS:

@@ -43,11 +43,6 @@ export interface StoreOcrPageInput {
   lines: readonly OcrLineInput[]
 }
 
-export interface StoreSearchChunksInput {
-  bookId: string
-  chunks: readonly SearchChunkInput[]
-}
-
 export interface StoreSearchIndexInput {
   bookId: string
   chunks: readonly SearchIndexChunkInput[]
@@ -287,15 +282,6 @@ function isSearchIndexChunkInput(value: unknown): value is SearchIndexChunkInput
   if (!isSearchChunkInput(value) || !('terms' in value) || !Array.isArray(value.terms)) return false
   if (!value.terms.every(isSearchTermFrequencyInput)) return false
   return new Set(value.terms.map(({ term }) => term)).size === value.terms.length
-}
-
-export function isStoreSearchChunksInput(value: unknown): value is StoreSearchChunksInput {
-  return (
-    isRecord(value) &&
-    isIdentifier(value.bookId) &&
-    Array.isArray(value.chunks) &&
-    value.chunks.every(isSearchChunkInput)
-  )
 }
 
 export function isStoreSearchIndexInput(value: unknown): value is StoreSearchIndexInput {

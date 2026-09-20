@@ -178,7 +178,6 @@ describe('runOcrAnalysis', () => {
 
     expect(createSearchChunks).toHaveBeenCalledOnce()
     expect(request).toHaveBeenCalledWith('failBookAnalysis', 'book-id')
-    expect(request).not.toHaveBeenCalledWith('storeSearchChunks', expect.anything())
     expect(request.mock.calls.some(([command]) => String(command).includes('indexed'))).toBe(false)
   })
 

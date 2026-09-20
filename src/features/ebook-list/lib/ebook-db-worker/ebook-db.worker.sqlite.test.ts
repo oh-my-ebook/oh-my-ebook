@@ -8,7 +8,7 @@ function createDatabase({
   analysisStatus = 'analyzing',
   nextPage = null,
   ocrLinesForChunking = [],
-  searchChunkStoreFails = false,
+  searchIndexChunkStoreFails = false,
   searchIndexStoreFails = false,
   searchTermCleanupFails = false,
   searchPostings = [],
@@ -20,7 +20,7 @@ function createDatabase({
   incompletePages?: number
   nextPage?: Record<string, unknown> | null
   ocrLinesForChunking?: Record<string, unknown>[]
-  searchChunkStoreFails?: boolean
+  searchIndexChunkStoreFails?: boolean
   searchIndexStoreFails?: boolean
   searchTermCleanupFails?: boolean
   searchPostings?: Record<string, unknown>[]
@@ -38,7 +38,7 @@ function createDatabase({
       throw new Error('write failed')
     }
     if (
-      searchChunkStoreFails &&
+      searchIndexChunkStoreFails &&
       typeof sql === 'string' &&
       sql.includes('INSERT INTO search_chunks')
     ) {
@@ -293,53 +293,6 @@ describe('OCR SQLite 계약', () => {
     })
   })
 
-  it('기존 청크를 지우고 청크와 원본 범위를 하나의 트랜잭션으로 저장한다', () => {
-    const { database, exec } = createDatabase()
-
-    executeSqliteCommand(database, {
-      requestId: 6,
-      command: SQLITE_COMMAND.STORE_SEARCH_CHUNKS,
-      payload: {
-        bookId: 'book-id',
-        chunks: [
-          {
-            id: 'chunk-1',
-            ordinal: 0,
-            text: '검색 청크',
-            tokenCount: 2,
-            sources: [
-              {
-                ocrPageId: 'page-1',
-                startLineIndex: 0,
-                endLineIndex: 1,
-                sourceOrder: 0,
-              },
-            ],
-          },
-        ],
-      },
-    })
-
-    expect(exec.mock.calls.map(([sql]) => String(sql))).toEqual(
-      expect.arrayContaining([
-        'BEGIN IMMEDIATE',
-        expect.stringContaining('DELETE FROM search_chunks WHERE book_id = ?'),
-        expect.stringContaining('INSERT INTO search_chunks'),
-        expect.stringContaining('INSERT INTO chunk_sources'),
-        'COMMIT',
-      ]),
-    )
-    expect(exec).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM search_chunks'), {
-      bind: ['book-id'],
-    })
-    expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO search_chunks'), {
-      bind: ['chunk-1', 'book-id', 0, '검색 청크', 2, expect.any(Number)],
-    })
-    expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chunk_sources'), {
-      bind: ['chunk-1', 'page-1', 0, 1, 0],
-    })
-  })
-
   it('청크·원본 범위·term·posting·완료 상태를 하나의 트랜잭션으로 교체한다', () => {
     const { database, exec } = createDatabase()
 
@@ -354,7 +307,14 @@ describe('OCR SQLite 계약', () => {
             ordinal: 0,
             text: '전자책 검색',
             tokenCount: 2,
-            sources: [],
+            sources: [
+              {
+                ocrPageId: 'page-1',
+                startLineIndex: 0,
+                endLineIndex: 1,
+                sourceOrder: 0,
+              },
+            ],
             terms: [{ term: '검색', termFrequency: 2 }],
           },
         ],
@@ -368,6 +328,7 @@ describe('OCR SQLite 계약', () => {
         expect.stringContaining('DELETE FROM search_terms'),
         expect.stringContaining('SET document_frequency = ('),
         expect.stringContaining('INSERT INTO search_chunks'),
+        expect.stringContaining('INSERT INTO chunk_sources'),
         expect.stringContaining('INSERT INTO search_terms'),
         expect.stringContaining('INSERT INTO search_postings'),
         expect.stringContaining("analysis_status = 'ready'"),
@@ -376,6 +337,9 @@ describe('OCR SQLite 계약', () => {
     )
     expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO search_postings'), {
       bind: [1, 'chunk-1', 2],
+    })
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chunk_sources'), {
+      bind: ['chunk-1', 'page-1', 0, 1, 0],
     })
   })
 
@@ -409,12 +373,12 @@ describe('OCR SQLite 계약', () => {
   })
 
   it('청크 저장 중 오류가 나면 기존 청크 삭제를 포함해 롤백한다', () => {
-    const { database, exec } = createDatabase({ searchChunkStoreFails: true })
+    const { database, exec } = createDatabase({ searchIndexChunkStoreFails: true })
 
     expect(() =>
       executeSqliteCommand(database, {
         requestId: 7,
-        command: SQLITE_COMMAND.STORE_SEARCH_CHUNKS,
+        command: SQLITE_COMMAND.STORE_SEARCH_INDEX,
         payload: {
           bookId: 'book-id',
           chunks: [
@@ -424,6 +388,7 @@ describe('OCR SQLite 계약', () => {
               text: '검색 청크',
               tokenCount: 2,
               sources: [],
+              terms: [],
             },
           ],
         },
@@ -439,7 +404,7 @@ describe('OCR SQLite 계약', () => {
     expect(() =>
       executeSqliteCommand(database, {
         requestId: 8,
-        command: SQLITE_COMMAND.STORE_SEARCH_CHUNKS,
+        command: SQLITE_COMMAND.STORE_SEARCH_INDEX,
         payload: {
           bookId: 'book-id',
           chunks: [
@@ -456,6 +421,7 @@ describe('OCR SQLite 계약', () => {
                   sourceOrder: 0,
                 },
               ],
+              terms: [],
             },
           ],
         },
