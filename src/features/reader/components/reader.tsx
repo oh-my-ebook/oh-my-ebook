@@ -299,7 +299,9 @@ export function Reader({
             <div className="min-w-64 flex-1">
               <PageNavigator
                 currentPage={currentPage}
+                nextPage={nextPage}
                 onPageChange={handlePageChange}
+                previousPage={previousPage}
                 totalPages={documentState.pages.length}
               />
             </div>
