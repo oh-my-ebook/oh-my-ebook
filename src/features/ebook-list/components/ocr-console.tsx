@@ -315,8 +315,16 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
         setOcrPages(pageResult)
         setSearchChunks(chunkResult)
         setChunkSources(sourceResult)
+
+        const maxTermPage = Math.max(0, Math.ceil(termResult.total / LINES_PER_PAGE) - 1)
+        const maxPostingPage = Math.max(0, Math.ceil(postingResult.total / LINES_PER_PAGE) - 1)
+
         setSearchTerms(termResult)
         setSearchPostings(postingResult)
+
+        setTermPage((current) => Math.min(current, maxTermPage))
+        setPostingPage((current) => Math.min(current, maxPostingPage))
+
         setSelectedBook((current) =>
           current?.id === book.id && current.analysisStatus !== analysisStatus
             ? { ...current, analysisStatus }
