@@ -9,7 +9,6 @@ import {
   type PdfDocumentHandle,
   type PdfPageHandle,
 } from './pdf-document'
-import { renderPdfPageImage } from './pdf-page-render'
 
 const getDocumentMock = vi.hoisted(() => vi.fn())
 
@@ -328,37 +327,5 @@ describe('extractPdfPageImages', () => {
     const result = await extractPdfPageImages(page, new AbortController().signal)
 
     expect(result?.regions).toEqual([{ x0: 0, y0: 150, x1: 150, y1: 200 }])
-  })
-})
-
-describe('renderPdfPageImage', () => {
-  afterEach(() => vi.restoreAllMocks())
-
-  it('이미지 영역만 잘라 PNG로 만든다', async () => {
-    const pngBlob = new Blob(['png'], { type: 'image/png' })
-    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) =>
-      callback(pngBlob),
-    )
-    // 그린 뒤에는 Canvas 픽셀을 즉시 비우므로 그리는 시점의 크기를 기록한다.
-    const renderedSizes: number[][] = []
-    const render = vi.fn(({ canvas }: { canvas: HTMLCanvasElement; transform?: number[] }) => {
-      renderedSizes.push([canvas.width, canvas.height])
-      return { promise: Promise.resolve(), cancel: vi.fn() }
-    })
-    const page = {
-      getViewport: vi.fn(({ scale }: { scale: number }) => ({
-        width: 600 * scale,
-        height: 800 * scale,
-        rotation: 0,
-      })),
-      render,
-    }
-
-    const blob = await renderPdfPageImage(page, { x0: 50, y0: 100, x1: 250, y1: 200 })
-
-    expect(blob).toBe(pngBlob)
-    // 2배로 그리므로 200x100 영역은 400x200 Canvas가 되고, 영역의 왼쪽 위가 원점에 오도록 옮긴다.
-    expect(renderedSizes).toEqual([[400, 200]])
-    expect(render.mock.calls[0][0].transform).toEqual([1, 0, 0, 1, -100, -200])
   })
 })
