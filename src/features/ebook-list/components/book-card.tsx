@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -9,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Ellipsis, Pencil, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
+import { Ellipsis, Pencil, RefreshCw, RotateCcw, Trash2, TriangleAlert } from 'lucide-react'
 import type { StoredBook } from '../ebook-types'
 import { DeleteBookDialog } from './delete-book-dialog'
 import { EditBookDialog } from './edit-book-dialog'
@@ -22,7 +23,14 @@ interface BookCardProps {
   onRegenerate?(): void
   onRename?(title: string): void
   onDelete?(): Promise<void>
+  onRetryAnalysis?(): void
 }
+
+const analysisStatusBadge = {
+  analyzing: { label: '분석 중', variant: 'secondary' },
+  ready: { label: '분석 완료', variant: 'default' },
+  failed: { label: '분석 실패', variant: 'destructive' },
+} as const
 
 export function BookCard({
   book,
@@ -32,6 +40,7 @@ export function BookCard({
   onRegenerate,
   onRename,
   onDelete,
+  onRetryAnalysis,
 }: BookCardProps) {
   const imageRef = useRef<HTMLImageElement>(null)
   const [editing, setEditing] = useState(false)
@@ -41,6 +50,7 @@ export function BookCard({
     book.last_page === null
       ? `읽지 않음 · 전체 ${book.page_count}페이지`
       : `${book.last_page} / ${book.page_count}페이지`
+  const analysis = analysisStatusBadge[book.analysis_status]
 
   useEffect(() => {
     if (!book.cover_data || !book.cover_mime) return
@@ -52,8 +62,8 @@ export function BookCard({
   }, [book.cover_data, book.cover_mime])
 
   return (
-    <article aria-label={book.title} className="book-card">
-      <Card className="book-card-surface h-full gap-0 bg-transparent p-0 shadow-none ring-0">
+    <article aria-label={book.title} className="book-card group">
+      <Card className="book-card-surface h-full gap-0 rounded-none bg-transparent p-0 shadow-none ring-0 overflow-visible">
         <CardContent className="flex flex-1 flex-col gap-3 px-0">
           <button
             aria-label={`${book.title} ${isPdfMissing ? '삭제' : '열기'}`}
@@ -88,12 +98,21 @@ export function BookCard({
           </button>
           <div className="flex flex-col gap-2">
             <div className="flex items-start justify-between gap-2">
-              <h2
-                className="line-clamp-2 min-w-0 leading-[1.55] font-semibold text-foreground hover:text-primary"
-                title={book.title}
-              >
-                {book.title}
-              </h2>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <h2
+                  className="line-clamp-2 leading-[1.55] font-semibold text-foreground group-hover:text-primary"
+                  title={book.title}
+                >
+                  {book.title}
+                </h2>
+                <Badge variant={analysis.variant}>{analysis.label}</Badge>
+                {book.analysis_status === 'failed' && onRetryAnalysis && (
+                  <Button onClick={onRetryAnalysis} size="sm" variant="outline">
+                    <RotateCcw data-icon="inline-start" />
+                    분석 다시 시도
+                  </Button>
+                )}
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label={`${book.title} 메뉴`}

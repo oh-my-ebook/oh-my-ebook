@@ -1,9 +1,9 @@
 import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
-import { postprocessWithKiwi } from '../kiwi/client'
+import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
 
-// PDF의 72 DPI 좌표를 OCR에 사용할 200 DPI 픽셀 좌표로 변환한다.
-const OCR_SCALE = 200 / 72
+// PDF의 72 DPI 좌표를 OCR에 사용할 160 DPI 픽셀 좌표로 변환한다.
+const OCR_SCALE = 160 / 72
 const PADDLE_WASM_PATH = import.meta.env.DEV
   ? '/src/assets/vendor/ocr/runtime/'
   : '/vendor/ocr/runtime/'
@@ -26,6 +26,24 @@ export interface OcrPageResult {
   width: number
   height: number
   lines: readonly SelectableTextLine[]
+}
+
+export interface RawOcrPageResult {
+  width: number
+  height: number
+  lines: readonly OcrLine[]
+}
+
+export interface StoredOcrPageResult {
+  width: number
+  height: number
+  lines: readonly {
+    rawText: string
+    x0: number
+    y0: number
+    x1: number
+    y1: number
+  }[]
 }
 
 type PaddleOcr = Awaited<
@@ -94,7 +112,6 @@ function getPaddle() {
         ortOptions: {
           backend: 'wasm',
           wasmPaths: PADDLE_WASM_PATH,
-          numThreads: 1,
           simd: true,
         },
       }),
@@ -104,6 +121,10 @@ function getPaddle() {
       throw error
     })
   return paddle
+}
+
+export async function prepareOcr() {
+  await Promise.all([getPaddle(), postprocessWithKiwi('', new AbortController().signal)])
 }
 
 // PaddleOCR worker 인스턴스에는 predict() 취소 API가 없어, 중단된 인스턴스는 캐시에서
@@ -149,7 +170,7 @@ async function recognizeWithPaddleOcr(
   const [recognized] = await raceWithAbort(
     instancePromise.then((instance) =>
       instance.predict(canvas, {
-        textDetLimitSideLen: 1_600,
+        textDetLimitSideLen: 1_216,
         textDetLimitType: 'max',
         textDetMaxSideLimit: 3_000,
         textDetBoxThresh: 0.45,
@@ -214,4 +235,38 @@ export async function recognizePdfPage(
     canvas.width = 0
     canvas.height = 0
   }
+}
+
+export async function recognizePdfPageRaw(
+  page: PdfPageHandle,
+  signal: AbortSignal,
+): Promise<RawOcrPageResult> {
+  const { canvas } = await renderPdfPageForOcr(page, signal)
+
+  try {
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      lines: await recognizeWithPaddleOcr(canvas, signal),
+    }
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
+}
+
+export async function postprocessStoredOcrPage(
+  page: StoredOcrPageResult,
+  signal: AbortSignal,
+): Promise<OcrPageResult> {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('OCR Canvas를 만들 수 없습니다.')
+
+  const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+    text: rawText,
+    bbox: { x0, y0, x1, y1 },
+  }))
+  const lines = await postprocessOcrLines(sourceLines, context, signal)
+  return { width: page.width, height: page.height, lines }
 }

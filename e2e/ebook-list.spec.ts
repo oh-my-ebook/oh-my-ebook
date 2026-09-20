@@ -7,7 +7,8 @@ test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장�
   await page.goto('/')
 
   await expect(page.getByRole('heading', { name: '내 서재' })).toBeVisible()
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await expect
     .poll(async () => {
       return page.evaluate(async () => {
@@ -19,7 +20,8 @@ test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장�
     .toBeGreaterThan(0)
 
   await page.reload()
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
 })
 
 test('PDF를 추가하고 내용 중복을 막으며 새로고침 후 표지와 책 정보를 복원한다', async ({
@@ -30,7 +32,8 @@ test('PDF를 추가하고 내용 중복을 막으며 새로고침 후 표지와 
   })
   await page.goto('/')
   const input = page.getByLabel('PDF 파일 선택')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await input.setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
 
   await expect(page.getByText('The Local Library')).toBeVisible()
@@ -62,7 +65,8 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장�
     }
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles([
@@ -121,7 +125,8 @@ test('책 삭제 저장이 실패하면 책을 유지하고 재시도 안내를 
     }
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
@@ -143,7 +148,8 @@ test('메타데이터가 없는 책과 손상·암호 PDF를 파일별로 처리
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles([
@@ -163,7 +169,8 @@ test('표지 생성 실패를 복구하고 회전된 첫 페이지를 표지로 
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page.evaluate(() => {
     HTMLCanvasElement.prototype.toBlob = function (callback) {
       Reflect.set(window, 'lastCoverCanvas', this)
@@ -219,15 +226,18 @@ test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않�
     }
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
 
   await expect(page.getByText('PDF 저장에 실패했습니다. 다시 시도해 주세요.')).toBeVisible()
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page.reload()
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
 })
 
 test('WebP 인코딩을 사용할 수 없으면 PNG 표지를 저장한다', async ({ page }) => {
@@ -235,7 +245,8 @@ test('WebP 인코딩을 사용할 수 없으면 PNG 표지를 저장한다', asy
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page.evaluate(() => {
     const original = HTMLCanvasElement.prototype.toBlob
     HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
@@ -262,7 +273,8 @@ test('정밀 포인터에서 표지 hover 효과를 보이고 키보드로 책�
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
@@ -296,7 +308,8 @@ test('320px와 동작 감소 환경에서도 터치로 책을 연다', async ({ 
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   await page
     .getByLabel('PDF 파일 선택')
     .setInputFiles([
@@ -307,9 +320,9 @@ test('320px와 동작 감소 환경에서도 터치로 책을 연다', async ({ 
   const shelf = page.locator('.ebook-shelf')
   const cards = page.getByRole('article')
   await expect(shelf).toBeVisible()
-  await expect(cards).toHaveCount(2)
-  const firstCard = cards.nth(0)
-  const secondCard = cards.nth(1)
+  await expect(cards).toHaveCount(3)
+  const firstCard = cards.nth(1)
+  const secondCard = cards.nth(2)
   const firstBounds = await firstCard.boundingBox()
   const secondBounds = await secondCard.boundingBox()
   expect(firstBounds?.x).toBe(secondBounds?.x)

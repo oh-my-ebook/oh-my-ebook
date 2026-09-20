@@ -40,6 +40,33 @@ function setupResizeObserverMock() {
   }
 }
 
+// requestAnimationFrame도 ResizeObserver와 무관한 별도의 브라우저 API라 각 테스트가 필요할 때
+// 직접 스텁한다. 예약된 콜백을 모아두었다가 테스트가 원하는 시점에 직접 실행해 제어한다.
+function setupAnimationFrameMock() {
+  let scheduledCallbacks: FrameRequestCallback[] = []
+  let nextFrameId = 1
+  const requestAnimationFrameMock = vi.fn((callback: FrameRequestCallback) => {
+    scheduledCallbacks.push(callback)
+    return nextFrameId++
+  })
+  const cancelAnimationFrameMock = vi.fn()
+
+  vi.stubGlobal('requestAnimationFrame', requestAnimationFrameMock)
+  vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrameMock)
+
+  return {
+    requestAnimationFrameMock,
+    cancelAnimationFrameMock,
+    flush() {
+      const callbacks = scheduledCallbacks
+      scheduledCallbacks = []
+      act(() => {
+        callbacks.forEach((callback) => callback(0))
+      })
+    },
+  }
+}
+
 function setupMatchMediaMock(initialMatches = false) {
   let matches = initialMatches
   let changeListeners: Array<(event: MediaQueryListEvent) => void> = []
@@ -125,6 +152,7 @@ describe('useReaderLayout', () => {
   it('컨테이너가 연결되면 여백을 제외한 크기를 측정한다', () => {
     const resizeObserver = setupResizeObserverMock()
     setupMatchMediaMock()
+    const animationFrame = setupAnimationFrameMock()
     const { layout } = renderLayoutHarness()
     const container = layout.current!.containerRef.current!
     container.style.paddingLeft = '24px'
@@ -134,6 +162,7 @@ describe('useReaderLayout', () => {
 
     setContainerSize(container, 1048, 1248)
     resizeObserver.triggerResize()
+    animationFrame.flush()
 
     expect(layout.current?.availableWidth).toBe(1000)
     expect(layout.current?.availableHeight).toBe(1200)
@@ -143,6 +172,7 @@ describe('useReaderLayout', () => {
   it('소수점 단위의 실제 레이아웃 크기를 유지한다', () => {
     const resizeObserver = setupResizeObserverMock()
     setupMatchMediaMock()
+    const animationFrame = setupAnimationFrameMock()
     const { layout } = renderLayoutHarness()
     const container = layout.current!.containerRef.current!
     container.style.paddingLeft = '24px'
@@ -152,6 +182,7 @@ describe('useReaderLayout', () => {
 
     setContainerSize(container, 1048, 1248, 1047.75, 1247.652)
     resizeObserver.triggerResize()
+    animationFrame.flush()
 
     expect(layout.current?.availableWidth).toBe(999.75)
     expect(layout.current?.availableHeight).toBe(1199.652)
@@ -179,18 +210,63 @@ describe('useReaderLayout', () => {
   it('읽기 영역 크기가 바뀌면 다시 측정한다', () => {
     const resizeObserver = setupResizeObserverMock()
     setupMatchMediaMock()
+    const animationFrame = setupAnimationFrameMock()
     const { layout } = renderLayoutHarness()
     const container = layout.current!.containerRef.current!
 
     setContainerSize(container, 800, 600)
     resizeObserver.triggerResize()
+    animationFrame.flush()
     expect(layout.current?.availableWidth).toBe(800)
 
     setContainerSize(container, 1200, 900)
     resizeObserver.triggerResize()
+    animationFrame.flush()
 
     expect(layout.current?.availableWidth).toBe(1200)
     expect(layout.current?.availableHeight).toBe(900)
+  })
+
+  it('리사이즈 알림이 연속으로 오면 한 애니메이션 프레임에 모아 한 번만 측정한다', () => {
+    const resizeObserver = setupResizeObserverMock()
+    setupMatchMediaMock()
+    const animationFrame = setupAnimationFrameMock()
+    const { layout } = renderLayoutHarness()
+    const container = layout.current!.containerRef.current!
+
+    setContainerSize(container, 800, 600)
+    const measureSpy = vi.spyOn(container, 'getBoundingClientRect')
+
+    resizeObserver.triggerResize()
+    setContainerSize(container, 900, 700)
+    resizeObserver.triggerResize()
+    setContainerSize(container, 1000, 800)
+    resizeObserver.triggerResize()
+
+    expect(measureSpy).not.toHaveBeenCalled()
+    expect(layout.current?.availableWidth).toBe(0)
+
+    animationFrame.flush()
+
+    expect(measureSpy).toHaveBeenCalledOnce()
+    expect(layout.current?.availableWidth).toBe(1000)
+    expect(layout.current?.availableHeight).toBe(800)
+  })
+
+  it('언마운트되면 예약된 재측정 프레임도 취소한다', () => {
+    const resizeObserver = setupResizeObserverMock()
+    setupMatchMediaMock()
+    const animationFrame = setupAnimationFrameMock()
+    const { layout, unmount } = renderLayoutHarness()
+    const container = layout.current!.containerRef.current!
+
+    setContainerSize(container, 800, 600)
+    resizeObserver.triggerResize()
+    expect(animationFrame.cancelAnimationFrameMock).not.toHaveBeenCalled()
+
+    unmount()
+
+    expect(animationFrame.cancelAnimationFrameMock).toHaveBeenCalledOnce()
   })
 
   it('해제되면 크기 관찰을 정리한다', () => {

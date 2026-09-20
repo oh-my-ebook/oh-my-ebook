@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { BookMetadata } from '../lib/book-metadata'
 
 export interface EbookReaderStore {
-  request(command: 'getBook' | 'updateProgress', payload?: unknown): Promise<unknown>
+  request(
+    command: 'getBook' | 'getStoredOcrPage' | 'updateProgress',
+    payload?: unknown,
+  ): Promise<unknown>
 }
 
 interface ReaderBook {

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -218,13 +218,15 @@ describe('Reader 보조 패널 연결', () => {
 
     resizeObserverMock.resizeReaderAreaTo(400, 600)
 
-    await screen.findByRole('img', { name: 'PDF 1페이지' })
-    const pageFrame = screen
-      .getByRole('region', { name: 'PDF 본문' })
-      .querySelector('[data-slot="pdf-page-frame"]')
-    expect(pageFrame).toHaveStyle({
-      width: '400px',
-      height: '600px',
+    // 리사이즈 측정은 깜빡임을 막기 위해 한 애니메이션 프레임 뒤에 반영되므로 기다린다.
+    await waitFor(() => {
+      const pageFrame = screen
+        .getByRole('region', { name: 'PDF 본문' })
+        .querySelector('[data-slot="pdf-page-frame"]')
+      expect(pageFrame).toHaveStyle({
+        width: '400px',
+        height: '600px',
+      })
     })
   })
 

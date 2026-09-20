@@ -1,21 +1,12 @@
-import { BookOpen } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { toast } from '@/components/ui/toast'
+import { ErrorAlert } from '@/components/error-alert'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { usePageFileDrop } from '../hooks/use-page-file-drop'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { EbookShelf } from './ebook-shelf'
 import { EbookShelfLoading } from './ebook-shelf-loading'
 import { LibrarySummary } from './library-summary'
-import { PdfUpload } from './pdf-upload'
 
 interface EbookLibraryProps {
   store: EbookLibraryStore
@@ -37,7 +28,15 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     regeneratingCover,
     renameBook,
     deleteBook,
+    retryOcrAnalysis,
   } = useEbookLibrary(store)
+
+  const { isDraggingFile, dropZoneProps } = usePageFileDrop({
+    disabled: state.status !== 'ready' || isUploading,
+    onFilesDropped: (files) => {
+      void addFiles(files)
+    },
+  })
 
   async function openBook(bookId: string) {
     try {
@@ -55,7 +54,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   }
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="min-h-svh bg-background" {...dropZoneProps}>
       <nav aria-label="주 탐색" className="border-b bg-card/92">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
           <strong>oh-my-ebook</strong>
@@ -83,55 +82,36 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             >
               새로고침
             </Button>
-            <PdfUpload
-              isUploading={isUploading}
-              disabled={state.status !== 'ready'}
-              onFilesSelected={(files) => {
-                void addFiles(files)
-              }}
-            />
           </div>
         </header>
         {state.status === 'loading' && <EbookShelfLoading />}
 
         {state.status === 'error' && (
-          <Alert variant="destructive">
-            <AlertTitle>{state.message}</AlertTitle>
-            <AlertDescription>
-              <Button className="mt-3" onClick={retry} variant="outline">
-                다시 시도
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <ErrorAlert title={state.message}>
+            <Button onClick={retry}>다시 시도</Button>
+          </ErrorAlert>
         )}
 
-        {state.status === 'ready' && state.books.length === 0 && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <BookOpen />
-              </EmptyMedia>
-              <EmptyTitle>아직 저장한 책이 없습니다.</EmptyTitle>
-              <EmptyDescription>
-                PDF는 이 브라우저에만 저장됩니다. 브라우저 데이터를 삭제하면 책도 사라질 수
-                있습니다.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>위의 PDF 업로드 버튼으로 책을 선택하세요.</EmptyContent>
-          </Empty>
-        )}
-
-        {state.status === 'ready' && state.books.length > 0 && (
+        {state.status === 'ready' && (
           <section aria-label="저장된 책" className="flex flex-col gap-3">
-            <p>저장된 책 {state.books.length}권</p>
+            {state.books.length > 0 && <p>저장된 책 {state.books.length}권</p>}
             <EbookShelf
               books={state.books}
               coverErrors={coverErrors}
+              disabled={state.status !== 'ready'}
+              dragActive={isDraggingFile}
+              isUploading={isUploading}
+              onFilesSelected={(files) => {
+                void addFiles(files)
+              }}
               onOpenBook={(bookId) => {
                 void openBook(bookId)
               }}
               onRegenerate={(book) => {
                 void regenerateCover(book)
+              }}
+              onRetryAnalysis={(bookId) => {
+                void retryOcrAnalysis(bookId)
               }}
               regeneratingCover={regeneratingCover}
               onDelete={(bookId) => {
@@ -144,20 +124,15 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
           </section>
         )}
         {refreshError && (
-          <Alert variant="destructive">
-            <AlertTitle>{refreshError}</AlertTitle>
-            <AlertDescription>
-              <Button
-                className="mt-3"
-                onClick={() => {
-                  void refreshLibrary()
-                }}
-                variant="outline"
-              >
-                다시 시도
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <ErrorAlert title={refreshError}>
+            <Button
+              onClick={() => {
+                void refreshLibrary()
+              }}
+            >
+              다시 시도
+            </Button>
+          </ErrorAlert>
         )}
         {state.status === 'ready' && (
           <p className="text-sm text-muted-foreground">

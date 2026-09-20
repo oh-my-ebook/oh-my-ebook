@@ -134,6 +134,11 @@ describe('ReaderChat', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('모델 다운로드 연결에 실패했습니다.')
     expect(screen.getByRole('button', { name: '모델 다운로드 재시도' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.',
+      ),
+    ).toHaveClass('text-destructive/90')
   })
 
   it('모델 다운로드 중에는 버튼의 접근 가능한 이름도 진행 상태를 알려준다', () => {
