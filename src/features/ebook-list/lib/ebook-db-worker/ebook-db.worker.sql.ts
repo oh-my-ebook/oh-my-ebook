@@ -282,3 +282,17 @@ export function createSearchChunksSql(termCount: number): string {
   ORDER BY score DESC, ordinal ASC
   LIMIT ?`
 }
+
+export function createSearchChunkSourcesSql(chunkCount: number): string {
+  if (!Number.isSafeInteger(chunkCount) || chunkCount <= 0) {
+    throw new RangeError('청크 수는 양의 정수여야 합니다.')
+  }
+
+  const chunkPlaceholders = Array.from({ length: chunkCount }, () => '?').join(', ')
+  return `SELECT chunk_sources.chunk_id, ocr_pages.page_number,
+    chunk_sources.start_line_index, chunk_sources.end_line_index
+    FROM chunk_sources
+    JOIN ocr_pages ON ocr_pages.id = chunk_sources.ocr_page_id
+    WHERE chunk_sources.chunk_id IN (${chunkPlaceholders})
+    ORDER BY chunk_sources.chunk_id, chunk_sources.source_order`
+}

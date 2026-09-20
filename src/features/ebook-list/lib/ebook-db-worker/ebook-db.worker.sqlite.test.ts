@@ -10,6 +10,8 @@ function createDatabase({
   ocrLinesForChunking = [],
   searchIndexChunkStoreFails = false,
   searchIndexStoreFails = false,
+  searchResults = [],
+  searchSources = [],
   searchTermCleanupFails = false,
   searchPostings = [],
   searchTerms = [],
@@ -22,6 +24,8 @@ function createDatabase({
   ocrLinesForChunking?: Record<string, unknown>[]
   searchIndexChunkStoreFails?: boolean
   searchIndexStoreFails?: boolean
+  searchResults?: Record<string, unknown>[]
+  searchSources?: Record<string, unknown>[]
   searchTermCleanupFails?: boolean
   searchPostings?: Record<string, unknown>[]
   searchTerms?: Record<string, unknown>[]
@@ -58,6 +62,10 @@ function createDatabase({
     ) {
       throw new Error('term cleanup failed')
     }
+    if (typeof sql === 'string' && sql.includes('term_document_frequencies')) return searchResults
+    if (typeof sql === 'string' && sql.includes('WHERE chunk_sources.chunk_id IN')) {
+      return searchSources
+    }
     if (typeof sql === 'string' && sql.includes('FROM search_terms')) return searchTerms
     if (typeof sql === 'string' && sql.includes('FROM search_postings')) return searchPostings
     if (typeof sql === 'string' && sql.includes('ocr_page_id')) return ocrLinesForChunking
@@ -87,6 +95,75 @@ function createDatabase({
 }
 
 describe('OCR SQLite 계약', () => {
+  it('현재 책에서 찾은 청크에 페이지별 줄 출처를 포함한다', () => {
+    const { database, exec } = createDatabase({
+      searchResults: [
+        {
+          id: 'chunk-2',
+          ordinal: 1,
+          text: 'BM25 검색 청크',
+          token_count: 4,
+          score: 1.25,
+        },
+      ],
+      searchSources: [
+        {
+          chunk_id: 'chunk-2',
+          page_number: 4,
+          start_line_index: 2,
+          end_line_index: 5,
+        },
+      ],
+    })
+
+    expect(
+      executeSqliteCommand(database, {
+        requestId: 1,
+        command: SQLITE_COMMAND.SEARCH_CHUNKS,
+        payload: { bookId: 'book-id', terms: ['검색'], limit: 5 },
+      }),
+    ).toEqual([
+      {
+        id: 'chunk-2',
+        ordinal: 1,
+        text: 'BM25 검색 청크',
+        tokenCount: 4,
+        score: 1.25,
+        sources: [{ pageNumber: 4, startLineIndex: 2, endLineIndex: 5 }],
+      },
+    ])
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining('term_document_frequencies'), {
+      bind: ['검색', 'book-id', 5],
+      rowMode: 'object',
+      returnValue: 'resultRows',
+    })
+    expect(exec).toHaveBeenCalledWith(expect.stringContaining('WHERE chunk_sources.chunk_id IN'), {
+      bind: ['chunk-2'],
+      rowMode: 'object',
+      returnValue: 'resultRows',
+    })
+  })
+
+  it('검색어가 없거나 일치 청크가 없으면 빈 배열을 반환한다', () => {
+    const { database, exec } = createDatabase()
+
+    expect(
+      executeSqliteCommand(database, {
+        requestId: 2,
+        command: SQLITE_COMMAND.SEARCH_CHUNKS,
+        payload: { bookId: 'book-id', terms: [], limit: 5 },
+      }),
+    ).toEqual([])
+    expect(
+      executeSqliteCommand(database, {
+        requestId: 3,
+        command: SQLITE_COMMAND.SEARCH_CHUNKS,
+        payload: { bookId: 'book-id', terms: ['없는검색어'], limit: 5 },
+      }),
+    ).toEqual([])
+    expect(exec).toHaveBeenCalledTimes(1)
+  })
+
   it('책 삭제 뒤 cascade된 posting을 기준으로 고아 term을 제거하고 남은 DF를 갱신한다', () => {
     const { database, exec } = createDatabase()
 
