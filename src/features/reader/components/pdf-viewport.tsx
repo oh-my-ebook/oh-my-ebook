@@ -5,15 +5,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   extractPdfPageImages,
   extractPdfPageText,
+  isRenderablePdfPage,
   PDF_CSS_SCALE,
+  renderPdfPageImage,
   type PageImageRegions,
   type PdfDocumentHandle,
   type PdfPageHandle,
   type PdfPageInfo,
-  type PdfPageViewport,
 } from '../lib/pdf-document'
 import { recognizePdfPage } from '../lib/ocr/page-recognition'
-import type { PageTextLayer } from '../lib/text-layer'
+import type { BoundingBox, PageTextLayer } from '../lib/text-layer'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
@@ -34,21 +35,6 @@ interface PdfViewportPagesProps extends PdfViewportBaseProps {
 type PdfViewportProps = PdfViewportSinglePageProps | PdfViewportPagesProps
 
 export type PdfViewportStatus = 'error' | 'loading' | 'ready'
-
-interface PdfRenderParameters {
-  canvas: HTMLCanvasElement
-  viewport: PdfPageViewport
-  transform?: number[]
-}
-
-interface PdfRenderTask {
-  readonly promise: Promise<void>
-  cancel(): void
-}
-
-interface RenderablePdfPage extends PdfPageHandle {
-  render(parameters: PdfRenderParameters): PdfRenderTask
-}
 
 interface PdfViewportRequest {
   attempt: number
@@ -74,8 +60,17 @@ interface ImageRegionOutcome {
   pages: ReadonlyMap<number, PageImageRegions>
 }
 
-function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
-  return 'render' in page && typeof page.render === 'function'
+interface SelectedImage {
+  pageNumber: number
+  region: BoundingBox
+}
+
+type CopyStatus = 'copied' | 'failed' | 'idle'
+
+const COPY_LABEL: Record<CopyStatus, string> = {
+  copied: '복사됨',
+  failed: '복사 실패',
+  idle: '이미지 복사',
 }
 
 function isSameRenderTarget(a: PdfViewportRequest, b: PdfViewportRequest) {
@@ -138,6 +133,8 @@ export function PdfViewport(props: PdfViewportProps) {
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [textLayerOutcome, setTextLayerOutcome] = useState<TextLayerOutcome | null>(null)
   const [imageRegionOutcome, setImageRegionOutcome] = useState<ImageRegionOutcome | null>(null)
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null)
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const request = { attempt, document, pageNumbers, scale }
   const status = getPdfViewportStatus(outcome, request)
 
@@ -287,6 +284,17 @@ export function PdfViewport(props: PdfViewportProps) {
     textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
       ? textLayerOutcome.pages
       : new Map<number, PageTextLayer>()
+  const copyImage = async ({ pageNumber, region }: SelectedImage) => {
+    // 클립보드 쓰기는 클릭 직후에 시작해야 하므로, 이미지를 만드는 Promise를 그대로 넘긴다.
+    const image = document.getPage(pageNumber).then((page) => renderPdfPageImage(page, region))
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })])
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('failed')
+    }
+  }
+
   const imageRegionPages =
     imageRegionOutcome?.document === document && imageRegionOutcome.pageNumbers === pageNumbers
       ? imageRegionOutcome.pages
@@ -316,25 +324,6 @@ export function PdfViewport(props: PdfViewportProps) {
                 data-slot="pdf-page-canvas"
                 hidden={status !== 'ready'}
               />
-              {status === 'ready' && imageRegions && imageRegions.regions.length > 0 && (
-                <div
-                  aria-label={`PDF ${page.pageNumber}페이지 이미지 영역`}
-                  className="pointer-events-none absolute inset-0"
-                >
-                  {imageRegions.regions.map((region) => (
-                    <div
-                      className="absolute rounded-xs outline-2 outline-offset-2 outline-dashed outline-image-region/70"
-                      key={`${region.x0}-${region.y0}-${region.x1}-${region.y1}`}
-                      style={{
-                        left: `${(region.x0 / imageRegions.width) * 100}%`,
-                        top: `${(region.y0 / imageRegions.height) * 100}%`,
-                        width: `${((region.x1 - region.x0) / imageRegions.width) * 100}%`,
-                        height: `${((region.y1 - region.y0) / imageRegions.height) * 100}%`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
               {status === 'ready' && textLayer && (
                 <div
                   aria-label={`PDF ${page.pageNumber}페이지 텍스트 레이어`}
@@ -355,6 +344,53 @@ export function PdfViewport(props: PdfViewportProps) {
                       {line.text}
                     </span>
                   ))}
+                </div>
+              )}
+              {status === 'ready' && imageRegions && imageRegions.regions.length > 0 && (
+                <div
+                  aria-label={`PDF ${page.pageNumber}페이지 이미지 영역`}
+                  className="pointer-events-none absolute inset-0"
+                >
+                  {imageRegions.regions.map((region, index) => {
+                    const isSelected =
+                      selectedImage?.pageNumber === page.pageNumber &&
+                      selectedImage.region === region
+                    return (
+                      <div
+                        className="absolute"
+                        key={`${region.x0}-${region.y0}-${region.x1}-${region.y1}`}
+                        style={{
+                          left: `${(region.x0 / imageRegions.width) * 100}%`,
+                          top: `${(region.y0 / imageRegions.height) * 100}%`,
+                          width: `${((region.x1 - region.x0) / imageRegions.width) * 100}%`,
+                          height: `${((region.y1 - region.y0) / imageRegions.height) * 100}%`,
+                        }}
+                      >
+                        <button
+                          aria-label={`PDF ${page.pageNumber}페이지 그림 ${index + 1}`}
+                          aria-pressed={isSelected}
+                          className="pointer-events-auto size-full rounded-xs outline-2 outline-offset-2 outline-dashed outline-image-region/70 transition-colors hover:bg-image-region/25 focus-visible:bg-image-region/25 aria-pressed:bg-image-region/25 motion-reduce:transition-none"
+                          onClick={() => {
+                            setCopyStatus('idle')
+                            setSelectedImage(
+                              isSelected ? null : { pageNumber: page.pageNumber, region },
+                            )
+                          }}
+                          type="button"
+                        />
+                        {isSelected && (
+                          <Button
+                            className="pointer-events-auto absolute top-1 right-1"
+                            onClick={() => void copyImage({ pageNumber: page.pageNumber, region })}
+                            size="xs"
+                            variant="secondary"
+                          >
+                            {COPY_LABEL[copyStatus]}
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {status === 'loading' && <Skeleton className="absolute inset-0 h-full w-full" />}

@@ -1,21 +1,24 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { extractPdfPageImages, extractPdfPageText, recognizePdfPage } = vi.hoisted(() => ({
-  extractPdfPageImages: vi.fn(),
-  extractPdfPageText: vi.fn(),
-  recognizePdfPage: vi.fn(),
-}))
+const { extractPdfPageImages, extractPdfPageText, recognizePdfPage, renderPdfPageImage } =
+  vi.hoisted(() => ({
+    extractPdfPageImages: vi.fn(),
+    extractPdfPageText: vi.fn(),
+    recognizePdfPage: vi.fn(),
+    renderPdfPageImage: vi.fn(),
+  }))
 
 vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
 vi.mock('../lib/pdf-document', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/pdf-document')>()),
   extractPdfPageImages,
   extractPdfPageText,
+  renderPdfPageImage,
 }))
 
 function createRenderTask() {
@@ -62,6 +65,45 @@ function createPdfDocument(pages: ReadonlyMap<number, PdfPageHandle>) {
   })
   const document = { numPages: pages.size, getPage } satisfies PdfDocumentHandle
   return { document, getPage }
+}
+
+class FakeClipboardItem {
+  readonly items: Record<string, unknown>
+
+  constructor(items: Record<string, unknown>) {
+    this.items = items
+  }
+}
+
+// jsdom에는 클립보드 이미지 쓰기가 없어 테스트마다 새로 대신 채우고 끝나면 되돌린다.
+function stubClipboard() {
+  const write = vi.fn().mockResolvedValue(undefined)
+  const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } })
+  vi.stubGlobal('ClipboardItem', FakeClipboardItem)
+  onTestFinished(() => {
+    if (original) {
+      Object.defineProperty(navigator, 'clipboard', original)
+      return
+    }
+    Reflect.deleteProperty(navigator, 'clipboard')
+  })
+  return write
+}
+
+async function showPageWithImage(region: { x0: number; y0: number; x1: number; y1: number }) {
+  const renderTask = createRenderTask()
+  const pdfPage = createPdfPage([renderTask])
+  const { document } = createPdfDocument(new Map([[1, pdfPage.page]]))
+  extractPdfPageImages.mockResolvedValueOnce({ width: 600, height: 900, regions: [region] })
+
+  render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+  await act(async () => {
+    renderTask.completion.resolve(undefined)
+    await renderTask.completion.promise
+  })
+
+  return { page: pdfPage.page }
 }
 
 function createPageInfo(pageNumber: number): PdfPageInfo {
@@ -159,6 +201,33 @@ describe('PdfViewport', () => {
     const imageLayer = await screen.findByLabelText('PDF 1페이지 이미지 영역')
     const [box] = imageLayer.children
     expect(box).toHaveStyle({ left: '10%', top: '10%', width: '50%', height: '25%' })
+  })
+
+  it('그림을 클릭하면 이미지 복사 버튼이 나타난다', async () => {
+    const user = userEvent.setup()
+    await showPageWithImage({ x0: 60, y0: 90, x1: 360, y1: 315 })
+
+    expect(screen.queryByRole('button', { name: '이미지 복사' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1' }))
+
+    expect(screen.getByRole('button', { name: '이미지 복사' })).toBeInTheDocument()
+  })
+
+  it('복사 버튼을 누르면 그림을 클립보드에 넣는다', async () => {
+    const user = userEvent.setup()
+    const write = stubClipboard()
+    const pngBlob = new Blob(['png'], { type: 'image/png' })
+    renderPdfPageImage.mockResolvedValue(pngBlob)
+    const region = { x0: 60, y0: 90, x1: 360, y1: 315 }
+    const { page } = await showPageWithImage(region)
+
+    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1' }))
+    await user.click(screen.getByRole('button', { name: '이미지 복사' }))
+
+    expect(renderPdfPageImage).toHaveBeenCalledWith(page, region)
+    const [[clipboardItem]] = write.mock.calls[0]
+    await expect(clipboardItem.items['image/png']).resolves.toBe(pngBlob)
+    expect(await screen.findByRole('button', { name: '복사됨' })).toBeInTheDocument()
   })
 
   it('PDF에 텍스트가 있으면 OCR 없이 그 텍스트를 표시한다', async () => {
