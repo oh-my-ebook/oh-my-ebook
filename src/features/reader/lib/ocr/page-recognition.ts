@@ -248,7 +248,8 @@ export async function recognizePdfPageRaw(
     return {
       width: canvas.width,
       height: canvas.height,
-      lines: await recognizeWithPaddleOcr(canvas, signal),
+      // 저장된 줄 순서가 리더 선택 순서와 검색 청크 순서를 결정하므로 저장 전에 정렬한다.
+      lines: sortInReadingOrder(await recognizeWithPaddleOcr(canvas, signal)),
     }
   } finally {
     canvas.width = 0
@@ -264,10 +265,13 @@ export async function postprocessStoredOcrPage(
   const context = canvas.getContext('2d')
   if (!context) throw new Error('OCR Canvas를 만들 수 없습니다.')
 
-  const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
-    text: rawText,
-    bbox: { x0, y0, x1, y1 },
-  }))
+  // 정렬 전에 저장된 책도 다시 OCR하지 않고 읽기 순서로 보여준다.
+  const sourceLines = sortInReadingOrder(
+    page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+      text: rawText,
+      bbox: { x0, y0, x1, y1 },
+    })),
+  )
   const lines = await postprocessOcrLines(sourceLines, context, signal)
   return { width: page.width, height: page.height, lines }
 }

@@ -1,10 +1,18 @@
 import type { PropsWithChildren } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
 import { Reader } from './reader'
+
+// jsdom에는 IntersectionObserver가 없다. 목차를 열면 TocPageThumbnail이 이를 사용하는데,
+// 이 파일은 페이지 이동 연결만 확인하므로 썸네일 렌더링 자체는 관찰하지 않는 stub로 대체한다.
+class IntersectionObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
 const usePdfDocumentMock = vi.hoisted(() => vi.fn())
 const useReaderLayoutMock = vi.hoisted(() => vi.fn())
@@ -154,5 +162,51 @@ describe('Reader 페이지 탐색 연결', () => {
     await user.keyboard('{ArrowRight}')
 
     expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+  })
+
+  describe('포커스가 목차 안에 있을 때', () => {
+    beforeEach(() => {
+      vi.stubGlobal('IntersectionObserver', IntersectionObserverStub)
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    // Sheet가 열리는 순간 포커스를 안으로 옮기는 시점은 타이밍에 좌우되므로, 안에 포커스가
+    // 있는 상태를 직접 만들어 검증한다. 목차 Sheet가 열려 있는 동안엔 배경이 접근성 트리에서
+    // 가려지므로(inert), 이동 결과는 목차를 닫은 뒤 본문에서 확인한다.
+    it('좌우 화살표로는 페이지를 넘기지 않는다', async () => {
+      const user = userEvent.setup()
+      render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+      await user.click(screen.getByRole('button', { name: '목차 열기' }))
+      const toc = await screen.findByRole('dialog', { name: '목차' })
+      within(toc).getByRole('button', { name: '1페이지' }).focus()
+
+      await user.keyboard('{ArrowRight}')
+      await user.click(screen.getByRole('button', { name: '목차 닫기' }))
+
+      expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+    })
+
+    it('위아래 화살표로 이전·다음 페이지로 이동한다', async () => {
+      const user = userEvent.setup()
+      render(<Reader title="탐색 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+      const tocButton = screen.getByRole('button', { name: '목차 열기' })
+
+      await user.click(tocButton)
+      const toc = await screen.findByRole('dialog', { name: '목차' })
+      within(toc).getByRole('button', { name: '1페이지' }).focus()
+      await user.keyboard('{ArrowDown}')
+      await user.click(screen.getByRole('button', { name: '목차 닫기' }))
+      expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
+
+      await user.click(tocButton)
+      const reopenedToc = await screen.findByRole('dialog', { name: '목차' })
+      within(reopenedToc).getByRole('button', { name: '2페이지' }).focus()
+      await user.keyboard('{ArrowUp}')
+      await user.click(screen.getByRole('button', { name: '목차 닫기' }))
+      expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+    })
   })
 })
