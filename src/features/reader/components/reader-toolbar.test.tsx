@@ -1,12 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReaderToolbar } from './reader-toolbar'
 
 function renderToolbar({ tocOpen = false, onToggleToc = vi.fn() } = {}) {
   render(
-    <MemoryRouter>
+    <TestRouter>
       <ReaderToolbar
         isSpreadAvailable
         onTogglePanel={vi.fn()}
@@ -19,13 +19,14 @@ function renderToolbar({ tocOpen = false, onToggleToc = vi.fn() } = {}) {
         tocButtonRef={{ current: null }}
         tocOpen={tocOpen}
       />
-    </MemoryRouter>,
+    </TestRouter>,
   )
 }
 
 describe('ReaderToolbar', () => {
   afterEach(() => {
     document.documentElement.classList.remove('dark')
+    localStorage.removeItem('theme')
   })
 
   it('독서 도구와 문서명을 상단에 표시한다', () => {
@@ -36,7 +37,7 @@ describe('ReaderToolbar', () => {
     expect(screen.getByRole('button', { name: '책장으로 돌아가기' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '목차 열기' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '책갈피' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: '어두운 테마' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '함께 읽기 패널 열기' })).toBeEnabled()
   })
 
@@ -63,16 +64,16 @@ describe('ReaderToolbar', () => {
     const user = userEvent.setup()
     renderToolbar()
 
-    await user.click(screen.getByRole('button', { name: '어두운 테마' }))
+    await user.click(screen.getByRole('button', { name: '다크 모드로 전환' }))
     expect(document.documentElement).toHaveClass('dark')
 
-    await user.click(screen.getByRole('button', { name: '밝은 테마' }))
+    await user.click(screen.getByRole('button', { name: '라이트 모드로 전환' }))
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
   it('두 페이지 보기를 적용할 수 없으면 보기 방식 조작만 숨기고 구분선은 유지한다', () => {
     const toolbar = (isSpreadAvailable: boolean) => (
-      <MemoryRouter>
+      <TestRouter>
         <ReaderToolbar
           isSpreadAvailable={isSpreadAvailable}
           onTogglePanel={vi.fn()}
@@ -85,7 +86,7 @@ describe('ReaderToolbar', () => {
           tocButtonRef={{ current: null }}
           tocOpen={false}
         />
-      </MemoryRouter>
+      </TestRouter>
     )
     const { rerender } = render(toolbar(true))
     const banner = screen.getByRole('banner', { name: '독서 도구' })

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { sortInReadingOrder } from './reading-order'
-import type { OcrLine } from './textbox-layer'
+import type { TextBox } from '../text-layer'
 
-function line(text: string, x0: number, y0: number, x1: number, y1: number): OcrLine {
+function line(text: string, x0: number, y0: number, x1: number, y1: number): TextBox {
   return { text, bbox: { x0, y0, x1, y1 } }
 }
 
-function texts(lines: readonly OcrLine[]) {
+function texts(lines: readonly TextBox[]) {
   return sortInReadingOrder(lines).map(({ text }) => text)
 }
 

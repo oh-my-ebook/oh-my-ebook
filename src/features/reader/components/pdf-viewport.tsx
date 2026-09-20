@@ -1,15 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
+import { CheckIcon, CopyIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'
-import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
+import {
+  extractPdfPageImages,
+  extractPdfPageText,
+  type PageImageRegions,
+  type PdfDocumentHandle,
+  type PdfPageHandle,
+  type PdfPageInfo,
+} from '../lib/pdf-document'
+import {
+  isRenderablePdfPage,
+  renderPdfPageImage,
+  renderPdfPageToCanvas,
+} from '../lib/pdf-page-render'
 import {
   postprocessStoredOcrPage,
   recognizePdfPage,
-  type OcrPageResult,
   type StoredOcrPageResult,
 } from '../lib/ocr/page-recognition'
-import { isRenderablePdfPage, renderPdfPageToCanvas } from '../lib/pdf-page-render'
+import type { BoundingBox, PageTextLayer } from '../lib/text-layer'
 import {
   PdfSelectionToolbar,
   type PdfSelectionAction,
@@ -57,10 +69,32 @@ interface PdfViewportOutcome {
   status: 'error' | 'ready'
 }
 
-interface OcrOutcome {
+interface TextLayerOutcome {
   document: PdfDocumentHandle
   pageNumbers: string
-  pages: ReadonlyMap<number, OcrPageResult>
+  pages: ReadonlyMap<number, PageTextLayer>
+}
+
+interface ImageRegionOutcome {
+  document: PdfDocumentHandle
+  pageNumbers: string
+  pages: ReadonlyMap<number, PageImageRegions>
+}
+
+interface CopyResult {
+  region: BoundingBox
+  status: Exclude<CopyStatus, 'idle'>
+}
+
+type CopyStatus = 'copied' | 'failed' | 'idle'
+
+const COPY_BUTTON: Record<
+  CopyStatus,
+  { label: string; Icon: typeof CopyIcon; iconClassName?: string }
+> = {
+  copied: { label: '복사됨', Icon: CheckIcon, iconClassName: 'text-primary' },
+  failed: { label: '복사 실패', Icon: XIcon, iconClassName: 'text-destructive' },
+  idle: { label: '복사', Icon: CopyIcon },
 }
 
 function isSameRenderTarget(a: PdfViewportRequest, b: PdfViewportRequest) {
@@ -124,7 +158,9 @@ export function PdfViewport(props: PdfViewportProps) {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [attempt, setAttempt] = useState(0)
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
-  const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
+  const [textLayerOutcome, setTextLayerOutcome] = useState<TextLayerOutcome | null>(null)
+  const [imageRegionOutcome, setImageRegionOutcome] = useState<ImageRegionOutcome | null>(null)
+  const [copyResult, setCopyResult] = useState<CopyResult | null>(null)
   const request = { attempt, document, pageNumbers, scale }
   const status = getPdfViewportStatus(outcome, request)
 
@@ -211,46 +247,87 @@ export function PdfViewport(props: PdfViewportProps) {
     }
 
     const controller = new AbortController()
-    const recognizePages = async () => {
-      const recognizedPages = await Promise.all(
+    const collectPages = async <T,>(
+      load: (page: PdfPageHandle, pageNumber: number) => Promise<T | null>,
+    ) => {
+      const loaded = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
-            let storedOcrPage: StoredOcrPageResult | null = null
-            try {
-              storedOcrPage = (await getStoredOcrPage?.(pageNumber)) ?? null
-            } catch {
-              // 저장소 조회에 실패해도 기존 즉석 OCR 경로를 유지한다.
-            }
-            const result = storedOcrPage
-              ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
-              : await recognizePdfPage(await document.getPage(pageNumber), controller.signal)
-            return [pageNumber, result] as const
+            const page = await document.getPage(pageNumber)
+            const result = await load(page, pageNumber)
+            return result === null ? null : ([pageNumber, result] as const)
           } catch {
             return null
           }
         }),
       )
-      if (controller.signal.aborted) return
-
-      const resultsByPage = new Map(recognizedPages.filter((page) => page !== null))
-      const textByPage = new Map(
-        requestedPageNumbers.map((pageNumber) => {
-          const lines = resultsByPage.get(pageNumber)?.lines ?? []
-          return [pageNumber, lines.map((line) => line.text).join('\n')] as const
-        }),
-      )
-      setOcrOutcome({ document, pageNumbers, pages: resultsByPage })
-      onOcrTextChange?.({ document, textByPage })
+      return new Map(loaded.filter((entry) => entry !== null))
     }
 
-    void recognizePages()
+    const readStoredOcrPage = async (pageNumber: number) => {
+      try {
+        return (await getStoredOcrPage?.(pageNumber)) ?? null
+      } catch {
+        // 저장소 조회에 실패해도 즉석 OCR 경로로 이어간다.
+        return null
+      }
+    }
+
+    // PDF에 글자가 있으면 그대로 쓰고, 스캔 페이지만 미리 분석해 둔 OCR이나 즉석 OCR로 읽는다.
+    const loadTextLayers = async () => {
+      const pages = await collectPages(async (page, pageNumber) => {
+        const embeddedText = await extractPdfPageText(page, controller.signal).catch(() => null)
+        if (embeddedText) {
+          return embeddedText
+        }
+        const storedOcrPage = await readStoredOcrPage(pageNumber)
+        return storedOcrPage
+          ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
+          : await recognizePdfPage(page, controller.signal)
+      })
+      if (!controller.signal.aborted) {
+        setTextLayerOutcome({ document, pageNumbers, pages })
+        const textByPage = new Map(
+          requestedPageNumbers.map((pageNumber) => [
+            pageNumber,
+            (pages.get(pageNumber)?.lines ?? []).map(({ text }) => text).join('\n'),
+          ]),
+        )
+        onOcrTextChange?.({ document, textByPage })
+      }
+    }
+
+    // 이미지 영역은 바로 계산되므로, OCR까지 갈 수 있는 텍스트와 따로 표시한다.
+    const loadImageRegions = async () => {
+      const pages = await collectPages((page) => extractPdfPageImages(page, controller.signal))
+      if (!controller.signal.aborted) {
+        setImageRegionOutcome({ document, pageNumbers, pages })
+      }
+    }
+
+    void Promise.all([loadTextLayers(), loadImageRegions()])
     return () => controller.abort()
   }, [document, firstPageNumber, getStoredOcrPage, onOcrTextChange, pageNumbers, secondPageNumber])
 
-  const ocrPages =
-    ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers
-      ? ocrOutcome.pages
-      : new Map<number, OcrPageResult>()
+  const copyImage = async (pageNumber: number, region: BoundingBox) => {
+    // 클립보드 쓰기는 클릭 직후에 시작해야 하므로, 이미지를 만드는 Promise를 그대로 넘긴다.
+    const image = document.getPage(pageNumber).then((page) => renderPdfPageImage(page, region))
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })])
+      setCopyResult({ region, status: 'copied' })
+    } catch {
+      setCopyResult({ region, status: 'failed' })
+    }
+  }
+
+  const textLayerPages =
+    textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
+      ? textLayerOutcome.pages
+      : new Map<number, PageTextLayer>()
+  const imageRegionPages =
+    imageRegionOutcome?.document === document && imageRegionOutcome.pageNumbers === pageNumbers
+      ? imageRegionOutcome.pages
+      : new Map<number, PageImageRegions>()
 
   return (
     <section aria-busy={status === 'loading'} aria-label="PDF 본문" className="h-full min-h-0">
@@ -262,7 +339,8 @@ export function PdfViewport(props: PdfViewportProps) {
         role={status === 'loading' ? 'status' : undefined}
       >
         {pages.map((page) => {
-          const ocrPage = ocrPages.get(page.pageNumber)
+          const textLayer = textLayerPages.get(page.pageNumber)
+          const imageRegions = imageRegionPages.get(page.pageNumber)
           return (
             <div
               className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none [container-type:inline-size]"
@@ -276,20 +354,20 @@ export function PdfViewport(props: PdfViewportProps) {
                 data-slot="pdf-page-canvas"
                 hidden={status !== 'ready'}
               />
-              {status === 'ready' && ocrPage && (
+              {status === 'ready' && textLayer && (
                 <div
-                  aria-label={`PDF ${page.pageNumber}페이지 OCR 텍스트 레이어`}
+                  aria-label={`PDF ${page.pageNumber}페이지 텍스트 레이어`}
                   className="absolute inset-0 overflow-hidden"
                 >
-                  {ocrPage.lines.map((line, index) => (
+                  {textLayer.lines.map((line, index) => (
                     <span
                       className="absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80"
                       data-slot="pdf-ocr-line"
                       key={`${line.x0}-${line.y0}-${index}`}
                       style={{
-                        left: `${(line.x0 / ocrPage.width) * 100}%`,
-                        top: `${(line.y0 / ocrPage.height) * 100}%`,
-                        fontSize: `${(line.fontSize / ocrPage.width) * 100}cqw`,
+                        left: `${(line.x0 / textLayer.width) * 100}%`,
+                        top: `${(line.y0 / textLayer.height) * 100}%`,
+                        fontSize: `${(line.fontSize / textLayer.width) * 100}cqw`,
                         lineHeight: 1,
                         transform: `scaleX(${line.scaleX})`,
                       }}
@@ -297,6 +375,44 @@ export function PdfViewport(props: PdfViewportProps) {
                       {line.text}
                     </span>
                   ))}
+                </div>
+              )}
+              {status === 'ready' && imageRegions && imageRegions.regions.length > 0 && (
+                <div
+                  aria-label={`PDF ${page.pageNumber}페이지 이미지 영역`}
+                  className="pointer-events-none absolute inset-0"
+                >
+                  {imageRegions.regions.map((region, index) => {
+                    const copyButton =
+                      COPY_BUTTON[copyResult?.region === region ? copyResult.status : 'idle']
+                    return (
+                      <div
+                        // 마우스를 올린 동안만 영역과 복사 버튼을 함께 드러낸다.
+                        className="group pointer-events-auto absolute rounded-xs outline-1 outline-offset-2 outline-dashed outline-transparent transition-colors hover:bg-image-region/10 hover:outline-image-region/70 motion-reduce:transition-none"
+                        key={`${region.x0}-${region.y0}-${region.x1}-${region.y1}`}
+                        // 다음에 다시 올렸을 때 지난 복사 결과가 남아 있지 않게 한다.
+                        onPointerLeave={() =>
+                          setCopyResult((current) => (current?.region === region ? null : current))
+                        }
+                        style={{
+                          left: `${(region.x0 / imageRegions.width) * 100}%`,
+                          top: `${(region.y0 / imageRegions.height) * 100}%`,
+                          width: `${((region.x1 - region.x0) / imageRegions.width) * 100}%`,
+                          height: `${((region.y1 - region.y0) / imageRegions.height) * 100}%`,
+                        }}
+                      >
+                        <Button
+                          aria-label={`PDF ${page.pageNumber}페이지 그림 ${index + 1} ${copyButton.label}`}
+                          className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none"
+                          onClick={() => void copyImage(page.pageNumber, region)}
+                          size="icon-sm"
+                          variant="muted"
+                        >
+                          <copyButton.Icon className={copyButton.iconClassName} />
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {status === 'loading' && <Skeleton className="absolute inset-0 h-full w-full" />}
