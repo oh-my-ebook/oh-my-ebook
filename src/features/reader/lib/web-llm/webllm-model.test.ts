@@ -3,6 +3,10 @@ import { createPromiseController } from '../../../../test/promise-controller'
 import { stubGpu, stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
 import type { WebLlmEngine } from './webllm-model'
 
+vi.mock('./webllm-tokenizer', () => ({
+  loadWebLlmTokenCounter: async () => (text: string) => Array.from(text).length,
+}))
+
 const NETWORK_ERROR_MESSAGE =
   '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
 const GPU_MEMORY_ERROR_MESSAGE =

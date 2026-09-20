@@ -60,6 +60,80 @@ describe('ReaderChat', () => {
     vi.unstubAllGlobals()
   })
 
+  it('입력과 페이지 변경을 사용량에 반영하고 수동 정리는 화면 기록을 보존한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({
+      status: 'ready',
+      countTokens: (text) => Array.from(text).length,
+    })
+    const user = userEvent.setup()
+    const model = createMockChatModelAdapter(async function* () {
+      yield '완료된 답변'
+    })
+    const run = vi.fn(model.run)
+    const chatModel = { run }
+    const { rerender } = render(<ReaderChat chatModel={chatModel} currentPageText="본문" />)
+    const usage = screen.getByRole('progressbar', { name: '컨텍스트 윈도우' })
+    const initial = Number(usage.getAttribute('aria-valuenow'))
+    const input = screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })
+    await user.type(input, '첫 번째 질문')
+    expect(Number(usage.getAttribute('aria-valuenow'))).toBeGreaterThan(initial)
+    await user.keyboard('{Enter}')
+    await screen.findByText('완료된 답변')
+    await user.type(input, '두 번째 질문{Enter}')
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: SEND_BUTTON_NAME })).toBeInTheDocument(),
+    )
+
+    await user.click(screen.getByRole('button', { name: '이전 대화 정리' }))
+    expect(screen.getByText('첫 번째 질문')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: '컨텍스트 정리 안내' })).toHaveTextContent('2개')
+    await user.type(input, '세 번째 질문{Enter}')
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3))
+    expect(run.mock.calls[2]?.[0].messages.map((message) => message.content)).toEqual([
+      [{ type: 'text', text: '두 번째 질문' }],
+      [{ type: 'text', text: '완료된 답변' }],
+      [{ type: 'text', text: '세 번째 질문' }],
+    ])
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: SEND_BUTTON_NAME })).toBeInTheDocument(),
+    )
+    const beforePageChange = Number(usage.getAttribute('aria-valuenow'))
+    rerender(<ReaderChat chatModel={chatModel} currentPageText={'새 페이지 본문'.repeat(30)} />)
+    expect(Number(usage.getAttribute('aria-valuenow'))).toBeGreaterThan(beforePageChange)
+    const details = screen.getByRole('button', { name: '컨텍스트 상세' })
+    details.focus()
+    await user.keyboard('{Enter}')
+    expect(details).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('답변 예약')).toBeInTheDocument()
+  })
+
+  it('첨부 인용의 추가와 삭제도 컨텍스트 사용량에 반영한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({
+      status: 'ready',
+      countTokens: (text) => Array.from(text).length,
+    })
+    const user = userEvent.setup()
+    const model = createMockChatModelAdapter(async function* () {
+      yield '답변'
+    })
+    const { rerender } = render(<ReaderChat chatModel={model} />)
+    const usage = screen.getByRole('progressbar', { name: '컨텍스트 윈도우' })
+    const before = Number(usage.getAttribute('aria-valuenow'))
+    rerender(
+      <ReaderChat
+        chatModel={model}
+        quoteRequest={{ id: 1, action: 'attach', pageNumber: 1, text: '첨부한 문장' }}
+      />,
+    )
+    await screen.findByText('첨부한 문장')
+    expect(Number(usage.getAttribute('aria-valuenow'))).toBeGreaterThan(before)
+    await user.click(screen.getByRole('button', { name: '인용 삭제' }))
+    expect(Number(usage.getAttribute('aria-valuenow'))).toBe(before)
+  })
+
   it('대화를 시작하기 전에는 질문을 안내하는 문구를 보여준다', () => {
     setupResizeObserverMock()
     render(<ReaderChat />)

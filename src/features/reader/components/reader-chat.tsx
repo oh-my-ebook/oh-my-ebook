@@ -7,13 +7,15 @@ import {
   useLocalRuntime,
   type ChatModelAdapter,
 } from '@assistant-ui/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { Button } from '@/components/ui/button'
 import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
 import type { BookMetadata } from '../lib/book-metadata'
 import { webLlmChatModelAdapter } from '../lib/web-llm/webllm-chat-adapter'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
+import { filterContextMessages } from '../lib/web-llm/webllm-context'
+import { ReaderContextUsage } from './reader-context-usage'
 import { ModelDownloadAlert } from './model-download-alert'
 
 const PAGE_SUMMARY_QUESTION = '이 페이지에 대해 요약해줘'
@@ -106,7 +108,10 @@ function ReaderChatContent({
   currentPageText,
   onQuoteRequestHandled,
   quoteRequest,
-}: ReaderChatContext & Pick<ReaderChatProps, 'onQuoteRequestHandled' | 'quoteRequest'>) {
+  excludedIds,
+  onCompact,
+}: { excludedIds: ReadonlySet<string>; onCompact(ids: string[]): void } & ReaderChatContext &
+  Pick<ReaderChatProps, 'onQuoteRequestHandled' | 'quoteRequest'>) {
   const assistant = useAui()
   const isModelReady = useWebLlmModelStore((state) => state.status === 'ready')
   useAssistantContext({
@@ -142,16 +147,32 @@ function ReaderChatContent({
       <div className="min-h-0 flex-1">
         <Thread components={THREAD_COMPONENTS} composerDisabled={!isModelReady} />
       </div>
+      <ReaderContextUsage
+        system={getSystemPrompt({ bookMetadata, currentPage, currentPageText })}
+        excludedIds={excludedIds}
+        onCompact={onCompact}
+      />
     </div>
   )
 }
 
 export function ReaderChat({ chatModel = webLlmChatModelAdapter, ...context }: ReaderChatProps) {
-  const runtime = useLocalRuntime(chatModel)
+  const [excludedIds, setExcludedIds] = useState<ReadonlySet<string>>(() => new Set())
+  const runtime = useLocalRuntime({
+    run: (options) =>
+      chatModel.run({
+        ...options,
+        messages: filterContextMessages(options.messages, excludedIds),
+      }),
+  })
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ReaderChatContent {...context} />
+      <ReaderChatContent
+        {...context}
+        excludedIds={excludedIds}
+        onCompact={(ids) => setExcludedIds((previous) => new Set([...previous, ...ids]))}
+      />
     </AssistantRuntimeProvider>
   )
 }

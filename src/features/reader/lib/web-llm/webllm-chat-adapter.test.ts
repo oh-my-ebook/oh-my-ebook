@@ -5,6 +5,10 @@ import { encodeQuoteTexts } from '../../../../lib/quote'
 import { createWebLlmChatModelAdapter } from './webllm-chat-adapter'
 import type { WebLlmEngine } from './webllm-model'
 
+vi.mock('./webllm-tokenizer', () => ({
+  loadWebLlmTokenCounter: async () => (text: string) => Array.from(text).length,
+}))
+
 function createMessage(role: 'user' | 'assistant', text: string, quote?: string): ThreadMessage {
   const common = {
     id: `${role}-${text}`,
@@ -96,6 +100,40 @@ describe('createWebLlmChatModelAdapter', () => {
       stream: true,
       temperature: 0.3,
     })
+  })
+
+  it('긴 대화는 이전 턴을 제외한 뒤 모델에 전달한다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const adapter = createWebLlmChatModelAdapter(async () => engine)
+    const options = createRunOptions([
+      createMessage('user', '예전 질문'.repeat(1500)),
+      createMessage('assistant', '예전 답변'.repeat(1500)),
+      createMessage('user', '현재 질문', '현재 인용'),
+    ])
+    for await (const _result of adapter.run(options)) {
+      /* 요청 결과를 확인한다. */
+    }
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'system', content: options.context.system },
+          { role: 'user', content: '<selected_quote>\n현재 인용\n</selected_quote>\n\n현재 질문' },
+        ],
+      }),
+    )
+  })
+
+  it('초과 질문은 모델을 호출하거나 고장 상태로 바꾸지 않고 수정 안내를 준다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const onEngineFailure = vi.fn()
+    const adapter = createWebLlmChatModelAdapter(async () => engine, onEngineFailure)
+    const results = adapter.run(createRunOptions([createMessage('user', '긴 질문'.repeat(4000))]))
+    await expect(results.next()).rejects.toThrow('질문을 줄이거나 인용문을 삭제')
+    expect(create).not.toHaveBeenCalled()
+    expect(onEngineFailure).not.toHaveBeenCalled()
+    const retry = adapter.run(createRunOptions([createMessage('user', '짧은 질문')]))
+    expect(getText((await retry.next()).value ?? {})).toBe('답변')
+    await retry.return()
   })
 
   it('사용자 메시지의 PDF 인용문을 질문과 함께 엔진에 전달한다', async () => {
@@ -271,6 +309,19 @@ describe('createWebLlmChatModelAdapter', () => {
 
     expect(texts).toEqual(['답변'])
     expect(loadEngine).toHaveBeenCalledTimes(2)
+  })
+
+  it('워커가 문자열로 전달한 한도 오류도 엔진 고장으로 처리하지 않는다', async () => {
+    const { engine } = createEngine([])
+    engine.chat.completions.create = vi
+      .fn()
+      .mockRejectedValue('ContextWindowSizeExceededError: Prompt tokens exceed context window size')
+    const onFailure = vi.fn()
+    const adapter = createWebLlmChatModelAdapter(async () => engine, onFailure)
+    await expect(
+      adapter.run(createRunOptions([createMessage('user', '질문')])).next(),
+    ).rejects.toThrow('컨텍스트 한도를 넘었습니다')
+    expect(onFailure).not.toHaveBeenCalled()
   })
 
   it('생성 중 실패하면 onEngineFailure를 호출하고, 이후 요청은 정상적으로 이어진다', async () => {

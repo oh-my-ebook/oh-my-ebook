@@ -82,6 +82,20 @@ test.describe('보조 패널 채팅', () => {
       expect(sendButtonBox.y).toBeGreaterThanOrEqual(0)
       expect(sendButtonBox.y + sendButtonBox.height).toBeLessThanOrEqual(viewportSize.height)
       expect(await hasHorizontalOverflow(page)).toBe(false)
+
+      const contextDetails = page.getByRole('button', { name: '컨텍스트 상세' })
+      await expect(contextDetails).toBeVisible()
+      await contextDetails.press('Enter')
+      await expect(contextDetails).toHaveAttribute('aria-expanded', 'true')
+      await expect(page.getByText(/현재 페이지와 입력 중인 질문·인용/)).toBeVisible()
+      await expect(page.getByRole('button', { name: '이전 대화 정리' })).toBeDisabled()
+      const contextBox = await contextDetails.boundingBox()
+      expect(contextBox?.x).toBeGreaterThanOrEqual(0)
+      expect((contextBox?.x ?? 0) + (contextBox?.width ?? 0)).toBeLessThanOrEqual(
+        viewportSize.width,
+      )
+      await expect(input).toBeVisible()
+      expect(await hasHorizontalOverflow(page)).toBe(false)
     })
   })
 })

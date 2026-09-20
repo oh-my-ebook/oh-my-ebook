@@ -178,6 +178,9 @@ importers:
       '@mlc-ai/web-llm':
         specifier: 0.2.85
         version: 0.2.85
+      '@mlc-ai/web-tokenizers':
+        specifier: 0.1.6
+        version: 0.1.6
       '@paddleocr/paddleocr-js':
         specifier: 0.4.2
         version: 0.4.2
@@ -937,6 +940,9 @@ packages:
 
   '@mlc-ai/web-llm@0.2.85':
     resolution: {integrity: sha512-CwUiSAvDCYnmAZlpPMkurPHDfBLq6fvdRB3vRgoA894hRG/V/BSeY9bmMm6iIIU5VpjJxfb/dLPpJX2at0L9rw==}
+
+  '@mlc-ai/web-tokenizers@0.1.6':
+    resolution: {integrity: sha512-A5GSqUSnMjDkPoXBFFtbbW3F/qygCixuwbi7/EUMzcpgwFOAhD9vSZZBchK3IpC0c6TKlcDqAYDYp8vpb8/4vA==}
 
   '@modelcontextprotocol/sdk@1.30.0':
     resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
@@ -6531,6 +6537,8 @@ snapshots:
   '@mlc-ai/web-llm@0.2.85':
     dependencies:
       loglevel: 1.9.2
+
+  '@mlc-ai/web-tokenizers@0.1.6': {}
 
   '@modelcontextprotocol/sdk@1.30.0(zod@3.25.76)':
     dependencies:

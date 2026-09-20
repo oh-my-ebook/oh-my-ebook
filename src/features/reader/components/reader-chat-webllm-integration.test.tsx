@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { stubSupportedGpu, stubWorker } from '../../../test/web-llm-stubs'
 import { ReaderChat } from './reader-chat'
 
+vi.mock('../lib/web-llm/webllm-tokenizer', () => ({
+  loadWebLlmTokenCounter: async () => (text: string) => Array.from(text).length,
+}))
+
 const createCompletion = vi.hoisted(() =>
   vi.fn(async (_request: { messages: { role: string; content: string }[] }) => ({
     async *[Symbol.asyncIterator]() {

@@ -1,7 +1,11 @@
 import type { ChatCompletionRequestStreaming } from '@mlc-ai/web-llm'
 import { create } from 'zustand'
 
-export const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
+import { WEBLLM_MODEL_ID } from './webllm-config'
+import { CONTEXT_WINDOW, type TokenCounter } from './webllm-context'
+import { loadWebLlmTokenCounter } from './webllm-tokenizer'
+
+export { WEBLLM_MODEL_ID } from './webllm-config'
 
 // 어댑터가 실제로 쓰는 부분만 정의한다. 라이브러리의 ChatCompletionChunk를 그대로 쓰면
 // 테스트 대역이 id·created 등 사용하지 않는 필드까지 모두 채워야 한다.
@@ -24,6 +28,7 @@ interface WebLlmModelState {
   status: WebLlmModelStatus
   progress: number
   error?: string
+  countTokens?: TokenCounter
 }
 
 export const useWebLlmModelStore = create<WebLlmModelState>(() => ({
@@ -98,7 +103,7 @@ async function createEngine(): Promise<WebLlmEngine> {
           })
         },
       },
-      { context_window_size: 8192 },
+      { context_window_size: CONTEXT_WINDOW },
     ),
     workerFailed,
   ])
@@ -114,16 +119,16 @@ export function invalidateDefaultEngine(error: unknown) {
 function loadDefaultEngine() {
   if (!enginePromise) {
     useWebLlmModelStore.setState({ status: 'loading', progress: 0, error: undefined })
-    enginePromise = createEngine().then(
-      (engine) => {
-        useWebLlmModelStore.setState({ status: 'ready', progress: 100 })
+    enginePromise = createEngine()
+      .then(async (engine) => {
+        const countTokens = await loadWebLlmTokenCounter()
+        useWebLlmModelStore.setState({ countTokens, status: 'ready', progress: 100 })
         return engine
-      },
-      (error: unknown) => {
+      })
+      .catch((error: unknown) => {
         invalidateDefaultEngine(error)
         throw error
-      },
-    )
+      })
   }
 
   return enginePromise
