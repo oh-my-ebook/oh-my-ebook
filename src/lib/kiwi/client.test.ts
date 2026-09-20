@@ -2,13 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 interface WorkerRequest {
   id: number
+  type: 'postprocess' | 'extract-search-terms'
   text: string
 }
 
 interface WorkerResponse {
   id: number
   ok: boolean
-  text: string
+  type: WorkerRequest['type']
+  text?: string
+  terms?: Array<{ term: string; termFrequency: number }>
 }
 
 describe('postprocessWithKiwi', () => {
@@ -27,10 +30,10 @@ describe('postprocessWithKiwi', () => {
         workerUrls.push(url)
       }
 
-      postMessage({ id, text }: WorkerRequest) {
+      postMessage({ id, text, type }: WorkerRequest) {
         this.onmessage?.(
           new MessageEvent('message', {
-            data: { id, ok: true, text: `${text} 후처리` },
+            data: { id, ok: true, type, text: `${text} 후처리` },
           }),
         )
       }
@@ -44,6 +47,38 @@ describe('postprocessWithKiwi', () => {
     expect(String(workerUrls[0])).toContain('/workers/kiwi.worker.ts')
   })
 
+  it('검색 term 추출을 Worker에 요청하고 빈도를 반환한다', async () => {
+    class WorkerStub {
+      onerror = null
+      onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null
+
+      postMessage({ id, type }: WorkerRequest) {
+        this.onmessage?.(
+          new MessageEvent('message', {
+            data: {
+              id,
+              ok: true,
+              type,
+              terms: [
+                { term: '전자책', termFrequency: 1 },
+                { term: '검색', termFrequency: 2 },
+              ],
+            },
+          }),
+        )
+      }
+    }
+    vi.stubGlobal('Worker', WorkerStub)
+    const { extractSearchTermsWithKiwi } = await import('./client')
+
+    await expect(
+      extractSearchTermsWithKiwi('전자책 검색 검색', new AbortController().signal),
+    ).resolves.toEqual([
+      { term: '전자책', termFrequency: 1 },
+      { term: '검색', termFrequency: 2 },
+    ])
+  })
+
   it('중단하면 Worker를 종료하고 다음 요청에서 다시 생성한다', async () => {
     const workers: WorkerStub[] = []
     class WorkerStub {
@@ -55,11 +90,11 @@ describe('postprocessWithKiwi', () => {
         workers.push(this)
       }
 
-      postMessage({ id, text }: WorkerRequest) {
+      postMessage({ id, text, type }: WorkerRequest) {
         if (workers.length > 1) {
           this.onmessage?.(
             new MessageEvent('message', {
-              data: { id, ok: true, text: `${text} 후처리` },
+              data: { id, ok: true, type, text: `${text} 후처리` },
             }),
           )
         }
