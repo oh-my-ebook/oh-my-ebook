@@ -4,11 +4,8 @@ const SKELETON_BOOK_COUNT = 5
 
 export function EbookShelfLoading() {
   return (
-    <section aria-label="책장 불러오기" className="flex flex-col gap-5">
-      <div aria-label="책장 불러오는 중" className="flex flex-col gap-1" role="status">
-        <p className="font-heading font-medium">서재를 불러오고 있습니다.</p>
-        <p className="text-sm text-muted-foreground">책 표지를 준비하고 있어요.</p>
-      </div>
+    <section aria-label="책장 불러오는 중" role="status">
+      <span className="sr-only">책장을 불러오는 중입니다.</span>
       <ul aria-hidden="true" className="ebook-shelf">
         {Array.from({ length: SKELETON_BOOK_COUNT }, (_, index) => (
           <li className="flex flex-col gap-3" key={index}>

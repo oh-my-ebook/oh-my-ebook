@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
@@ -84,9 +84,9 @@ function resizeReaderTo(width: number, height: number) {
 
 function renderApp() {
   return render(
-    <MemoryRouter initialEntries={['/sample-reader']}>
+    <TestRouter initialEntries={['/sample-reader']}>
       <App />
-    </MemoryRouter>,
+    </TestRouter>,
   )
 }
 
@@ -161,7 +161,7 @@ describe('App', () => {
   it('제목이 없으면 전체 파일명을 제목으로 표시한다', () => {
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader url="/samples/아주%20긴%20문서명.pdf" />, { wrapper: TestRouter })
 
     expect(screen.getByRole('heading', { name: '아주 긴 문서명.pdf' })).toBeInTheDocument()
   })
