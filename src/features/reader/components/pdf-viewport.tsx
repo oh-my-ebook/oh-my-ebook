@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CheckIcon, CopyIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'
@@ -65,17 +66,20 @@ interface ImageRegionOutcome {
   pages: ReadonlyMap<number, PageImageRegions>
 }
 
-interface SelectedImage {
-  pageNumber: number
+interface CopyResult {
   region: BoundingBox
+  status: Exclude<CopyStatus, 'idle'>
 }
 
 type CopyStatus = 'copied' | 'failed' | 'idle'
 
-const COPY_LABEL: Record<CopyStatus, string> = {
-  copied: '복사됨',
-  failed: '복사 실패',
-  idle: '이미지 복사',
+const COPY_BUTTON: Record<
+  CopyStatus,
+  { label: string; Icon: typeof CopyIcon; iconClassName?: string }
+> = {
+  copied: { label: '복사됨', Icon: CheckIcon, iconClassName: 'text-primary' },
+  failed: { label: '복사 실패', Icon: XIcon },
+  idle: { label: '복사', Icon: CopyIcon },
 }
 
 function isSameRenderTarget(a: PdfViewportRequest, b: PdfViewportRequest) {
@@ -138,8 +142,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [textLayerOutcome, setTextLayerOutcome] = useState<TextLayerOutcome | null>(null)
   const [imageRegionOutcome, setImageRegionOutcome] = useState<ImageRegionOutcome | null>(null)
-  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null)
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
+  const [copyResult, setCopyResult] = useState<CopyResult | null>(null)
   const request = { attempt, document, pageNumbers, scale }
   const status = getPdfViewportStatus(outcome, request)
 
@@ -303,14 +306,14 @@ export function PdfViewport(props: PdfViewportProps) {
     return () => controller.abort()
   }, [document, firstPageNumber, getStoredOcrPage, pageNumbers, secondPageNumber])
 
-  const copyImage = async ({ pageNumber, region }: SelectedImage) => {
+  const copyImage = async (pageNumber: number, region: BoundingBox) => {
     // 클립보드 쓰기는 클릭 직후에 시작해야 하므로, 이미지를 만드는 Promise를 그대로 넘긴다.
     const image = document.getPage(pageNumber).then((page) => renderPdfPageImage(page, region))
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })])
-      setCopyStatus('copied')
+      setCopyResult({ region, status: 'copied' })
     } catch {
-      setCopyStatus('failed')
+      setCopyResult({ region, status: 'failed' })
     }
   }
 
@@ -375,13 +378,17 @@ export function PdfViewport(props: PdfViewportProps) {
                   className="pointer-events-none absolute inset-0"
                 >
                   {imageRegions.regions.map((region, index) => {
-                    const isSelected =
-                      selectedImage?.pageNumber === page.pageNumber &&
-                      selectedImage.region === region
+                    const copyButton =
+                      COPY_BUTTON[copyResult?.region === region ? copyResult.status : 'idle']
                     return (
                       <div
-                        className="absolute"
+                        // 마우스를 올린 동안만 영역과 복사 버튼을 함께 드러낸다.
+                        className="group pointer-events-auto absolute rounded-xs outline-1 outline-offset-2 outline-dashed outline-transparent transition-colors hover:bg-image-region/10 hover:outline-image-region/70 motion-reduce:transition-none"
                         key={`${region.x0}-${region.y0}-${region.x1}-${region.y1}`}
+                        // 다음에 다시 올렸을 때 지난 복사 결과가 남아 있지 않게 한다.
+                        onPointerLeave={() =>
+                          setCopyResult((current) => (current?.region === region ? null : current))
+                        }
                         style={{
                           left: `${(region.x0 / imageRegions.width) * 100}%`,
                           top: `${(region.y0 / imageRegions.height) * 100}%`,
@@ -389,28 +396,15 @@ export function PdfViewport(props: PdfViewportProps) {
                           height: `${((region.y1 - region.y0) / imageRegions.height) * 100}%`,
                         }}
                       >
-                        <button
-                          aria-label={`PDF ${page.pageNumber}페이지 그림 ${index + 1}`}
-                          aria-pressed={isSelected}
-                          className="pointer-events-auto size-full rounded-xs outline-2 outline-offset-2 outline-dashed outline-image-region/70 transition-colors hover:bg-image-region/25 focus-visible:bg-image-region/25 aria-pressed:bg-image-region/25 motion-reduce:transition-none"
-                          onClick={() => {
-                            setCopyStatus('idle')
-                            setSelectedImage(
-                              isSelected ? null : { pageNumber: page.pageNumber, region },
-                            )
-                          }}
-                          type="button"
-                        />
-                        {isSelected && (
-                          <Button
-                            className="pointer-events-auto absolute top-1 right-1"
-                            onClick={() => void copyImage({ pageNumber: page.pageNumber, region })}
-                            size="xs"
-                            variant="secondary"
-                          >
-                            {COPY_LABEL[copyStatus]}
-                          </Button>
-                        )}
+                        <Button
+                          aria-label={`PDF ${page.pageNumber}페이지 그림 ${index + 1} ${copyButton.label}`}
+                          className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none"
+                          onClick={() => void copyImage(page.pageNumber, region)}
+                          size="icon-sm"
+                          variant="muted"
+                        >
+                          <copyButton.Icon className={copyButton.iconClassName} />
+                        </Button>
                       </div>
                     )
                   })}

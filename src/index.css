@@ -85,7 +85,7 @@
   --reader-code: oklch(0.2386 0.0094 97.75);
   --reader-code-foreground: oklch(0.9154 0.0179 92.69);
   --ocr-highlight: oklch(0.8823 0.0571 254.13);
-  --image-region: oklch(0.7089 0.1198 152.16);
+  --image-region: oklch(0.6304 0.1503 254.28);
 }
 
 .dark {
@@ -122,7 +122,7 @@
   --reader-code: oklch(0.1688 0.0044 84.59);
   --reader-code-foreground: oklch(0.8611 0.0185 89.37);
   --ocr-highlight: oklch(0.7137 0.1434 254.62);
-  --image-region: oklch(0.7684 0.1421 151.93);
+  --image-region: oklch(0.7536 0.1289 254.45);
 }
 
 @theme inline {

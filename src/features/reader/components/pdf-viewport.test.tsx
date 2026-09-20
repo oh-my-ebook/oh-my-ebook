@@ -210,14 +210,12 @@ describe('PdfViewport', () => {
     expect(box).toHaveStyle({ left: '10%', top: '10%', width: '50%', height: '25%' })
   })
 
-  it('그림을 클릭하면 이미지 복사 버튼이 나타난다', async () => {
-    const user = userEvent.setup()
+  it('그림마다 복사 버튼을 둔다', async () => {
     await showPageWithImage({ x0: 60, y0: 90, x1: 360, y1: 315 })
 
-    expect(screen.queryByRole('button', { name: '이미지 복사' })).not.toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1' }))
-
-    expect(screen.getByRole('button', { name: '이미지 복사' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사' }),
+    ).toBeInTheDocument()
   })
 
   it('복사 버튼을 누르면 그림을 클립보드에 넣는다', async () => {
@@ -228,13 +226,14 @@ describe('PdfViewport', () => {
     const region = { x0: 60, y0: 90, x1: 360, y1: 315 }
     const { page } = await showPageWithImage(region)
 
-    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1' }))
-    await user.click(screen.getByRole('button', { name: '이미지 복사' }))
+    await user.click(await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사' }))
 
     expect(renderPdfPageImage).toHaveBeenCalledWith(page, region)
     const [[clipboardItem]] = write.mock.calls[0]
     await expect(clipboardItem.items['image/png']).resolves.toBe(pngBlob)
-    expect(await screen.findByRole('button', { name: '복사됨' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: 'PDF 1페이지 그림 1 복사됨' }),
+    ).toBeInTheDocument()
   })
 
   it('PDF에 텍스트가 있으면 저장된 OCR과 즉석 OCR 없이 그 텍스트를 표시한다', async () => {
