@@ -2,6 +2,7 @@ function deleteDatabase(name: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.deleteDatabase(name)
     request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error(`IndexedDB 삭제가 차단되었습니다: ${name}`))
     request.onsuccess = () => resolve()
   })
 }
