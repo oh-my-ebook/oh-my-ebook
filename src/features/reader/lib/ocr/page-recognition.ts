@@ -2,8 +2,8 @@ import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { fitOcrLines, type OcrLine, type SelectableTextLine } from './textbox-layer'
 
-// PDF의 72 DPI 좌표를 OCR에 사용할 200 DPI 픽셀 좌표로 변환한다.
-const OCR_SCALE = 200 / 72
+// PDF의 72 DPI 좌표를 OCR에 사용할 160 DPI 픽셀 좌표로 변환한다.
+const OCR_SCALE = 160 / 72
 const PADDLE_WASM_PATH = import.meta.env.DEV
   ? '/src/assets/vendor/ocr/runtime/'
   : '/vendor/ocr/runtime/'
@@ -112,7 +112,6 @@ function getPaddle() {
         ortOptions: {
           backend: 'wasm',
           wasmPaths: PADDLE_WASM_PATH,
-          numThreads: 1,
           simd: true,
         },
       }),
@@ -122,6 +121,10 @@ function getPaddle() {
       throw error
     })
   return paddle
+}
+
+export async function prepareOcr() {
+  await Promise.all([getPaddle(), postprocessWithKiwi('', new AbortController().signal)])
 }
 
 // PaddleOCR worker 인스턴스에는 predict() 취소 API가 없어, 중단된 인스턴스는 캐시에서
@@ -167,7 +170,7 @@ async function recognizeWithPaddleOcr(
   const [recognized] = await raceWithAbort(
     instancePromise.then((instance) =>
       instance.predict(canvas, {
-        textDetLimitSideLen: 1_600,
+        textDetLimitSideLen: 1_216,
         textDetLimitType: 'max',
         textDetMaxSideLimit: 3_000,
         textDetBoxThresh: 0.45,
