@@ -245,13 +245,11 @@ export async function postprocessStoredOcrPage(
   page: StoredOcrPageResult,
   signal: AbortSignal,
 ): Promise<PageTextLayer> {
-  // 정렬 전에 저장된 책도 다시 OCR하지 않고 읽기 순서로 보여준다.
-  const sourceLines = sortInReadingOrder(
-    page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
-      text: rawText,
-      bbox: { x0, y0, x1, y1 },
-    })),
-  )
+  // 저장 시점에 정렬해 두므로 line_index 순서를 그대로 쓴다.
+  const sourceLines = page.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+    text: rawText,
+    bbox: { x0, y0, x1, y1 },
+  }))
   const lines = await postprocessOcrLines(sourceLines, signal)
   return { width: page.width, height: page.height, lines }
 }
