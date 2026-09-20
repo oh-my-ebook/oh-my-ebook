@@ -3,6 +3,24 @@
 import { expect, test } from '@playwright/test'
 import { resolve } from 'node:path'
 
+test('리더에서 선택한 테마를 서재에서도 전환할 수 있다', async ({ page }) => {
+  await page.goto('/sample-reader')
+  await page.getByRole('button', { name: '어두운 테마' }).click()
+  await page.getByRole('button', { name: '책장으로 돌아가기' }).click()
+
+  const navigation = page.getByRole('navigation', { name: '주 탐색' })
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await navigation.getByRole('button', { name: '밝은 테마' }).click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+  await page.setViewportSize({ width: 320, height: 720 })
+  const toggle = navigation.getByRole('button', { name: '어두운 테마' })
+  await expect(toggle).toBeInViewport()
+  await toggle.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('html')).toHaveClass(/dark/)
+})
+
 test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장을 표시한다', async ({ page }) => {
   await page.goto('/')
 

@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { ErrorAlert } from '@/components/error-alert'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useState } from 'react'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
 import { clearOriginData } from '../lib/origin-data-manager'
@@ -71,6 +72,9 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
           <strong>oh-my-ebook</strong>
           <span className="h-4 border-l" />
           <span className="rounded bg-muted px-3 py-1 text-sm">내 서재</span>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
       </nav>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">

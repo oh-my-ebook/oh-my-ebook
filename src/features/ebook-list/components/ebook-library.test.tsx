@@ -45,7 +45,35 @@ function createStoredBook(title: string) {
 }
 
 describe('EbookLibrary', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.documentElement.classList.remove('dark')
+  })
+
+  it('서재 탐색 바에서 어두운 테마와 밝은 테마를 전환한다', async () => {
+    const user = userEvent.setup()
+    render(<EbookLibrary store={createStore()} />, { wrapper: MemoryRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.click(screen.getByRole('button', { name: '어두운 테마' }))
+    expect(document.documentElement).toHaveClass('dark')
+
+    await user.click(screen.getByRole('button', { name: '밝은 테마' }))
+    expect(document.documentElement).not.toHaveClass('dark')
+  })
+
+  it('어두운 테마에서 서재에 진입하면 밝은 테마로 바꿀 수 있다', async () => {
+    document.documentElement.classList.add('dark')
+    const user = userEvent.setup()
+    render(<EbookLibrary store={createStore()} />, { wrapper: MemoryRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.click(screen.getByRole('button', { name: '밝은 테마' }))
+
+    expect(document.documentElement).not.toHaveClass('dark')
+    expect(screen.getByRole('button', { name: '어두운 테마' })).toBeEnabled()
+  })
+
   it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const initialization = createPromiseController<unknown>()
     const store = createStore()
