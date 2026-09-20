@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { postprocessWithKiwi } = vi.hoisted(() => ({ postprocessWithKiwi: vi.fn() }))
 
@@ -8,6 +8,23 @@ import type { OcrLineForChunking } from '../../ebook-types'
 import { createSearchChunks } from './search-chunking'
 
 describe('createSearchChunks', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('OCR 원문이 빈 줄뿐이면 Kiwi 처리 없이 빈 청크 목록을 반환한다', async () => {
+    const chunks = await createSearchChunks(
+      [
+        { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '' },
+        { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '   ' },
+      ],
+      new AbortController().signal,
+    )
+
+    expect(chunks).toEqual([])
+    expect(postprocessWithKiwi).not.toHaveBeenCalled()
+  })
+
   it('빈 줄로 문단을 나누고 짧은 문단을 합치며 페이지별 줄 범위를 남긴다', async () => {
     const lines: OcrLineForChunking[] = [
       { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 문장' },

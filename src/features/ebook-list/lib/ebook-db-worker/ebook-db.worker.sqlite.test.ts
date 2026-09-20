@@ -8,12 +8,14 @@ function createDatabase({
   nextPage = null,
   ocrLinesForChunking = [],
   searchChunkStoreFails = false,
+  sourceBookId = 'book-id',
   storeFails = false,
 }: {
   incompletePages?: number
   nextPage?: Record<string, unknown> | null
   ocrLinesForChunking?: Record<string, unknown>[]
   searchChunkStoreFails?: boolean
+  sourceBookId?: string
   storeFails?: boolean
 } = {}) {
   const exec = vi.fn((...args: unknown[]) => {
@@ -43,7 +45,7 @@ function createDatabase({
   })
   const selectObject = vi.fn((sql: string) => {
     if (sql.includes("status = 'pending'")) return nextPage
-    if (sql.includes('SELECT book_id')) return { book_id: 'book-id' }
+    if (sql.includes('SELECT book_id')) return { book_id: sourceBookId }
     return null
   })
 
@@ -236,6 +238,38 @@ describe('OCR SQLite 계약', () => {
         },
       }),
     ).toThrow('chunk write failed')
+
+    expect(exec).toHaveBeenLastCalledWith('ROLLBACK')
+  })
+
+  it('다른 책의 OCR 페이지를 청크 원본으로 저장하지 않는다', () => {
+    const { database, exec } = createDatabase({ sourceBookId: 'other-book-id' })
+
+    expect(() =>
+      executeSqliteCommand(database, {
+        requestId: 8,
+        command: SQLITE_COMMAND.STORE_SEARCH_CHUNKS,
+        payload: {
+          bookId: 'book-id',
+          chunks: [
+            {
+              id: 'chunk-1',
+              ordinal: 0,
+              text: '검색 청크',
+              tokenCount: 2,
+              sources: [
+                {
+                  ocrPageId: 'page-1',
+                  startLineIndex: 0,
+                  endLineIndex: 0,
+                  sourceOrder: 0,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ).toThrow('Chunk source does not belong to book')
 
     expect(exec).toHaveBeenLastCalledWith('ROLLBACK')
   })

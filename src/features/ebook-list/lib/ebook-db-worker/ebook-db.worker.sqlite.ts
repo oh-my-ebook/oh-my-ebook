@@ -486,6 +486,10 @@ function storeSearchChunks(database: Database, request: WorkerRequest): undefine
         bind: [chunk.id, input.bookId, chunk.ordinal, chunk.text, chunk.tokenCount, now],
       })
       for (const source of chunk.sources) {
+        const sourcePage = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [source.ocrPageId])
+        if (sourcePage?.book_id !== input.bookId) {
+          throw new Error('Chunk source does not belong to book')
+        }
         database.exec(INSERT_CHUNK_SOURCE_SQL, {
           bind: [
             chunk.id,
