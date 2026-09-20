@@ -73,4 +73,34 @@ describe('Reader 목차 연결', () => {
     expect(screen.getByRole('img', { name: 'PDF 3페이지' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 3')
   })
+
+  // 넓은 화면에서 목차를 열어도 포커스는 여는 버튼에 그대로 남으므로(reader-toc.tsx 참고),
+  // 목차 밖에 포커스가 있는 상태다.
+  it('목차가 열려 있어도 포커스가 목차 밖에 있으면 좌우 화살표로 페이지를 넘긴다', async () => {
+    const user = userEvent.setup()
+    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+
+    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+    await user.keyboard('{ArrowRight}')
+
+    expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
+  })
+
+  it('포커스가 목차 안에 있으면 좌우 화살표는 막히고 위아래 화살표로 이전·다음 페이지로 이동한다', async () => {
+    const user = userEvent.setup()
+    render(<Reader title="목차 테스트" url="/sample.pdf" />, { wrapper: MemoryRouter })
+
+    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+    const toc = screen.getByRole('region', { name: '목차' })
+    within(toc).getByRole('button', { name: '1페이지' }).focus()
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
+
+    await user.keyboard('{ArrowUp}')
+    expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+  })
 })

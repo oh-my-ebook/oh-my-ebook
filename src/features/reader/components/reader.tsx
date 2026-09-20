@@ -98,7 +98,9 @@ function ReaderError({ message, onRetry }: ReaderErrorProps) {
 }
 
 // 화살표를 직접 쓰는 조작부(글자 입력, 슬라이더, 패널 구분선, 보기 방식)나 열린 Sheet 안에서는
-// 화살표를 페이지 이동에 쓰지 않는다.
+// 화살표를 페이지 이동에 쓰지 않는다. 다만 목차 Sheet는 위아래 화살표로 직접 페이지를 넘길 수 있어야
+// 하므로 이 제외 대상에서 뺀다.
+const TOC_CONTAINER_SELECTOR = '[aria-label="목차"]'
 const ARROW_KEY_OWNER_SELECTOR = [
   'input',
   'textarea',
@@ -106,9 +108,27 @@ const ARROW_KEY_OWNER_SELECTOR = [
   '[contenteditable="true"]',
   '[role="slider"]',
   '[role="separator"]',
-  '[role="dialog"]',
+  `[role="dialog"]:not(${TOC_CONTAINER_SELECTOR})`,
   '[data-slot="toggle-group"]',
 ].join(', ')
+
+// 포커스가 목차 패널 안에 있을 때만 좌우 화살표 대신 위아래 화살표로 페이지를 넘긴다.
+// 목차가 열려 있어도 포커스가 밖에 있으면(예: 넓은 화면에서 여는 버튼에 남은 포커스) 좌우 화살표는 그대로 쓴다.
+function getArrowKeyTargetPage(
+  key: string,
+  isFocusInToc: boolean,
+  previousPage: number | null,
+  nextPage: number | null,
+) {
+  if (isFocusInToc) {
+    if (key === 'ArrowUp') return previousPage
+    if (key === 'ArrowDown') return nextPage
+    return undefined
+  }
+  if (key === 'ArrowLeft') return previousPage
+  if (key === 'ArrowRight') return nextPage
+  return undefined
+}
 
 export function Reader({
   data,
@@ -198,8 +218,9 @@ export function Reader({
         return
       }
 
-      const targetPage =
-        event.key === 'ArrowLeft' ? previousPage : event.key === 'ArrowRight' ? nextPage : undefined
+      const isFocusInToc =
+        event.target instanceof Element && event.target.closest(TOC_CONTAINER_SELECTOR) !== null
+      const targetPage = getArrowKeyTargetPage(event.key, isFocusInToc, previousPage, nextPage)
       if (targetPage === undefined) {
         return
       }
@@ -280,11 +301,13 @@ export function Reader({
           currentPage={currentPage}
           document={documentState.document}
           isWideScreen={isWideScreen}
+          nextPage={nextPage}
           onOpenChange={setTocOpen}
           onPageChange={handlePageChange}
           open={tocOpen}
           openButtonRef={tocButtonRef}
           pages={documentState.pages}
+          previousPage={previousPage}
         />
         <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize="70%" id="reader" minSize="45%">

@@ -141,4 +141,32 @@ describe('TocPageThumbnail', () => {
 
     expect(screen.getByRole('button', { name: '2페이지' })).toHaveAttribute('aria-current', 'page')
   })
+
+  it('현재 페이지가 되면 목차가 보이는 범위 안으로 스스로를 스크롤한다', () => {
+    const { IntersectionObserverStub } = createIntersectionObserverStub()
+    vi.stubGlobal('IntersectionObserver', IntersectionObserverStub)
+    const scrollIntoView = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const { rerender } = render(
+      <TocPageThumbnail
+        document={createDocument()}
+        isCurrent={false}
+        onSelect={vi.fn()}
+        page={createPage(4)}
+      />,
+    )
+    expect(scrollIntoView).not.toHaveBeenCalled()
+
+    rerender(
+      <TocPageThumbnail
+        document={createDocument()}
+        isCurrent
+        onSelect={vi.fn()}
+        page={createPage(4)}
+      />,
+    )
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+  })
 })

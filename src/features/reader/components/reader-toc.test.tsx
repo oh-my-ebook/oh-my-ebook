@@ -43,6 +43,8 @@ function TocHarness({
 }: TocHarnessProps) {
   const [open, setOpen] = useState(false)
   const openButtonRef = useRef<HTMLButtonElement>(null)
+  const previousPage = currentPage > 1 ? currentPage - 1 : null
+  const nextPage = currentPage < pages.length ? currentPage + 1 : null
 
   return (
     <>
@@ -53,11 +55,13 @@ function TocHarness({
         currentPage={currentPage}
         document={document}
         isWideScreen={isWideScreen}
+        nextPage={nextPage}
         onOpenChange={setOpen}
         onPageChange={onPageChange}
         open={open}
         openButtonRef={openButtonRef}
         pages={pages}
+        previousPage={previousPage}
       />
     </>
   )
@@ -145,5 +149,36 @@ describe('ReaderToc', () => {
     const toc = await screen.findByRole('dialog', { name: '목차' })
     expect(within(toc).getByRole('button', { name: '목차 닫기' })).toBeInTheDocument()
     expect(within(toc).getAllByRole('button', { name: /\d+페이지$/ })).toHaveLength(2)
+
+    // Sheet를 열어 둔 채 테스트를 끝내면 포커스 트랩 등 내부 상태가 다음 테스트로 새어 나가므로 닫는다.
+    await user.click(within(toc).getByRole('button', { name: '목차 닫기' }))
+    expect(screen.queryByRole('dialog', { name: '목차' })).not.toBeInTheDocument()
+  })
+
+  // Sheet는 모달이라 열려 있는 동안 키보드 이벤트가 document까지 전달되지 않으므로,
+  // 위아래 화살표로 페이지를 넘기는 동작은 Sheet 자체에서 처리해야 한다.
+  it('좁은 화면에서는 목차 안에서 위아래 화살표로 onPageChange를 호출한다', async () => {
+    const user = userEvent.setup()
+    const onPageChange = vi.fn()
+    render(
+      <TocHarness
+        currentPage={2}
+        isWideScreen={false}
+        onPageChange={onPageChange}
+        pages={createPages(3)}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '목차 열기' }))
+    const toc = await screen.findByRole('dialog', { name: '목차' })
+    // Sheet가 여는 순간 포커스를 안으로 옮기는 시점은 타이밍에 좌우되므로, 안에 포커스가 있는
+    // 상태를 직접 만들어 위아래 화살표 처리만 검증한다.
+    within(toc).getByRole('button', { name: '2페이지' }).focus()
+
+    await user.keyboard('{ArrowDown}')
+    expect(onPageChange).toHaveBeenCalledWith(3)
+
+    await user.keyboard('{ArrowUp}')
+    expect(onPageChange).toHaveBeenCalledWith(1)
   })
 })

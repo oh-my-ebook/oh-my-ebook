@@ -14,9 +14,17 @@ interface TocPageThumbnailProps {
 }
 
 export function TocPageThumbnail({ document, isCurrent, onSelect, page }: TocPageThumbnailProps) {
+  const rowRef = useRef<HTMLButtonElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isRendered, setIsRendered] = useState(false)
+
+  // 현재 페이지가 목차 스크롤 범위 밖에 있으면, 보이는 범위의 가장자리에 걸치도록 스스로를 스크롤한다.
+  useEffect(() => {
+    if (isCurrent) {
+      rowRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [isCurrent])
 
   // 목차를 열자마자 모든 페이지를 한꺼번에 그리지 않도록, 스크롤로 실제 보일 때만 렌더링한다.
   useEffect(() => {
@@ -62,6 +70,7 @@ export function TocPageThumbnail({ document, isCurrent, onSelect, page }: TocPag
       aria-current={isCurrent ? 'page' : undefined}
       className="h-auto w-full justify-start gap-2 px-2 py-1.5 aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
       onClick={() => onSelect(page.pageNumber)}
+      ref={rowRef}
       variant="ghost"
     >
       <div

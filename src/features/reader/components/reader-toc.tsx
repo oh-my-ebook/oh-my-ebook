@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import type { KeyboardEvent, RefObject } from 'react'
 import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -13,11 +13,13 @@ interface ReaderTocProps {
   currentPage: number
   document: PdfDocumentHandle | null
   isWideScreen: boolean
+  nextPage: number | null
   onOpenChange: (open: boolean) => void
   onPageChange: (pageNumber: number) => void
   open: boolean
   openButtonRef: RefObject<HTMLButtonElement | null>
   pages: readonly PdfPageInfo[]
+  previousPage: number | null
 }
 
 type TocSectionProps = Omit<ReaderTocProps, 'isWideScreen'>
@@ -68,20 +70,47 @@ function WideReaderToc({ currentPage, document, onPageChange, open, pages }: Toc
   )
 }
 
+// Sheet는 모달이라 열려 있는 동안 키보드 이벤트가 document까지 전달되지 않으므로,
+// 위아래 화살표로 페이지를 넘기는 동작은 Sheet 안에서 직접 처리한다.
+function handleTocKeyDown(
+  event: KeyboardEvent,
+  previousPage: number | null,
+  nextPage: number | null,
+  onPageChange: (pageNumber: number) => void,
+) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    return
+  }
+
+  const targetPage =
+    event.key === 'ArrowUp' ? previousPage : event.key === 'ArrowDown' ? nextPage : undefined
+  if (targetPage === undefined) {
+    return
+  }
+
+  event.preventDefault()
+  if (targetPage !== null) {
+    onPageChange(targetPage)
+  }
+}
+
 function NarrowReaderToc({
   currentPage,
   document,
+  nextPage,
   onOpenChange,
   onPageChange,
   open,
   openButtonRef,
   pages,
+  previousPage,
 }: TocSectionProps) {
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent
         aria-label={TOC_TITLE}
         finalFocus={openButtonRef}
+        onKeyDown={(event) => handleTocKeyDown(event, previousPage, nextPage, onPageChange)}
         showCloseButton={false}
         side="left"
       >
