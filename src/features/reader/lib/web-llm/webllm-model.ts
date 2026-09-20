@@ -164,7 +164,19 @@ export async function prepareWebLlmModel() {
   await loadDefaultEngine()
 }
 
-// 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
+export async function prepareCachedWebLlmModel() {
+  if (typeof caches === 'undefined' || useWebLlmModelStore.getState().status !== 'idle') return
+  if (!(await caches.has('webllm/model'))) return
+
+  const { hasModelInCache } = await import('@mlc-ai/web-llm')
+  // 일부만 받은 모델은 자동 다운로드하지 않는다. 라이브러리가 모든 가중치 파일을 확인한다.
+  const cached = await hasModelInCache(WEBLLM_MODEL_ID)
+  if (cached && useWebLlmModelStore.getState().status === 'idle') {
+    await loadDefaultEngine()
+  }
+}
+
+// 캐시가 없는 모델 다운로드는 사용자가 다운로드 버튼으로 명시적으로 시작해야 한다.
 // 채팅 요청이 로딩을 대신 시작하면 idle·error 상태에서 질문만 보내도 수백 MB 다운로드가 시작된다.
 export async function getReadyEngine() {
   if (useWebLlmModelStore.getState().status !== 'ready' || !enginePromise) {

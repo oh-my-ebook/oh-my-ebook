@@ -14,6 +14,13 @@ import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const prepareCachedModelMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('./features/reader/lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./features/reader/lib/web-llm/webllm-model')>()),
+  prepareCachedWebLlmModel: prepareCachedModelMock,
+}))
+
 const disconnectResizeObserver = vi.fn()
 
 vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
@@ -86,6 +93,7 @@ describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
     prepareOcrMock.mockClear()
+    prepareCachedModelMock.mockClear()
     disconnectResizeObserver.mockReset()
     resizeNotifications.length = 0
     vi.stubGlobal('devicePixelRatio', 1)
@@ -114,6 +122,7 @@ describe('App', () => {
     renderApp()
 
     expect(prepareOcrMock).toHaveBeenCalledOnce()
+    expect(prepareCachedModelMock).toHaveBeenCalledOnce()
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '페이지 위치' })).not.toBeInTheDocument()
