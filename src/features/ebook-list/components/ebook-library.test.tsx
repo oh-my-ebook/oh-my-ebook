@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
+import * as ocrAnalysis from '../lib/ebook-analysis/ocr-analysis'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { createPromiseController } from '@/test/promise-controller'
 import { toast, Toaster } from '@/components/ui/toast'
@@ -111,6 +112,33 @@ describe('EbookLibrary', () => {
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
+  })
+
+  it('책장 화면을 다시 마운트해도 이미 진행 중인 OCR 분석을 중복 실행하지 않는다', async () => {
+    const analyzingBook = createStoredBook('분석 중인 책')
+    const store = createStore()
+    store.request.mockImplementation(async (command: string) => {
+      if (command === 'listBooks') return [analyzingBook]
+      return null
+    })
+    const analysis = createPromiseController<'completed' | 'failed'>()
+    const runOcrAnalysisSpy = vi
+      .spyOn(ocrAnalysis, 'runOcrAnalysis')
+      .mockReturnValue(analysis.promise)
+
+    const { unmount } = render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    await screen.findByText(analyzingBook.title)
+    await waitFor(() => expect(runOcrAnalysisSpy).toHaveBeenCalledOnce())
+
+    // Reader로 이동했다가 책장으로 돌아오는 상황을 재현한다.
+    // 분석이 아직 끝나지 않아 책 목록 상 상태는 여전히 'analyzing'이다.
+    unmount()
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
+    await screen.findByText(analyzingBook.title)
+
+    expect(runOcrAnalysisSpy).toHaveBeenCalledOnce()
+
+    analysis.resolve('completed')
   })
 
   it('사용량 조회 여부와 무관하게 업로드한다', async () => {
