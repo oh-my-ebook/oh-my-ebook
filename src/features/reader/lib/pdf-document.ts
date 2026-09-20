@@ -226,18 +226,28 @@ function unionBox(a: BoundingBox, b: BoundingBox): BoundingBox {
 
 /** 한 그림이 여러 조각으로 그려진 경우가 많아, 맞닿은 조각을 하나로 합친다. */
 function mergeAdjacentBoxes(boxes: readonly BoundingBox[]): BoundingBox[] {
-  const merged = boxes.reduce<BoundingBox[]>((result, box) => {
-    const adjacentIndex = result.findIndex((candidate) => isAdjacent(candidate, box))
-    if (adjacentIndex === -1) {
-      return [...result, box]
-    }
-    return result.map((candidate, index) =>
-      index === adjacentIndex ? unionBox(candidate, box) : candidate,
-    )
-  }, [])
+  const pending = boxes.map((box, order) => ({ box, order })).toReversed()
+  const merged: { box: BoundingBox; order: number }[] = []
 
-  // 합치면서 커진 상자가 다른 상자와 새로 맞닿을 수 있어 변화가 없을 때까지 반복한다.
-  return merged.length === boxes.length ? merged : mergeAdjacentBoxes(merged)
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (!current) {
+      break
+    }
+    const adjacentIndex = merged.findIndex(({ box }) => isAdjacent(box, current.box))
+    if (adjacentIndex === -1) {
+      merged.push(current)
+      continue
+    }
+
+    const [adjacent] = merged.splice(adjacentIndex, 1)
+    pending.push({
+      box: unionBox(adjacent.box, current.box),
+      order: Math.min(adjacent.order, current.order),
+    })
+  }
+
+  return merged.toSorted((a, b) => a.order - b.order).map(({ box }) => box)
 }
 
 /**

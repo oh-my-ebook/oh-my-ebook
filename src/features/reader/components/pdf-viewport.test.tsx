@@ -275,6 +275,43 @@ describe('PdfViewport', () => {
     expect(recognizePdfPage).not.toHaveBeenCalled()
   })
 
+  it('내장 텍스트 조회가 실패하면 저장된 OCR을 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1_200,
+      height: 1_800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+    extractPdfPageText.mockRejectedValueOnce(new Error('텍스트 조회 실패'))
+    postprocessStoredOcrPage.mockResolvedValueOnce({
+      width: 1_200,
+      height: 1_800,
+      lines: [{ text: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4, fontSize: 2, scaleX: 1 }],
+    })
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    expect(await screen.findByLabelText('PDF 1페이지 텍스트 레이어')).toHaveTextContent(
+      '저장한 원문',
+    )
+    expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal))
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
   it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])

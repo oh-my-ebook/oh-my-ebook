@@ -256,7 +256,7 @@ export function PdfViewport(props: PdfViewportProps) {
     // PDF에 글자가 있으면 그대로 쓰고, 스캔 페이지만 미리 분석해 둔 OCR이나 즉석 OCR로 읽는다.
     const loadTextLayers = async () => {
       const pages = await collectPages(async (page, pageNumber) => {
-        const embeddedText = await extractPdfPageText(page, controller.signal)
+        const embeddedText = await extractPdfPageText(page, controller.signal).catch(() => null)
         if (embeddedText) {
           return embeddedText
         }

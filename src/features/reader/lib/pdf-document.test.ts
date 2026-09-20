@@ -317,6 +317,18 @@ describe('extractPdfPageImages', () => {
 
     expect(result?.regions).toEqual([{ x0: 50, y0: 100, x1: 150, y1: 200 }])
   })
+
+  it('병합하며 커진 영역이 다른 조각과 맞닿으면 다시 합친다', async () => {
+    const page = createImagePage([
+      ...drawImage([50, 0, 0, 50, 0, 600]),
+      ...drawImage([50, 0, 0, 50, 100, 600]),
+      ...drawImage([52, 0, 0, 50, 49, 600]),
+    ])
+
+    const result = await extractPdfPageImages(page, new AbortController().signal)
+
+    expect(result?.regions).toEqual([{ x0: 0, y0: 150, x1: 150, y1: 200 }])
+  })
 })
 
 describe('renderPdfPageImage', () => {
