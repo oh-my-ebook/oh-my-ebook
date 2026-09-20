@@ -49,6 +49,11 @@ export function TocPageThumbnail({ document, isCurrent, onSelect, page }: TocPag
       return
     }
 
+    // 문서가 바뀌면(같은 페이지 번호를 다른 책에서 재사용) 이전 문서의 픽셀이 새 렌더링이
+    // 끝나기 전까지 그대로 보이지 않도록 즉시 비운다.
+    setIsRendered(false)
+    canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
+
     const controller = new AbortController()
     const renderThumbnail = async () => {
       const pdfPage = await document.getPage(page.pageNumber)

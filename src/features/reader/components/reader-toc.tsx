@@ -55,11 +55,16 @@ function TocThumbnailList({ currentPage, document, onPageChange, pages }: TocLis
 function WideReaderToc({ currentPage, document, onPageChange, open, pages }: TocSectionProps) {
   const asideRef = useRef<HTMLElement>(null)
 
+  // 목차를 열 때 문서·페이지가 아직 준비되지 않아 썸네일이 없으면, 준비된 뒤 다시 시도한다.
+  // 스크롤은 TocPageThumbnail의 scrollIntoView가 전담하므로, 여기서는 preventScroll로
+  // 브라우저 기본 스크롤이 겹쳐 튀지 않게 한다.
   useEffect(() => {
     if (open) {
-      asideRef.current?.querySelector<HTMLElement>(CURRENT_PAGE_SELECTOR)?.focus()
+      asideRef.current
+        ?.querySelector<HTMLElement>(CURRENT_PAGE_SELECTOR)
+        ?.focus({ preventScroll: true })
     }
-  }, [open])
+  }, [open, currentPage, document, pages])
 
   if (!open) {
     return null
@@ -119,6 +124,16 @@ function NarrowReaderToc({
   previousPage,
 }: TocSectionProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // initialFocus는 Sheet가 열리는 시점에 한 번만 평가되므로, 그때 문서·페이지가 아직 준비되지
+  // 않아 썸네일이 없었다면 준비된 뒤 다시 시도한다.
+  useEffect(() => {
+    if (open) {
+      contentRef.current
+        ?.querySelector<HTMLElement>(CURRENT_PAGE_SELECTOR)
+        ?.focus({ preventScroll: true })
+    }
+  }, [open, currentPage, document, pages])
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
