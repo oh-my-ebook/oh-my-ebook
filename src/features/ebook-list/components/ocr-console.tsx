@@ -34,6 +34,10 @@ import type {
   OcrPageRecord,
   SearchChunkPage,
   SearchChunkRecord,
+  SearchPostingPage,
+  SearchPostingRecord,
+  SearchTermPage,
+  SearchTermRecord,
 } from '../ebook-types'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
 
@@ -135,6 +139,40 @@ function isChunkSourcePage(value: unknown): value is ChunkSourcePage {
   return value.sources.every(isChunkSourceRecord)
 }
 
+function isSearchTermRecord(value: unknown): value is SearchTermRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'number') return false
+  if (!('term' in value) || typeof value.term !== 'string') return false
+  if (!('document_frequency' in value) || typeof value.document_frequency !== 'number') {
+    return false
+  }
+  return true
+}
+
+function isSearchTermPage(value: unknown): value is SearchTermPage {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('total' in value) || typeof value.total !== 'number') return false
+  if (!('terms' in value) || !Array.isArray(value.terms)) return false
+  return value.terms.every(isSearchTermRecord)
+}
+
+function isSearchPostingRecord(value: unknown): value is SearchPostingRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('term_id' in value) || typeof value.term_id !== 'number') return false
+  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
+  if (!('term_frequency' in value) || typeof value.term_frequency !== 'number') return false
+  if (!('term' in value) || typeof value.term !== 'string') return false
+  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
+  return true
+}
+
+function isSearchPostingPage(value: unknown): value is SearchPostingPage {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('total' in value) || typeof value.total !== 'number') return false
+  if (!('postings' in value) || !Array.isArray(value.postings)) return false
+  return value.postings.every(isSearchPostingRecord)
+}
+
 function PageControls({
   page,
   pageCount,
@@ -188,10 +226,14 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
   const [linePage, setLinePage] = useState(0)
   const [chunkPage, setChunkPage] = useState(0)
   const [sourcePage, setSourcePage] = useState(0)
+  const [termPage, setTermPage] = useState(0)
+  const [postingPage, setPostingPage] = useState(0)
   const [ocrPage, setOcrPage] = useState<OcrLinePage | null>(null)
   const [ocrPages, setOcrPages] = useState<OcrPageRecord[]>([])
   const [searchChunks, setSearchChunks] = useState<SearchChunkPage | null>(null)
   const [chunkSources, setChunkSources] = useState<ChunkSourcePage | null>(null)
+  const [searchTerms, setSearchTerms] = useState<SearchTermPage | null>(null)
+  const [searchPostings, setSearchPostings] = useState<SearchPostingPage | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
@@ -222,38 +264,59 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
 
     async function loadOcrData() {
       try {
-        const [lineResult, pageResult, chunkResult, sourceResult, analysisStatus] =
-          await Promise.all([
-            store.request('listOcrLines', {
-              bookId: book.id,
-              limit: LINES_PER_PAGE,
-              offset: linePage * LINES_PER_PAGE,
-            }),
-            store.request('listOcrPages', book.id),
-            store.request('listSearchChunks', {
-              bookId: book.id,
-              limit: LINES_PER_PAGE,
-              offset: chunkPage * LINES_PER_PAGE,
-            }),
-            store.request('listChunkSources', {
-              bookId: book.id,
-              limit: LINES_PER_PAGE,
-              offset: sourcePage * LINES_PER_PAGE,
-            }),
-            store.request('getBookAnalysisStatus', book.id),
-          ])
+        const [
+          lineResult,
+          pageResult,
+          chunkResult,
+          sourceResult,
+          termResult,
+          postingResult,
+          analysisStatus,
+        ] = await Promise.all([
+          store.request('listOcrLines', {
+            bookId: book.id,
+            limit: LINES_PER_PAGE,
+            offset: linePage * LINES_PER_PAGE,
+          }),
+          store.request('listOcrPages', book.id),
+          store.request('listSearchChunks', {
+            bookId: book.id,
+            limit: LINES_PER_PAGE,
+            offset: chunkPage * LINES_PER_PAGE,
+          }),
+          store.request('listChunkSources', {
+            bookId: book.id,
+            limit: LINES_PER_PAGE,
+            offset: sourcePage * LINES_PER_PAGE,
+          }),
+          store.request('listSearchTerms', {
+            bookId: book.id,
+            limit: LINES_PER_PAGE,
+            offset: termPage * LINES_PER_PAGE,
+          }),
+          store.request('listSearchPostings', {
+            bookId: book.id,
+            limit: LINES_PER_PAGE,
+            offset: postingPage * LINES_PER_PAGE,
+          }),
+          store.request('getBookAnalysisStatus', book.id),
+        ])
         if (!isOcrLinePage(lineResult)) throw new Error('Invalid OCR lines')
         if (!Array.isArray(pageResult) || !pageResult.every(isOcrPageRecord)) {
           throw new Error('Invalid OCR pages')
         }
         if (!isSearchChunkPage(chunkResult)) throw new Error('Invalid search chunks')
         if (!isChunkSourcePage(sourceResult)) throw new Error('Invalid chunk sources')
+        if (!isSearchTermPage(termResult)) throw new Error('Invalid search terms')
+        if (!isSearchPostingPage(postingResult)) throw new Error('Invalid search postings')
         if (!isAnalysisStatus(analysisStatus)) throw new Error('Invalid book analysis status')
         if (cancelled) return
         setOcrPage(lineResult)
         setOcrPages(pageResult)
         setSearchChunks(chunkResult)
         setChunkSources(sourceResult)
+        setSearchTerms(termResult)
+        setSearchPostings(postingResult)
         setSelectedBook((current) =>
           current?.id === book.id && current.analysisStatus !== analysisStatus
             ? { ...current, analysisStatus }
@@ -270,7 +333,7 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
     return () => {
       cancelled = true
     }
-  }, [chunkPage, linePage, refreshTick, selectedBook, sourcePage, store])
+  }, [chunkPage, linePage, postingPage, refreshTick, selectedBook, sourcePage, store, termPage])
 
   useEffect(() => {
     if (!selectedBook || selectedBook.analysisStatus !== 'analyzing') return
@@ -285,6 +348,8 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
   const linePageCount = ocrPage ? Math.ceil(ocrPage.total / LINES_PER_PAGE) : 0
   const chunkPageCount = searchChunks ? Math.ceil(searchChunks.total / LINES_PER_PAGE) : 0
   const sourcePageCount = chunkSources ? Math.ceil(chunkSources.total / LINES_PER_PAGE) : 0
+  const termPageCount = searchTerms ? Math.ceil(searchTerms.total / LINES_PER_PAGE) : 0
+  const postingPageCount = searchPostings ? Math.ceil(searchPostings.total / LINES_PER_PAGE) : 0
   const completedOcrPages = ocrPages.filter((page) => page.status === 'ready').length
   const processingOcrPages = ocrPages.filter((page) => page.status === 'processing')
   const ocrProgress = ocrPages.length ? (completedOcrPages / ocrPages.length) * 100 : null
@@ -320,10 +385,14 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
                 setLinePage(0)
                 setChunkPage(0)
                 setSourcePage(0)
+                setTermPage(0)
+                setPostingPage(0)
                 setOcrPage(null)
                 setOcrPages([])
                 setSearchChunks(null)
                 setChunkSources(null)
+                setSearchTerms(null)
+                setSearchPostings(null)
               }}
               variant="outline"
             >
@@ -359,6 +428,8 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
                 <TabsTrigger value="ocr-lines">ocr_lines</TabsTrigger>
                 <TabsTrigger value="search-chunks">search_chunks</TabsTrigger>
                 <TabsTrigger value="chunk-sources">chunk_sources</TabsTrigger>
+                <TabsTrigger value="search-terms">search_terms</TabsTrigger>
+                <TabsTrigger value="search-postings">search_postings</TabsTrigger>
               </TabsList>
               <TabsContent className="flex flex-col gap-3" value="ocr-pages">
                 <p className="text-muted-foreground">페이지별 OCR 처리 상태와 렌더 크기</p>
@@ -477,6 +548,66 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
                   page={sourcePage}
                   pageCount={sourcePageCount}
                   onPageChange={setSourcePage}
+                />
+              </TabsContent>
+              <TabsContent className="flex flex-col gap-3" value="search-terms">
+                <p className="text-muted-foreground">
+                  이 책의 search_terms, {searchTerms?.total ?? 0}개
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>id</TableHead>
+                      <TableHead>term</TableHead>
+                      <TableHead>document_frequency</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchTerms?.terms.map((term) => (
+                      <TableRow key={term.id}>
+                        <TableCell>{term.id}</TableCell>
+                        <TableCell>{term.term}</TableCell>
+                        <TableCell>{term.document_frequency}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <PageControls
+                  page={termPage}
+                  pageCount={termPageCount}
+                  onPageChange={setTermPage}
+                />
+              </TabsContent>
+              <TabsContent className="flex flex-col gap-3" value="search-postings">
+                <p className="text-muted-foreground">
+                  이 책의 search_postings, {searchPostings?.total ?? 0}개
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>term_id</TableHead>
+                      <TableHead>term</TableHead>
+                      <TableHead>chunk ordinal</TableHead>
+                      <TableHead>term_frequency</TableHead>
+                      <TableHead>chunk_id</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchPostings?.postings.map((posting) => (
+                      <TableRow key={`${posting.term_id}-${posting.chunk_id}`}>
+                        <TableCell>{posting.term_id}</TableCell>
+                        <TableCell>{posting.term}</TableCell>
+                        <TableCell>{posting.chunk_ordinal}</TableCell>
+                        <TableCell>{posting.term_frequency}</TableCell>
+                        <TableCell className="font-mono text-xs">{posting.chunk_id}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <PageControls
+                  page={postingPage}
+                  pageCount={postingPageCount}
+                  onPageChange={setPostingPage}
                 />
               </TabsContent>
             </Tabs>

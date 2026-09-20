@@ -13,6 +13,10 @@ import type {
   SearchChunkInput,
   SearchChunkPage,
   SearchChunkRecord,
+  SearchPostingPage,
+  SearchPostingRecord,
+  SearchTermPage,
+  SearchTermRecord,
   StoredOcrPage,
 } from '../../ebook-types'
 import {
@@ -50,7 +54,11 @@ import {
   SELECT_CHUNK_SOURCES_SQL,
   SELECT_SEARCH_CHUNK_COUNT_SQL,
   SELECT_SEARCH_CHUNKS_SQL,
+  SELECT_SEARCH_POSTING_COUNT_SQL,
+  SELECT_SEARCH_POSTINGS_SQL,
   SELECT_SEARCH_TERM_ID_SQL,
+  SELECT_SEARCH_TERM_COUNT_SQL,
+  SELECT_SEARCH_TERMS_SQL,
   SET_BOOK_INDEXED_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
@@ -626,6 +634,62 @@ function listSearchChunks(database: Database, request: WorkerRequest): SearchChu
   return { chunks, total }
 }
 
+function isSearchTermRecord(value: unknown): value is SearchTermRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'number') return false
+  if (!('term' in value) || typeof value.term !== 'string') return false
+  if (!('document_frequency' in value) || typeof value.document_frequency !== 'number') return false
+  return true
+}
+
+function listSearchTerms(database: Database, request: WorkerRequest): SearchTermPage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_SEARCH_TERM_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid search term count')
+  const rows = database.exec(SELECT_SEARCH_TERMS_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid search terms')
+
+  const terms: SearchTermRecord[] = []
+  for (const row of rows) {
+    if (!isSearchTermRecord(row)) throw new Error('Invalid search terms')
+    terms.push(row)
+  }
+  return { terms, total }
+}
+
+function isSearchPostingRecord(value: unknown): value is SearchPostingRecord {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('term_id' in value) || typeof value.term_id !== 'number') return false
+  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
+  if (!('term_frequency' in value) || typeof value.term_frequency !== 'number') return false
+  if (!('term' in value) || typeof value.term !== 'string') return false
+  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
+  return true
+}
+
+function listSearchPostings(database: Database, request: WorkerRequest): SearchPostingPage {
+  const input = getPayload(request, request.command, isListOcrLinesInput)
+  const total = database.selectValue(SELECT_SEARCH_POSTING_COUNT_SQL, [input.bookId])
+  if (typeof total !== 'number') throw new Error('Invalid search posting count')
+  const rows = database.exec(SELECT_SEARCH_POSTINGS_SQL, {
+    bind: [input.bookId, input.limit, input.offset],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(rows)) throw new Error('Invalid search postings')
+
+  const postings: SearchPostingRecord[] = []
+  for (const row of rows) {
+    if (!isSearchPostingRecord(row)) throw new Error('Invalid search postings')
+    postings.push(row)
+  }
+  return { postings, total }
+}
+
 function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
   if (typeof value !== 'object' || value === null) return false
   if (!('id' in value) || typeof value.id !== 'number') return false
@@ -702,6 +766,10 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return listSearchChunks(database, request)
     case SQLITE_COMMAND.LIST_CHUNK_SOURCES:
       return listChunkSources(database, request)
+    case SQLITE_COMMAND.LIST_SEARCH_TERMS:
+      return listSearchTerms(database, request)
+    case SQLITE_COMMAND.LIST_SEARCH_POSTINGS:
+      return listSearchPostings(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

@@ -11,6 +11,8 @@ function createDatabase({
   searchChunkStoreFails = false,
   searchIndexStoreFails = false,
   searchTermCleanupFails = false,
+  searchPostings = [],
+  searchTerms = [],
   sourceBookId = 'book-id',
   storeFails = false,
 }: {
@@ -21,6 +23,8 @@ function createDatabase({
   searchChunkStoreFails?: boolean
   searchIndexStoreFails?: boolean
   searchTermCleanupFails?: boolean
+  searchPostings?: Record<string, unknown>[]
+  searchTerms?: Record<string, unknown>[]
   sourceBookId?: string
   storeFails?: boolean
 } = {}) {
@@ -54,6 +58,8 @@ function createDatabase({
     ) {
       throw new Error('term cleanup failed')
     }
+    if (typeof sql === 'string' && sql.includes('FROM search_terms')) return searchTerms
+    if (typeof sql === 'string' && sql.includes('FROM search_postings')) return searchPostings
     if (typeof sql === 'string' && sql.includes('ocr_page_id')) return ocrLinesForChunking
   })
   const selectValue = vi.fn((sql: string) => {
@@ -61,7 +67,7 @@ function createDatabase({
     if (sql.includes('SELECT page_count')) return 3
     if (sql === 'SELECT changes()') return 1
     if (sql.includes('SELECT id FROM search_terms')) return 1
-    if (sql.includes('COUNT(*)')) return incompletePages
+    if (sql.includes('COUNT(')) return incompletePages
     return undefined
   })
   const selectObject = vi.fn((sql: string) => {
@@ -244,6 +250,47 @@ describe('OCR SQLite 계약', () => {
       expect.stringContaining('ORDER BY ocr_pages.page_number, ocr_lines.line_index'),
       expect.objectContaining({ bind: ['book-id'] }),
     )
+  })
+
+  it('책에 속한 term과 posting을 페이지 단위로 조회한다', () => {
+    const { database } = createDatabase({
+      searchTerms: [{ id: 1, term: '검색', document_frequency: 2 }],
+      searchPostings: [
+        {
+          term_id: 1,
+          chunk_id: 'chunk-1',
+          term_frequency: 2,
+          term: '검색',
+          chunk_ordinal: 0,
+        },
+      ],
+    })
+
+    expect(
+      executeSqliteCommand(database, {
+        requestId: 63,
+        command: 'listSearchTerms',
+        payload: { bookId: 'book-id', limit: 50, offset: 0 },
+      }),
+    ).toEqual({ total: 1, terms: [{ id: 1, term: '검색', document_frequency: 2 }] })
+    expect(
+      executeSqliteCommand(database, {
+        requestId: 64,
+        command: 'listSearchPostings',
+        payload: { bookId: 'book-id', limit: 50, offset: 0 },
+      }),
+    ).toEqual({
+      total: 1,
+      postings: [
+        {
+          term_id: 1,
+          chunk_id: 'chunk-1',
+          term_frequency: 2,
+          term: '검색',
+          chunk_ordinal: 0,
+        },
+      ],
+    })
   })
 
   it('기존 청크를 지우고 청크와 원본 범위를 하나의 트랜잭션으로 저장한다', () => {

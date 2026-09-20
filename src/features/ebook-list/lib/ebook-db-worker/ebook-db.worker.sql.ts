@@ -193,6 +193,29 @@ export const INSERT_SEARCH_POSTING_SQL = `INSERT INTO search_postings (
 ) VALUES (?, ?, ?)`
 export const SET_BOOK_INDEXED_SQL = `UPDATE books
   SET analysis_status = 'ready', indexed_at = ?, updated_at = ? WHERE id = ?`
+export const SELECT_SEARCH_TERM_COUNT_SQL = `SELECT COUNT(DISTINCT search_terms.id) FROM search_terms
+  JOIN search_postings ON search_postings.term_id = search_terms.id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_SEARCH_TERMS_SQL = `SELECT search_terms.id, search_terms.term,
+  search_terms.document_frequency FROM search_terms
+  JOIN search_postings ON search_postings.term_id = search_terms.id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?
+  GROUP BY search_terms.id
+  ORDER BY search_terms.term
+  LIMIT ? OFFSET ?`
+export const SELECT_SEARCH_POSTING_COUNT_SQL = `SELECT COUNT(*) FROM search_postings
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?`
+export const SELECT_SEARCH_POSTINGS_SQL = `SELECT search_postings.term_id, search_postings.chunk_id,
+  search_postings.term_frequency, search_terms.term, search_chunks.ordinal AS chunk_ordinal
+  FROM search_postings
+  JOIN search_terms ON search_terms.id = search_postings.term_id
+  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
+  WHERE search_chunks.book_id = ?
+  ORDER BY search_terms.term, search_chunks.ordinal
+  LIMIT ? OFFSET ?`
 export const SELECT_SEARCH_CHUNK_COUNT_SQL = 'SELECT COUNT(*) FROM search_chunks WHERE book_id = ?'
 export const SELECT_SEARCH_CHUNKS_SQL = `SELECT id, ordinal, text, token_count, created_at
   FROM search_chunks WHERE book_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`
