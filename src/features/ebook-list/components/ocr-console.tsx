@@ -43,13 +43,25 @@ const LINES_PER_PAGE = 50
 interface ConsoleBook {
   id: string
   title: string
+  analysisStatus: 'analyzing' | 'ready' | 'failed'
 }
 
-function isConsoleBook(value: unknown): value is ConsoleBook {
+interface ConsoleBookRecord {
+  id: string
+  title: string
+  analysis_status: ConsoleBook['analysisStatus']
+}
+
+function isConsoleBook(value: unknown): value is ConsoleBookRecord {
   if (typeof value !== 'object' || value === null) return false
   if (!('id' in value) || typeof value.id !== 'string') return false
   if (!('title' in value) || typeof value.title !== 'string') return false
+  if (!('analysis_status' in value) || !isAnalysisStatus(value.analysis_status)) return false
   return true
+}
+
+function isAnalysisStatus(value: unknown): value is ConsoleBook['analysisStatus'] {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
 }
 
 function isOcrLineRecord(value: unknown): value is OcrLineRecord {
@@ -188,7 +200,13 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
       try {
         const result = await store.request('listBooks')
         if (!Array.isArray(result) || !result.every(isConsoleBook)) throw new Error('Invalid books')
-        setBooks(result)
+        setBooks(
+          result.map((book) => ({
+            id: book.id,
+            title: book.title,
+            analysisStatus: book.analysis_status,
+          })),
+        )
       } catch {
         setError('저장된 PDF 목록을 불러오지 못했습니다.')
       }
@@ -204,35 +222,43 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
 
     async function loadOcrData() {
       try {
-        const [lineResult, pageResult, chunkResult, sourceResult] = await Promise.all([
-          store.request('listOcrLines', {
-            bookId: book.id,
-            limit: LINES_PER_PAGE,
-            offset: linePage * LINES_PER_PAGE,
-          }),
-          store.request('listOcrPages', book.id),
-          store.request('listSearchChunks', {
-            bookId: book.id,
-            limit: LINES_PER_PAGE,
-            offset: chunkPage * LINES_PER_PAGE,
-          }),
-          store.request('listChunkSources', {
-            bookId: book.id,
-            limit: LINES_PER_PAGE,
-            offset: sourcePage * LINES_PER_PAGE,
-          }),
-        ])
+        const [lineResult, pageResult, chunkResult, sourceResult, analysisStatus] =
+          await Promise.all([
+            store.request('listOcrLines', {
+              bookId: book.id,
+              limit: LINES_PER_PAGE,
+              offset: linePage * LINES_PER_PAGE,
+            }),
+            store.request('listOcrPages', book.id),
+            store.request('listSearchChunks', {
+              bookId: book.id,
+              limit: LINES_PER_PAGE,
+              offset: chunkPage * LINES_PER_PAGE,
+            }),
+            store.request('listChunkSources', {
+              bookId: book.id,
+              limit: LINES_PER_PAGE,
+              offset: sourcePage * LINES_PER_PAGE,
+            }),
+            store.request('getBookAnalysisStatus', book.id),
+          ])
         if (!isOcrLinePage(lineResult)) throw new Error('Invalid OCR lines')
         if (!Array.isArray(pageResult) || !pageResult.every(isOcrPageRecord)) {
           throw new Error('Invalid OCR pages')
         }
         if (!isSearchChunkPage(chunkResult)) throw new Error('Invalid search chunks')
         if (!isChunkSourcePage(sourceResult)) throw new Error('Invalid chunk sources')
+        if (!isAnalysisStatus(analysisStatus)) throw new Error('Invalid book analysis status')
         if (cancelled) return
         setOcrPage(lineResult)
         setOcrPages(pageResult)
         setSearchChunks(chunkResult)
         setChunkSources(sourceResult)
+        setSelectedBook((current) =>
+          current?.id === book.id && current.analysisStatus !== analysisStatus
+            ? { ...current, analysisStatus }
+            : current,
+        )
         setError(null)
       } catch {
         if (cancelled) return
@@ -247,7 +273,7 @@ export function OcrConsole({ store }: { store: EbookLibraryStore }) {
   }, [chunkPage, linePage, refreshTick, selectedBook, sourcePage, store])
 
   useEffect(() => {
-    if (!selectedBook) return
+    if (!selectedBook || selectedBook.analysisStatus !== 'analyzing') return
     const intervalId = window.setInterval(() => {
       setRefreshTick((current) => current + 1)
     }, 1500)

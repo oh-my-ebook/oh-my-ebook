@@ -66,6 +66,7 @@ export function useEbookLibrary(store: EbookLibraryStore) {
         : '알 수 없는 오류가 발생했습니다.'
     console.error(`OCR 분석 실패 (${failure.stage}${page})`, failure.error)
     toast.add({
+      id: `ocr-analysis-failure-${failure.bookId}`,
       title:
         failure.pageNumber === undefined
           ? '책 분석에 실패했습니다.'

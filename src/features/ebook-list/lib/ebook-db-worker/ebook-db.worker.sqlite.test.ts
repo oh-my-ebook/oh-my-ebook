@@ -5,12 +5,14 @@ import { executeSqliteCommand } from './ebook-db.worker.sqlite'
 
 function createDatabase({
   incompletePages = 1,
+  analysisStatus = 'analyzing',
   nextPage = null,
   ocrLinesForChunking = [],
   searchChunkStoreFails = false,
   sourceBookId = 'book-id',
   storeFails = false,
 }: {
+  analysisStatus?: 'analyzing' | 'ready' | 'failed'
   incompletePages?: number
   nextPage?: Record<string, unknown> | null
   ocrLinesForChunking?: Record<string, unknown>[]
@@ -44,6 +46,9 @@ function createDatabase({
     return undefined
   })
   const selectObject = vi.fn((sql: string) => {
+    if (sql === 'SELECT analysis_status FROM books WHERE id = ?') {
+      return { analysis_status: analysisStatus }
+    }
     if (sql.includes("status = 'pending'")) return nextPage
     if (sql.includes('SELECT book_id')) return { book_id: sourceBookId }
     return null
@@ -102,6 +107,21 @@ describe('OCR SQLite 계약', () => {
     expect(exec).toHaveBeenCalledWith(expect.stringContaining("analysis_status = 'analyzing'"), {
       bind: [expect.any(Number), 'book-id'],
     })
+  })
+
+  it('책의 분석 상태를 조회한다', () => {
+    const { database, selectObject } = createDatabase({ analysisStatus: 'failed' })
+
+    const result = executeSqliteCommand(database, {
+      requestId: 22,
+      command: SQLITE_COMMAND.GET_BOOK_ANALYSIS_STATUS,
+      payload: 'book-id',
+    })
+
+    expect(result).toBe('failed')
+    expect(selectObject).toHaveBeenCalledWith('SELECT analysis_status FROM books WHERE id = ?', [
+      'book-id',
+    ])
   })
 
   it('pending 중 가장 앞 페이지를 선점한다', () => {

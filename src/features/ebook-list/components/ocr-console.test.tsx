@@ -10,6 +10,7 @@ describe('OcrConsole', () => {
     const books = Array.from({ length: 11 }, (_, index) => ({
       id: `book-${index + 1}`,
       title: `PDF ${index + 1}`,
+      analysis_status: 'analyzing',
     }))
     const request = vi.fn(async (command: string) => {
       if (command === 'listBooks') return books
@@ -39,6 +40,7 @@ describe('OcrConsole', () => {
           },
         ]
       }
+      if (command === 'getBookAnalysisStatus') return 'analyzing'
       if (command === 'listSearchChunks') return { total: 0, chunks: [] }
       if (command === 'listChunkSources') return { total: 0, sources: [] }
       return null
@@ -64,6 +66,7 @@ describe('OcrConsole', () => {
       offset: 0,
     })
     expect(request).toHaveBeenCalledWith('listOcrPages', 'book-11')
+    expect(request).toHaveBeenCalledWith('getBookAnalysisStatus', 'book-11')
   })
 
   it('성공한 OCR 조회 뒤에는 이전 조회 오류를 표시하지 않는다', async () => {
@@ -71,8 +74,8 @@ describe('OcrConsole', () => {
     const request = vi.fn(async (command: string, payload?: unknown) => {
       if (command === 'listBooks') {
         return [
-          { id: 'failed-book', title: '실패한 PDF' },
-          { id: 'ready-book', title: '완료된 PDF' },
+          { id: 'failed-book', title: '실패한 PDF', analysis_status: 'analyzing' },
+          { id: 'ready-book', title: '완료된 PDF', analysis_status: 'ready' },
         ]
       }
       if (command === 'listOcrLines') {
@@ -82,6 +85,7 @@ describe('OcrConsole', () => {
         return { total: 0, lines: [] }
       }
       if (command === 'listOcrPages') return []
+      if (command === 'getBookAnalysisStatus') return 'analyzing'
       if (command === 'listSearchChunks') return { total: 0, chunks: [] }
       if (command === 'listChunkSources') return { total: 0, sources: [] }
       return null

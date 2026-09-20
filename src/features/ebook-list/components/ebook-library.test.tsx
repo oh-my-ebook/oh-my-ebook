@@ -5,7 +5,7 @@ import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import { createPromiseController } from '@/test/promise-controller'
-import { Toaster } from '@/components/ui/toast'
+import { toast, Toaster } from '@/components/ui/toast'
 import { EbookLibrary } from './ebook-library'
 
 function createStore() {
@@ -86,11 +86,15 @@ describe('EbookLibrary', () => {
       return null
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const addToast = vi.spyOn(toast, 'add')
 
     render(<EbookLibrary store={store} />)
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('failBookAnalysis', failedBook.id)
+    expect(addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ id: `ocr-analysis-failure-${failedBook.id}` }),
+    )
   })
 
   it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {

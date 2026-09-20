@@ -31,6 +31,7 @@ export const SQLITE_COMMAND = {
   LIST_OCR_LINES: 'listOcrLines',
   GET_STORED_OCR_PAGE: 'getStoredOcrPage',
   LIST_OCR_PAGES: 'listOcrPages',
+  GET_BOOK_ANALYSIS_STATUS: 'getBookAnalysisStatus',
   GET_OCR_LINES_FOR_CHUNKING: 'getOcrLinesForChunking',
   STORE_SEARCH_CHUNKS: 'storeSearchChunks',
   LIST_SEARCH_CHUNKS: 'listSearchChunks',

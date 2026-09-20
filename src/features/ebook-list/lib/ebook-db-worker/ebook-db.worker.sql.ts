@@ -95,6 +95,7 @@ export const SELECT_BOOKS_SQL = `SELECT id, content_hash, file_name, title,
   FROM books ORDER BY created_at DESC, id DESC`
 
 export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
+export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM books WHERE id = ?'
 
 export const SELECT_BOOK_METADATA_SQL = `SELECT id, content_hash, file_name, title,
   author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,

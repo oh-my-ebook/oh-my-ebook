@@ -2,6 +2,7 @@ import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import { SQLITE_COMMAND } from '../../ebook-consts'
 import type {
   AddBookInput,
+  BookAnalysisStatus,
   ChunkSourcePage,
   ChunkSourceRecord,
   NextOcrPage,
@@ -27,6 +28,7 @@ import {
   ROLLBACK_TRANSACTION_SQL,
   RETRY_BOOK_ANALYSIS_SQL,
   SELECT_BOOK_EXISTS_SQL,
+  SELECT_BOOK_ANALYSIS_STATUS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
   SELECT_BOOK_METADATA_SQL,
   SELECT_BOOKS_SQL,
@@ -325,6 +327,16 @@ function failBookAnalysis(database: Database, request: WorkerRequest): undefined
   return undefined
 }
 
+function getBookAnalysisStatus(database: Database, request: WorkerRequest): BookAnalysisStatus {
+  const bookId = getBookId(request)
+  const result = database.selectObject(SELECT_BOOK_ANALYSIS_STATUS_SQL, [bookId])
+  if (result?.analysis_status === 'analyzing') return result.analysis_status
+  if (result?.analysis_status === 'ready') return result.analysis_status
+  if (result?.analysis_status === 'failed') return result.analysis_status
+  if (result === null) throw new NotFoundBookError()
+  throw new Error('Invalid book analysis status')
+}
+
 function retryBookAnalysis(database: Database, request: WorkerRequest): undefined {
   const bookId = getBookId(request)
   database.exec(RETRY_BOOK_ANALYSIS_SQL, { bind: [Date.now(), bookId] })
@@ -618,6 +630,8 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return getStoredOcrPage(database, request)
     case SQLITE_COMMAND.LIST_OCR_PAGES:
       return listOcrPages(database, request)
+    case SQLITE_COMMAND.GET_BOOK_ANALYSIS_STATUS:
+      return getBookAnalysisStatus(database, request)
     case SQLITE_COMMAND.GET_OCR_LINES_FOR_CHUNKING:
       return getOcrLinesForChunking(database, request)
     case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
