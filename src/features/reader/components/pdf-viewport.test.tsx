@@ -5,15 +5,21 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { extractPdfPageImages, extractPdfPageText, recognizePdfPage, renderPdfPageImage } =
-  vi.hoisted(() => ({
-    extractPdfPageImages: vi.fn(),
-    extractPdfPageText: vi.fn(),
-    recognizePdfPage: vi.fn(),
-    renderPdfPageImage: vi.fn(),
-  }))
+const {
+  extractPdfPageImages,
+  extractPdfPageText,
+  postprocessStoredOcrPage,
+  recognizePdfPage,
+  renderPdfPageImage,
+} = vi.hoisted(() => ({
+  extractPdfPageImages: vi.fn(),
+  extractPdfPageText: vi.fn(),
+  postprocessStoredOcrPage: vi.fn(),
+  recognizePdfPage: vi.fn(),
+  renderPdfPageImage: vi.fn(),
+}))
 
-vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
+vi.mock('../lib/ocr/page-recognition', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
 vi.mock('../lib/pdf-document', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/pdf-document')>()),
   extractPdfPageImages,
@@ -124,6 +130,7 @@ describe('PdfViewport', () => {
     extractPdfPageImages.mockResolvedValue({ width: 1, height: 1, regions: [] })
     extractPdfPageText.mockResolvedValue(null)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
+    postprocessStoredOcrPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
   afterEach(() => {
@@ -230,7 +237,7 @@ describe('PdfViewport', () => {
     expect(await screen.findByRole('button', { name: '복사됨' })).toBeInTheDocument()
   })
 
-  it('PDF에 텍스트가 있으면 OCR 없이 그 텍스트를 표시한다', async () => {
+  it('PDF에 텍스트가 있으면 저장된 OCR과 즉석 OCR 없이 그 텍스트를 표시한다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
@@ -242,7 +249,18 @@ describe('PdfViewport', () => {
       ],
     })
 
-    render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => ({
+          width: 1_200,
+          height: 1_800,
+          lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+        }))}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
 
     await act(async () => {
       renderTask.completion.resolve(undefined)
@@ -251,6 +269,37 @@ describe('PdfViewport', () => {
 
     const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
     expect(layer).toHaveTextContent('PDF에 들어 있는 문장')
+    expect(postprocessStoredOcrPage).not.toHaveBeenCalled()
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
+  it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1_200,
+      height: 1_800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    await waitFor(() =>
+      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
+    )
     expect(recognizePdfPage).not.toHaveBeenCalled()
   })
 

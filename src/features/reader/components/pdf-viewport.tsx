@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorAlert } from '@/components/error-alert'
 import {
   extractPdfPageImages,
   extractPdfPageText,
@@ -13,11 +13,16 @@ import {
   type PdfPageHandle,
   type PdfPageInfo,
 } from '../lib/pdf-document'
-import { recognizePdfPage } from '../lib/ocr/page-recognition'
+import {
+  postprocessStoredOcrPage,
+  recognizePdfPage,
+  type StoredOcrPageResult,
+} from '../lib/ocr/page-recognition'
 import type { BoundingBox, PageTextLayer } from '../lib/text-layer'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
+  getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onStatusChange?: (status: PdfViewportStatus) => void
 }
@@ -121,7 +126,7 @@ function getDevicePixelRatio() {
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
-  const { document, onStatusChange, scale } = props
+  const { document, getStoredOcrPage, onStatusChange, scale } = props
   const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
@@ -243,12 +248,14 @@ export function PdfViewport(props: PdfViewportProps) {
     }
 
     const controller = new AbortController()
-    const collectPages = async <T,>(load: (page: PdfPageHandle) => Promise<T | null>) => {
+    const collectPages = async <T,>(
+      load: (page: PdfPageHandle, pageNumber: number) => Promise<T | null>,
+    ) => {
       const loaded = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
             const page = await document.getPage(pageNumber)
-            const result = await load(page)
+            const result = await load(page, pageNumber)
             return result === null ? null : ([pageNumber, result] as const)
           } catch {
             return null
@@ -258,10 +265,26 @@ export function PdfViewport(props: PdfViewportProps) {
       return new Map(loaded.filter((entry) => entry !== null))
     }
 
+    const readStoredOcrPage = async (pageNumber: number) => {
+      try {
+        return (await getStoredOcrPage?.(pageNumber)) ?? null
+      } catch {
+        // 저장소 조회에 실패해도 즉석 OCR 경로로 이어간다.
+        return null
+      }
+    }
+
+    // PDF에 글자가 있으면 그대로 쓰고, 스캔 페이지만 미리 분석해 둔 OCR이나 즉석 OCR로 읽는다.
     const loadTextLayers = async () => {
-      const pages = await collectPages(async (page) => {
+      const pages = await collectPages(async (page, pageNumber) => {
         const embeddedText = await extractPdfPageText(page, controller.signal)
-        return embeddedText ?? (await recognizePdfPage(page, controller.signal))
+        if (embeddedText) {
+          return embeddedText
+        }
+        const storedOcrPage = await readStoredOcrPage(pageNumber)
+        return storedOcrPage
+          ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
+          : await recognizePdfPage(page, controller.signal)
       })
       if (!controller.signal.aborted) {
         setTextLayerOutcome({ document, pageNumbers, pages })
@@ -278,12 +301,8 @@ export function PdfViewport(props: PdfViewportProps) {
 
     void Promise.all([loadTextLayers(), loadImageRegions()])
     return () => controller.abort()
-  }, [document, firstPageNumber, pageNumbers, secondPageNumber])
+  }, [document, firstPageNumber, getStoredOcrPage, pageNumbers, secondPageNumber])
 
-  const textLayerPages =
-    textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
-      ? textLayerOutcome.pages
-      : new Map<number, PageTextLayer>()
   const copyImage = async ({ pageNumber, region }: SelectedImage) => {
     // 클립보드 쓰기는 클릭 직후에 시작해야 하므로, 이미지를 만드는 Promise를 그대로 넘긴다.
     const image = document.getPage(pageNumber).then((page) => renderPdfPageImage(page, region))
@@ -295,6 +314,10 @@ export function PdfViewport(props: PdfViewportProps) {
     }
   }
 
+  const textLayerPages =
+    textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
+      ? textLayerOutcome.pages
+      : new Map<number, PageTextLayer>()
   const imageRegionPages =
     imageRegionOutcome?.document === document && imageRegionOutcome.pageNumbers === pageNumbers
       ? imageRegionOutcome.pages
@@ -400,15 +423,13 @@ export function PdfViewport(props: PdfViewportProps) {
       </div>
 
       {status === 'error' && (
-        <Alert className="mx-auto max-w-md" variant="destructive">
-          <AlertTitle>{pageRange}페이지를 표시하지 못했습니다.</AlertTitle>
-          <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
-          <AlertAction>
-            <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
-              다시 시도
-            </Button>
-          </AlertAction>
-        </Alert>
+        <ErrorAlert
+          className="mx-auto max-w-md"
+          description="페이지를 다시 그려 보세요."
+          title={`${pageRange}페이지를 표시하지 못했습니다.`}
+        >
+          <Button onClick={() => setAttempt((current) => current + 1)}>다시 시도</Button>
+        </ErrorAlert>
       )}
     </section>
   )

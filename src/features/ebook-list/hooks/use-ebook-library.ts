@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
 import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import { createOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
+import type { OcrAnalysisFailure, OcrAnalysisResult } from '../lib/ebook-analysis/ocr-analysis'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
@@ -14,16 +16,32 @@ type LibraryState =
   | { status: 'ready'; books: StoredBook[] }
   | { status: 'error'; message: string }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isPdfStatus(value: unknown): value is StoredBook['pdf_status'] {
+  return value === 'available' || value === 'missing'
+}
+
+function isAnalysisStatus(value: unknown): value is StoredBook['analysis_status'] {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
+}
+
+function isNullableTimestamp(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isSafeInteger(value))
+}
+
 function isStoredBook(value: unknown): value is StoredBook {
+  if (!isRecord(value)) return false
+
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
     typeof value.id === 'string' &&
-    'title' in value &&
     typeof value.title === 'string' &&
-    'pdf_status' in value &&
-    (value.pdf_status === 'available' || value.pdf_status === 'missing')
+    isPdfStatus(value.pdf_status) &&
+    isAnalysisStatus(value.analysis_status) &&
+    isNullableTimestamp(value.ocr_completed_at) &&
+    isNullableTimestamp(value.indexed_at)
   )
 }
 
@@ -34,6 +52,36 @@ export function useEbookLibrary(store: EbookLibraryStore) {
   const [refreshing, setRefreshing] = useState(false)
   const storage = useLibraryStorage()
   const { refreshUsage } = storage
+  const ocrCoordinatorRef = useRef<ReturnType<typeof createOcrAnalysisCoordinator> | null>(null)
+  if (ocrCoordinatorRef.current === null) {
+    ocrCoordinatorRef.current = createOcrAnalysisCoordinator()
+  }
+  const ocrCoordinator = ocrCoordinatorRef.current
+
+  function reportOcrFailure(failure: OcrAnalysisFailure) {
+    const page = failure.pageNumber === undefined ? '' : ` ${failure.pageNumber}페이지`
+    const message =
+      failure.error instanceof Error && failure.error.message
+        ? failure.error.message
+        : '알 수 없는 오류가 발생했습니다.'
+    console.error(`OCR 분석 실패 (${failure.stage}${page})`, failure.error)
+    toast.add({
+      id: `ocr-analysis-failure-${failure.bookId}`,
+      title:
+        failure.pageNumber === undefined
+          ? '책 분석에 실패했습니다.'
+          : `${failure.pageNumber}페이지 OCR에 실패했습니다.`,
+      description: message,
+      type: 'error',
+    })
+  }
+
+  const startOcrAnalysis = useCallback(
+    async (bookId: string): Promise<OcrAnalysisResult | undefined> => {
+      return await ocrCoordinator.startOcrAnalysis(bookId, store, reportOcrFailure)
+    },
+    [ocrCoordinator, store],
+  )
 
   async function refreshBooks() {
     const result = await store.request('listBooks')
@@ -89,6 +137,33 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     }
   }, [store, attempt, refreshUsage])
 
+  // 분석 중 브라우저가 종료되고 다시 들어왔을 때,
+  // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
+  useEffect(() => {
+    if (state.status !== 'ready') return
+    const pendingBooks = state.books.filter((book) => book.analysis_status === 'analyzing')
+
+    async function resumeOcrAnalysis() {
+      for (const book of pendingBooks) {
+        const result = await startOcrAnalysis(book.id)
+        if (result !== 'failed') continue
+        setState((current) => {
+          if (current.status !== 'ready') return current
+          return {
+            status: 'ready',
+            books: current.books.map((currentBook) =>
+              currentBook.id === book.id
+                ? { ...currentBook, analysis_status: 'failed' }
+                : currentBook,
+            ),
+          }
+        })
+      }
+    }
+
+    void resumeOcrAnalysis().catch(() => undefined)
+  }, [state, startOcrAnalysis])
+
   function retry() {
     setState({ status: 'loading' })
     setAttempt((current) => current + 1)
@@ -99,6 +174,9 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     isLibraryReady: state.status === 'ready',
     refreshBooks,
     refreshUsage,
+    startOcrAnalysis: async (bookId) => {
+      await startOcrAnalysis(bookId)
+    },
   })
   const coverRegeneration = useCoverRegeneration({
     store,
@@ -121,6 +199,24 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     void refreshLibrary()
   }
 
+  async function retryOcrAnalysis(bookId: string) {
+    try {
+      await store.request('retryBookAnalysis', bookId)
+      await startOcrAnalysis(bookId)
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : '다시 시도하지 못했습니다.'
+      console.error('OCR 분석 재시도 실패', error)
+      toast.add({
+        title: '책 분석을 다시 시작하지 못했습니다.',
+        description: message,
+        type: 'error',
+      })
+    } finally {
+      await refreshBooks().catch(() => undefined)
+    }
+  }
+
   return {
     state,
     retry,
@@ -135,5 +231,6 @@ export function useEbookLibrary(store: EbookLibraryStore) {
     regeneratingCover: coverRegeneration.regeneratingCover,
     renameBook,
     deleteBook,
+    retryOcrAnalysis,
   }
 }

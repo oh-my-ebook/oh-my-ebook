@@ -1,5 +1,7 @@
+import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import {
   prepareWebLlmModel,
   useWebLlmModelStore,
@@ -43,8 +45,12 @@ export function ModelDownloadAlert() {
       role="status"
       variant={status === 'error' ? 'destructive' : 'default'}
     >
+      {status === 'error' && <TriangleAlert />}
       <AlertTitle>Qwen2.5 1.5B</AlertTitle>
-      <AlertDescription>{getStatusText(status, progress, error)}</AlertDescription>
+      <AlertDescription className={status === 'error' ? 'text-destructive/90' : undefined}>
+        {getStatusText(status, progress, error)}
+      </AlertDescription>
+      {status === 'loading' && <Progress value={progress === 0 ? null : progress} />}
       <AlertAction>
         <Button
           aria-label={button.label}

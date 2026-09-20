@@ -21,6 +21,21 @@ export const SQLITE_COMMAND = {
   UPDATE_TITLE: 'updateTitle',
   UPDATE_PROGRESS: 'updateProgress',
   UPDATE_COVER: 'updateCover',
+  INITIALIZE_OCR_PAGES: 'initializeOcrPages',
+  PREPARE_OCR_PAGES_FOR_RUN: 'prepareOcrPagesForRun',
+  ACQUIRE_NEXT_OCR_PAGE: 'acquireNextOcrPage',
+  STORE_OCR_PAGE: 'storeOcrPage',
+  FAIL_OCR_PAGE: 'failOcrPage',
+  FAIL_BOOK_ANALYSIS: 'failBookAnalysis',
+  RETRY_BOOK_ANALYSIS: 'retryBookAnalysis',
+  LIST_OCR_LINES: 'listOcrLines',
+  GET_STORED_OCR_PAGE: 'getStoredOcrPage',
+  LIST_OCR_PAGES: 'listOcrPages',
+  GET_BOOK_ANALYSIS_STATUS: 'getBookAnalysisStatus',
+  GET_OCR_LINES_FOR_CHUNKING: 'getOcrLinesForChunking',
+  STORE_SEARCH_CHUNKS: 'storeSearchChunks',
+  LIST_SEARCH_CHUNKS: 'listSearchChunks',
+  LIST_CHUNK_SOURCES: 'listChunkSources',
 } as const
 
 export const OPFS_COMMAND = {

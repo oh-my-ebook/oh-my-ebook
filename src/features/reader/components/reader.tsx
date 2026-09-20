@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorAlert } from '@/components/error-alert'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { PdfDocumentSource } from '../lib/pdf-document'
+import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -30,6 +31,7 @@ interface ReaderProps {
   data?: Uint8Array
   title?: string
   initialPage?: number
+  getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   onPageChange?(pageNumber: number): void
 }
 
@@ -85,15 +87,13 @@ function ReaderLoading({ label }: ReaderLoadingProps) {
 
 function ReaderError({ message, onRetry }: ReaderErrorProps) {
   return (
-    <Alert className="mx-auto max-w-md" variant="destructive">
-      <AlertTitle>{message}</AlertTitle>
-      <AlertDescription>
-        <p>문서를 다시 불러와 보세요.</p>
-        <Button className="mt-3" onClick={onRetry} variant="outline">
-          PDF 다시 불러오기
-        </Button>
-      </AlertDescription>
-    </Alert>
+    <ErrorAlert
+      className="mx-auto max-w-md"
+      description="문서를 다시 불러와 보세요."
+      title={message}
+    >
+      <Button onClick={onRetry}>PDF 다시 불러오기</Button>
+    </ErrorAlert>
   )
 }
 
@@ -110,7 +110,14 @@ const ARROW_KEY_OWNER_SELECTOR = [
   '[data-slot="toggle-group"]',
 ].join(', ')
 
-export function Reader({ data, initialPage, onPageChange, title, url }: ReaderProps) {
+export function Reader({
+  data,
+  getStoredOcrPage,
+  initialPage,
+  onPageChange,
+  title,
+  url,
+}: ReaderProps) {
   const source = data ?? url ?? ''
   const [currentPage, setCurrentPage] = useState(1)
   const [preferredView, setPreferredView] = useState<PageViewMode>('single')
@@ -234,6 +241,7 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
+          getStoredOcrPage={getStoredOcrPage}
           pages={pageSpread.pages}
           scale={displayScale}
         />
@@ -289,7 +297,9 @@ export function Reader({ data, initialPage, onPageChange, title, url }: ReaderPr
             <div className="min-w-64 flex-1">
               <PageNavigator
                 currentPage={currentPage}
+                nextPage={nextPage}
                 onPageChange={handlePageChange}
+                previousPage={previousPage}
                 totalPages={documentState.pages.length}
               />
             </div>

@@ -1,27 +1,46 @@
 import type { StoredBook } from '../ebook-types'
+import { AddBookCard } from './add-book-card'
 import { BookCard } from './book-card'
 
 interface EbookShelfProps {
   books: readonly StoredBook[]
   coverErrors: Readonly<Record<string, string>>
+  disabled?: boolean
+  dragActive?: boolean
+  isUploading?: boolean
+  onFilesSelected(files: File[]): void
   onOpenBook(bookId: string): void
   onRegenerate(book: StoredBook): void
   regeneratingCover: string | null
   onRename(bookId: string, title: string): void
   onDelete(bookId: string): Promise<void>
+  onRetryAnalysis?(bookId: string): void
 }
 
 export function EbookShelf({
   books,
   coverErrors,
+  disabled,
+  dragActive,
+  isUploading,
+  onFilesSelected,
   onOpenBook,
   onRegenerate,
   regeneratingCover,
   onRename,
   onDelete,
+  onRetryAnalysis,
 }: EbookShelfProps) {
   return (
     <ul className="ebook-shelf" role="list">
+      <li>
+        <AddBookCard
+          disabled={disabled}
+          dragActive={dragActive}
+          isUploading={isUploading}
+          onFilesSelected={onFilesSelected}
+        />
+      </li>
       {books.map((book) => (
         <li key={book.id}>
           <BookCard
@@ -31,6 +50,7 @@ export function EbookShelf({
             onRename={(title) => onRename(book.id, title)}
             onDelete={() => onDelete(book.id)}
             onRegenerate={() => onRegenerate(book)}
+            onRetryAnalysis={onRetryAnalysis ? () => onRetryAnalysis(book.id) : undefined}
             regenerating={regeneratingCover === book.id}
           />
         </li>
