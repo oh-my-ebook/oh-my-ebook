@@ -73,7 +73,7 @@ export function PageNavigator({
 }: PageNavigatorProps) {
   const [previewPage, setPreviewPage] = useState<number | null>(null)
   const sliderPage = previewPage ?? currentPage
-  const navigation = getPageNavigation(currentPage, totalPages, previousPage, nextPage)
+  const navigation = getPageNavigation(totalPages, previousPage, nextPage)
 
   return (
     <TooltipProvider>

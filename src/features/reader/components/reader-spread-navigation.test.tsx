@@ -77,4 +77,48 @@ describe('Reader 두 페이지 보기 탐색', () => {
     expect(screen.getByRole('img', { name: 'PDF 4페이지' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 5')
   })
+
+  it('두 페이지 보기에서 묶음의 두 번째 페이지에 있으면 첫 페이지 버튼도 비활성화한다', async () => {
+    const user = userEvent.setup()
+    render(<Reader initialPage={2} title="묶음 중간 페이지 테스트" url="/sample.pdf" />, {
+      wrapper: MemoryRouter,
+    })
+
+    await screen.findByRole('img', { name: 'PDF 2페이지' })
+    await user.click(screen.getByRole('button', { name: '두 페이지' }))
+    await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('2 / 5')
+
+    expect(screen.getByRole('button', { name: '이전 페이지' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '첫 페이지' })).toBeDisabled()
+  })
+
+  it('짝수 쪽수 문서에서 마지막 묶음의 첫 페이지에 있으면 마지막 페이지 버튼도 비활성화한다', async () => {
+    const user = userEvent.setup()
+    const evenPages: readonly PdfPageInfo[] = Array.from({ length: 6 }, (_, index) => ({
+      pageNumber: index + 1,
+      width: 800,
+      height: 1200,
+      rotation: 0,
+    }))
+    usePdfDocumentMock.mockReturnValue({
+      document: { numPages: evenPages.length, getPage: vi.fn() } satisfies PdfDocumentHandle,
+      error: null,
+      pages: evenPages,
+      retry: vi.fn(),
+      status: 'ready',
+    })
+
+    render(<Reader title="짝수 쪽수 탐색 테스트" url="/even.pdf" />, { wrapper: MemoryRouter })
+
+    await user.click(screen.getByRole('button', { name: '두 페이지' }))
+    await waitFor(() => expect(screen.getAllByRole('img')).toHaveLength(2))
+
+    await user.click(screen.getByRole('button', { name: '다음 페이지' }))
+    await user.click(screen.getByRole('button', { name: '다음 페이지' }))
+    expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('5 / 6')
+
+    expect(screen.getByRole('button', { name: '다음 페이지' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '마지막 페이지' })).toBeDisabled()
+  })
 })
