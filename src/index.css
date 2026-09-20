@@ -189,6 +189,16 @@
       height: 0;
     }
   }
+
+  @keyframes progress-indeterminate {
+    from {
+      translate: -100% 0;
+    }
+
+    to {
+      translate: 400% 0;
+    }
+  }
 }
 
 @layer base {
