@@ -14,6 +14,10 @@ import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+// 레이아웃을 확인하는 테스트라 실제 OCR 경로까지 들어가지 않는다.
+const recognizePdfPageMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ width: 1, height: 1, lines: [] }),
+)
 const disconnectResizeObserver = vi.fn()
 
 vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
@@ -23,7 +27,11 @@ vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
 vi.mock('./features/reader/lib/ocr/page-recognition', async (importOriginal) => {
   const pageRecognition =
     await importOriginal<typeof import('./features/reader/lib/ocr/page-recognition')>()
-  return { ...pageRecognition, prepareOcr: prepareOcrMock }
+  return {
+    ...pageRecognition,
+    prepareOcr: prepareOcrMock,
+    recognizePdfPage: recognizePdfPageMock,
+  }
 })
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
