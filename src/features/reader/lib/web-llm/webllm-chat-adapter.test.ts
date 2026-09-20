@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelRunOptions, ChatModelRunResult, ThreadMessage } from '@assistant-ui/react'
+import type { ChatCompletionRequestStreaming } from '@mlc-ai/web-llm'
 import { stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
 import { encodeQuoteTexts } from '../../../../lib/quote'
-import { createWebLlmChatModelAdapter } from './webllm-chat-adapter'
+import {
+  MAX_COMPLETION_TOKENS,
+  MAX_MODEL_CONTEXT_TOKENS,
+  createWebLlmChatModelAdapter,
+  estimateWebLlmMessagesTokens,
+} from './webllm-chat-adapter'
 import type { WebLlmEngine } from './webllm-model'
 
 function createMessage(role: 'user' | 'assistant', text: string, quote?: string): ThreadMessage {
@@ -54,7 +60,7 @@ function getText(result: ChatModelRunResult) {
 }
 
 function createEngine(chunks: string[]) {
-  const create = vi.fn(async () => ({
+  const create = vi.fn(async (_request: ChatCompletionRequestStreaming) => ({
     async *[Symbol.asyncIterator]() {
       for (const content of chunks) {
         yield { choices: [{ delta: { content } }] }
@@ -113,8 +119,9 @@ describe('createWebLlmChatModelAdapter', () => {
     const adapter = createWebLlmChatModelAdapter(async () => engine, undefined, retrieveChunks)
     const options = createRunOptions([createMessage('user', '검색 질문')])
 
-    for await (const _result of adapter.run(options)) {
-      // 엔진에 전달된 system message를 검증한다.
+    const results = []
+    for await (const result of adapter.run(options)) {
+      results.push(result)
     }
 
     expect(retrieveChunks).toHaveBeenCalledWith(options.messages, options.abortSignal)
@@ -132,6 +139,72 @@ describe('createWebLlmChatModelAdapter', () => {
         ],
       }),
     )
+    expect(results.at(-1)?.content).toContainEqual({
+      type: 'data',
+      name: 'book-evidence',
+      data: {
+        chunks: [
+          expect.objectContaining({
+            id: 'chunk-1',
+            sources: [{ pageNumber: 7, startLineIndex: 0, endLineIndex: 1 }],
+          }),
+        ],
+      },
+    })
+  })
+
+  it('상위 5개 청크만 포함하고 응답 예산까지 합쳐 8,000토큰을 넘지 않는다', async () => {
+    const { create, engine } = createEngine(['답변'])
+    const retrieveChunks = vi.fn(async () =>
+      Array.from({ length: 6 }, (_, index) => ({
+        id: `chunk-${index}`,
+        ordinal: index,
+        text: `${index}번 청크 ${'한국어 본문 '.repeat(2_000)}`,
+        tokenCount: 4_000,
+        score: 10 - index,
+        sources: [{ pageNumber: index + 1, startLineIndex: 0, endLineIndex: 1 }],
+      })),
+    )
+    const adapter = createWebLlmChatModelAdapter(async () => engine, undefined, retrieveChunks)
+
+    for await (const _result of adapter.run(
+      createRunOptions([createMessage('user', '전체 예산을 확인해 줘')]),
+    )) {
+      // 엔진에 전달된 최종 요청을 검증한다.
+    }
+
+    const request = create.mock.calls[0]?.[0]
+    if (!request) throw new Error('모델 요청이 생성되지 않았습니다.')
+    const system = request.messages[0]?.content
+    expect(system).toContain('[문서 발췌 | p.1]')
+    expect(system).not.toContain('[문서 발췌 | p.6]')
+    expect(
+      estimateWebLlmMessagesTokens(request.messages) + MAX_COMPLETION_TOKENS,
+    ).toBeLessThanOrEqual(MAX_MODEL_CONTEXT_TOKENS)
+  })
+
+  it('검색이 실패하면 엔진을 불러오거나 모델을 호출하지 않는다', async () => {
+    const { engine } = createEngine(['답변'])
+    const loadEngine = vi.fn(async () => engine)
+    const onEngineFailure = vi.fn()
+    const retrieveChunks = vi.fn(async () => {
+      throw new Error('검색 실패')
+    })
+    const adapter = createWebLlmChatModelAdapter(loadEngine, onEngineFailure, retrieveChunks)
+
+    await expect(
+      (async () => {
+        for await (const _result of adapter.run(
+          createRunOptions([createMessage('user', '검색 질문')]),
+        )) {
+          // retrieval 단계에서 실패해야 한다.
+        }
+      })(),
+    ).rejects.toThrow('검색 실패')
+
+    expect(loadEngine).not.toHaveBeenCalled()
+    expect(engine.chat.completions.create).not.toHaveBeenCalled()
+    expect(onEngineFailure).not.toHaveBeenCalled()
   })
 
   it('사용자 메시지의 PDF 인용문을 질문과 함께 엔진에 전달한다', async () => {

@@ -95,7 +95,7 @@ function createDatabase({
 }
 
 describe('OCR SQLite 계약', () => {
-  it('현재 책에서 찾은 청크에 페이지별 줄 출처를 포함한다', () => {
+  it('BM25 순위를 유지하고 청크별 페이지 줄 출처를 포함한다', () => {
     const { database, exec } = createDatabase({
       searchResults: [
         {
@@ -103,6 +103,13 @@ describe('OCR SQLite 계약', () => {
           ordinal: 1,
           text: 'BM25 검색 청크',
           token_count: 4,
+          score: 2.5,
+        },
+        {
+          id: 'chunk-1',
+          ordinal: 0,
+          text: '다음 검색 청크',
+          token_count: 3,
           score: 1.25,
         },
       ],
@@ -113,6 +120,18 @@ describe('OCR SQLite 계약', () => {
           start_line_index: 2,
           end_line_index: 5,
         },
+        {
+          chunk_id: 'chunk-2',
+          page_number: 5,
+          start_line_index: 0,
+          end_line_index: 1,
+        },
+        {
+          chunk_id: 'chunk-1',
+          page_number: 2,
+          start_line_index: 3,
+          end_line_index: 4,
+        },
       ],
     })
 
@@ -120,7 +139,7 @@ describe('OCR SQLite 계약', () => {
       executeSqliteCommand(database, {
         requestId: 1,
         command: SQLITE_COMMAND.SEARCH_CHUNKS,
-        payload: { bookId: 'book-id', terms: ['검색'], limit: 5 },
+        payload: { bookId: 'book-id', terms: ['검색', '청크'], limit: 5 },
       }),
     ).toEqual([
       {
@@ -128,17 +147,28 @@ describe('OCR SQLite 계약', () => {
         ordinal: 1,
         text: 'BM25 검색 청크',
         tokenCount: 4,
+        score: 2.5,
+        sources: [
+          { pageNumber: 4, startLineIndex: 2, endLineIndex: 5 },
+          { pageNumber: 5, startLineIndex: 0, endLineIndex: 1 },
+        ],
+      },
+      {
+        id: 'chunk-1',
+        ordinal: 0,
+        text: '다음 검색 청크',
+        tokenCount: 3,
         score: 1.25,
-        sources: [{ pageNumber: 4, startLineIndex: 2, endLineIndex: 5 }],
+        sources: [{ pageNumber: 2, startLineIndex: 3, endLineIndex: 4 }],
       },
     ])
     expect(exec).toHaveBeenCalledWith(expect.stringContaining('term_document_frequencies'), {
-      bind: ['검색', 'book-id', 5],
+      bind: ['검색', '청크', 'book-id', 5],
       rowMode: 'object',
       returnValue: 'resultRows',
     })
     expect(exec).toHaveBeenCalledWith(expect.stringContaining('WHERE chunk_sources.chunk_id IN'), {
-      bind: ['chunk-2'],
+      bind: ['chunk-2', 'chunk-1'],
       rowMode: 'object',
       returnValue: 'resultRows',
     })

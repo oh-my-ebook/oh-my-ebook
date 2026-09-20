@@ -113,7 +113,7 @@ export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM book
 
 export const SELECT_BOOK_METADATA_SQL = `SELECT id, content_hash, file_name, title,
   author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
-  page_count, last_page
+  page_count, last_page, analysis_status
   FROM books WHERE id = ?`
 
 export const UPDATE_BOOK_PROGRESS_SQL = `UPDATE books SET last_page = ?, updated_at = ?

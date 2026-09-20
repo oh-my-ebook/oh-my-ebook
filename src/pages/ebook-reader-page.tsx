@@ -86,6 +86,7 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
 
   return (
     <Reader
+      analysisStatus={state.book.analysisStatus}
       bookMetadata={state.book.metadata}
       bookId={bookId}
       data={state.book.pdfData}

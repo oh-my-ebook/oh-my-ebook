@@ -7,7 +7,12 @@ import type {
 import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
 import type { SearchChunkResult } from '@/features/ebook-list/ebook-types'
 import { decodeQuoteTexts } from '@/lib/quote'
-import { formatSearchContext } from '../rag/format-search-context'
+import { BOOK_EVIDENCE_DATA_NAME } from '../rag/book-evidence'
+import {
+  estimateTextTokens,
+  formatSearchContextWithChunks,
+  truncateToTokenBudget,
+} from '../rag/format-search-context'
 import { searchBookChunks, type SearchChunks } from '../rag/search-book-chunks'
 import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './webllm-model'
 
@@ -47,6 +52,11 @@ const RETRIEVAL_PROMPT = [
   'If the excerpts do not support an answer, say that you do not know.',
 ].join('\n')
 
+export const MAX_MODEL_CONTEXT_TOKENS = 8_000
+export const MAX_COMPLETION_TOKENS = 512
+const MAX_PROMPT_TOKENS = MAX_MODEL_CONTEXT_TOKENS - MAX_COMPLETION_TOKENS
+const MESSAGE_OVERHEAD_TOKENS = 8
+
 function isTextPart(part: { type: string }): part is TextMessagePart {
   return part.type === 'text'
 }
@@ -80,7 +90,65 @@ function getText(message: ThreadMessage) {
   return `${quoteContext}\n\n${text}`
 }
 
-function toWebLlmMessages({ context, messages }: ChatModelRunOptions, system = context.system) {
+function getMessageContent(message: ChatCompletionMessageParam): string {
+  return typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+}
+
+function estimateWebLlmMessageTokens(message: ChatCompletionMessageParam): number {
+  return MESSAGE_OVERHEAD_TOKENS + estimateTextTokens(getMessageContent(message))
+}
+
+export function estimateWebLlmMessagesTokens(
+  messages: readonly ChatCompletionMessageParam[],
+): number {
+  return messages.reduce((total, message) => total + estimateWebLlmMessageTokens(message), 0)
+}
+
+function truncateMessage(
+  message: ChatCompletionMessageParam,
+  tokenBudget: number,
+): ChatCompletionMessageParam | null {
+  const contentBudget = tokenBudget - MESSAGE_OVERHEAD_TOKENS
+  if (contentBudget <= 0) return null
+  return { ...message, content: truncateToTokenBudget(getMessageContent(message), contentBudget) }
+}
+
+function fitMessagesToPromptBudget(
+  system: string | undefined,
+  history: ChatCompletionMessageParam[],
+): ChatCompletionMessageParam[] {
+  const latestMessage = history.at(-1)
+  const latestReservation = latestMessage
+    ? Math.min(estimateWebLlmMessageTokens(latestMessage), Math.floor(MAX_PROMPT_TOKENS / 2))
+    : 0
+  const systemMessage = system
+    ? truncateMessage({ role: 'system', content: system }, MAX_PROMPT_TOKENS - latestReservation)
+    : null
+  const selectedHistory: ChatCompletionMessageParam[] = []
+  let remainingTokens =
+    MAX_PROMPT_TOKENS - (systemMessage ? estimateWebLlmMessageTokens(systemMessage) : 0)
+
+  for (const message of history.toReversed()) {
+    const messageTokens = estimateWebLlmMessageTokens(message)
+    if (messageTokens <= remainingTokens) {
+      selectedHistory.unshift(message)
+      remainingTokens -= messageTokens
+      continue
+    }
+    if (selectedHistory.length === 0) {
+      const truncatedMessage = truncateMessage(message, remainingTokens)
+      if (truncatedMessage) selectedHistory.unshift(truncatedMessage)
+    }
+    break
+  }
+
+  return systemMessage ? [systemMessage, ...selectedHistory] : selectedHistory
+}
+
+function toWebLlmMessages(
+  { context, messages }: ChatModelRunOptions,
+  chunks?: SearchChunkResult[],
+): { evidenceChunks: readonly SearchChunkResult[]; messages: ChatCompletionMessageParam[] } {
   if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
     console.debug('[ReaderChat] getContext', context.system ?? '')
   }
@@ -89,11 +157,24 @@ function toWebLlmMessages({ context, messages }: ChatModelRunOptions, system = c
     role: message.role,
     content: getText(message),
   }))
-  return system ? [{ role: 'system' as const, content: system }, ...history] : history
-}
+  if (chunks === undefined) {
+    return { evidenceChunks: [], messages: fitMessagesToPromptBudget(context.system, history) }
+  }
 
-function createRetrievalSystemContext(system: string | undefined, chunks: SearchChunkResult[]) {
-  return [system, RETRIEVAL_PROMPT, formatSearchContext(chunks)].filter(Boolean).join('\n\n')
+  const fixedSystem = [context.system, RETRIEVAL_PROMPT].filter(Boolean).join('\n\n')
+  const latestMessage = history.at(-1)
+  const excerptBudget = Math.max(
+    0,
+    MAX_PROMPT_TOKENS -
+      estimateWebLlmMessageTokens({ role: 'system', content: fixedSystem }) -
+      (latestMessage ? estimateWebLlmMessageTokens(latestMessage) : 0),
+  )
+  const formattedContext = formatSearchContextWithChunks(chunks, excerptBudget)
+  const retrievalSystem = [fixedSystem, formattedContext.context].filter(Boolean).join('\n\n')
+  return {
+    evidenceChunks: formattedContext.chunks,
+    messages: fitMessagesToPromptBudget(retrievalSystem, history),
+  }
 }
 
 type RetrieveChunks = (
@@ -123,16 +204,12 @@ export function createWebLlmChatModelAdapter(
       options.abortSignal.addEventListener('abort', interrupt, { once: true })
 
       try {
+        const requestContext = toWebLlmMessages(options, retrievedChunks)
         const stream = await engine.chat.completions.create({
-          messages: toWebLlmMessages(
-            options,
-            retrievedChunks === undefined
-              ? options.context.system
-              : createRetrievalSystemContext(options.context.system, retrievedChunks),
-          ),
+          messages: requestContext.messages,
           // WebLLM은 Qwen 권장 설정의 top_k(20)를 지원하지 않아, 온도를 낮춰 확률이 낮은 토큰을 줄인다.
           temperature: 0.3,
-          max_tokens: 512,
+          max_tokens: MAX_COMPLETION_TOKENS,
           stream: true,
         })
         let text = ''
@@ -140,7 +217,20 @@ export function createWebLlmChatModelAdapter(
         for await (const chunk of stream) {
           text += chunk.choices[0]?.delta.content ?? ''
           if (text) {
-            yield { content: [{ type: 'text', text }] }
+            yield {
+              content: [
+                { type: 'text', text },
+                ...(requestContext.evidenceChunks.length > 0
+                  ? [
+                      {
+                        type: 'data' as const,
+                        name: BOOK_EVIDENCE_DATA_NAME,
+                        data: { chunks: requestContext.evidenceChunks },
+                      },
+                    ]
+                  : []),
+              ],
+            }
           }
         }
       } catch (error) {

@@ -37,6 +37,7 @@ function createBook(overrides: Record<string, unknown> = {}) {
     publisher: '출판사',
     pdf_data: new Uint8Array([1, 2, 3]),
     last_page: 12,
+    analysis_status: 'ready',
     ...overrides,
   }
 }
@@ -77,6 +78,7 @@ describe('EbookReaderPage', () => {
           title: '저장한 책',
         },
         initialPage: 12,
+        analysisStatus: 'ready',
         searchChunks: expect.any(Function),
         title: '저장한 책',
       }),

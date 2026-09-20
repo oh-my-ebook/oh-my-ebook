@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
 import { createMockChatModelAdapter, type MockResponder } from '../lib/mock-chat-adapter'
 import { useWebLlmModelStore, type WebLlmModelStatus } from '../lib/web-llm/webllm-model'
@@ -69,6 +70,21 @@ describe('ReaderChat', () => {
       'placeholder',
       '질문을 입력하세요',
     )
+  })
+
+  it('책 분석이 끝나지 않았으면 안내하고 질문 전송을 막는다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const { respond } = createControllableRespond(0)
+
+    render(
+      <ReaderChat analysisStatus="analyzing" chatModel={createMockChatModelAdapter(respond)} />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('책 분석이 완료된 후 질문할 수 있습니다.')
+    expect(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '이 페이지 요약' })).not.toBeInTheDocument()
+    expect(respond).not.toHaveBeenCalled()
   })
 
   it('인용이 없으면 이 페이지 요약 질문을 바로 보낼 수 있다', async () => {
@@ -535,6 +551,52 @@ describe('ReaderChat', () => {
     expect(receivedContexts[0]?.system).not.toContain('주제:')
     expect(receivedContexts[0]?.system).not.toContain('키워드:')
     expect(receivedContexts[0]?.system).not.toContain('null')
+  })
+
+  it('답변 하단의 근거를 미리 보고 PDF 위치로 이동한다', async () => {
+    setupResizeObserverMock()
+    useWebLlmModelStore.setState({ status: 'ready' })
+    const user = userEvent.setup()
+    const onEvidenceNavigate = vi.fn()
+    const evidenceAdapter: ChatModelAdapter = {
+      async *run() {
+        yield {
+          content: [
+            { type: 'text', text: '근거를 사용한 답변' },
+            {
+              type: 'data',
+              name: 'book-evidence',
+              data: {
+                chunks: [
+                  {
+                    id: 'chunk-1',
+                    ordinal: 0,
+                    text: '호버 카드에 보여 줄 책 본문',
+                    tokenCount: 7,
+                    score: 1.5,
+                    sources: [{ pageNumber: 7, startLineIndex: 2, endLineIndex: 4 }],
+                  },
+                ],
+              },
+            },
+          ],
+        } satisfies ChatModelRunResult
+      },
+    }
+    render(<ReaderChat chatModel={evidenceAdapter} onEvidenceNavigate={onEvidenceNavigate} />)
+
+    await user.type(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME }), '질문')
+    await user.keyboard('{Enter}')
+    const evidenceTrigger = await screen.findByRole('button', { name: '근거 보기' })
+    await user.hover(evidenceTrigger)
+
+    expect(await screen.findByText('호버 카드에 보여 줄 책 본문')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '7페이지 근거로 이동' }))
+    expect(onEvidenceNavigate).toHaveBeenCalledWith({
+      pageNumber: 7,
+      startLineIndex: 2,
+      endLineIndex: 4,
+    })
   })
 
   it('Tab으로 입력 중인 질문에서 전송 조작부로 이동할 수 있다', async () => {

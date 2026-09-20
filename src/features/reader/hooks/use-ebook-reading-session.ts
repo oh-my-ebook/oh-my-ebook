@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { BookAnalysisStatus } from '@/features/ebook-list/ebook-types'
 import type { BookMetadata } from '../lib/book-metadata'
 
 export interface EbookReaderStore {
@@ -9,6 +10,7 @@ export interface EbookReaderStore {
 }
 
 interface ReaderBook {
+  analysisStatus: BookAnalysisStatus
   lastPage: number | null
   metadata: BookMetadata
   pdfData: Uint8Array
@@ -27,6 +29,10 @@ function isOptionalMetadataValue(value: unknown): value is string | null | undef
   return value === undefined || value === null || typeof value === 'string'
 }
 
+function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
+}
+
 function parseReaderBook(value: unknown): ReaderBook | null {
   if (!isRecord(value)) return null
 
@@ -39,6 +45,7 @@ function parseReaderBook(value: unknown): ReaderBook | null {
   const subject = value.pdf_subject
   const keywords = value.pdf_keywords
   const publisher = value.publisher
+  const analysisStatus = value.analysis_status
 
   if (typeof fileName !== 'string') return null
   if (lastPage !== null && (typeof lastPage !== 'number' || !Number.isSafeInteger(lastPage))) {
@@ -50,8 +57,10 @@ function parseReaderBook(value: unknown): ReaderBook | null {
   if (!isOptionalMetadataValue(subject)) return null
   if (!isOptionalMetadataValue(keywords)) return null
   if (!isOptionalMetadataValue(publisher)) return null
+  if (!isBookAnalysisStatus(analysisStatus)) return null
 
   return {
+    analysisStatus,
     lastPage,
     metadata: {
       title: typeof title === 'string' ? title : fileName,

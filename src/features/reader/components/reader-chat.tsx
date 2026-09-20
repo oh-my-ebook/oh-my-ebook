@@ -3,15 +3,19 @@ import {
   AuiIf,
   ThreadPrimitive,
   useAui,
+  useAssistantDataUI,
   useAssistantContext,
   useLocalRuntime,
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { useEffect, useState } from 'react'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
+import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
 import type { BookMetadata } from '../lib/book-metadata'
+import { BOOK_EVIDENCE_DATA_NAME } from '../lib/rag/book-evidence'
 import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import {
   createBookSearchWebLlmChatModelAdapter,
@@ -19,6 +23,7 @@ import {
 } from '../lib/web-llm/webllm-chat-adapter'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { ModelDownloadAlert } from './model-download-alert'
+import { BookEvidence, BookEvidenceNavigationProvider } from './book-evidence'
 
 const PAGE_SUMMARY_QUESTION = '이 페이지에 대해 요약해줘'
 
@@ -46,6 +51,20 @@ const THREAD_COMPONENTS: ThreadComponents = {
   Welcome: ReaderChatWelcome,
 }
 
+function ReaderChatAnalysisPendingWelcome() {
+  return (
+    <div className="flex flex-1 items-center justify-center px-4">
+      <p className="text-center text-sm text-muted-foreground">
+        책 분석이 완료되면 질문을 시작할 수 있습니다.
+      </p>
+    </div>
+  )
+}
+
+const ANALYSIS_PENDING_THREAD_COMPONENTS: ThreadComponents = {
+  Welcome: ReaderChatAnalysisPendingWelcome,
+}
+
 export interface ReaderQuoteRequest {
   action: 'attach' | 'explain'
   id: number
@@ -61,8 +80,10 @@ interface ReaderChatContext {
 }
 
 interface ReaderChatProps extends ReaderChatContext {
+  analysisStatus?: BookAnalysisStatus
   bookId?: string
   chatModel?: ChatModelAdapter
+  onEvidenceNavigate?(source: SearchChunkSource): void
   onQuoteRequestHandled?(requestId: number): void
   quoteRequest?: ReaderQuoteRequest | null
   searchChunks?: SearchChunks
@@ -117,15 +138,19 @@ function getSystemPrompt({
 // AssistantRuntimeProvider의 자식이어야 컨텍스트를 등록할 수 있다.
 // getContext는 질문을 보낼 때 호출되므로 그 시점의 페이지와 본문이 전달된다.
 function ReaderChatContent({
+  analysisStatus,
   bookMetadata,
   currentPage,
   currentPageText,
   onQuoteRequestHandled,
   quoteRequest,
   useRetrieval,
-}: ReaderChatContext & Pick<ReaderChatProps, 'onQuoteRequestHandled' | 'quoteRequest'>) {
+}: ReaderChatContext &
+  Pick<ReaderChatProps, 'analysisStatus' | 'onQuoteRequestHandled' | 'quoteRequest'>) {
   const assistant = useAui()
   const isModelReady = useWebLlmModelStore((state) => state.status === 'ready')
+  const isSearchReady = analysisStatus === undefined || analysisStatus === 'ready'
+  useAssistantDataUI({ name: BOOK_EVIDENCE_DATA_NAME, render: BookEvidence })
   useAssistantContext({
     getContext: () => getSystemPrompt({ bookMetadata, currentPage, currentPageText, useRetrieval }),
   })
@@ -147,34 +172,57 @@ function ReaderChatContent({
     }
 
     composer.setText(EXPLAIN_SELECTION_QUESTION)
-    if (isModelReady) {
+    if (isModelReady && isSearchReady) {
       composer.send()
       onQuoteRequestHandled?.(quoteRequest.id)
     }
-  }, [assistant, isModelReady, onQuoteRequestHandled, quoteRequest])
+  }, [assistant, isModelReady, isSearchReady, onQuoteRequestHandled, quoteRequest])
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <ModelDownloadAlert />
+      {!isSearchReady && (
+        <Alert>
+          <AlertTitle>책 분석이 진행 중입니다.</AlertTitle>
+          <AlertDescription>책 분석이 완료된 후 질문할 수 있습니다.</AlertDescription>
+        </Alert>
+      )}
       <div className="min-h-0 flex-1">
-        <Thread components={THREAD_COMPONENTS} composerDisabled={!isModelReady} />
+        <Thread
+          components={isSearchReady ? THREAD_COMPONENTS : ANALYSIS_PENDING_THREAD_COMPONENTS}
+          composerDisabled={!isModelReady || !isSearchReady}
+        />
       </div>
     </div>
   )
 }
 
-export function ReaderChat({ bookId, chatModel, searchChunks, ...context }: ReaderChatProps) {
-  const useRetrieval = Boolean(bookId && searchChunks)
+export function ReaderChat({
+  analysisStatus,
+  bookId,
+  chatModel,
+  onEvidenceNavigate,
+  searchChunks,
+  ...context
+}: ReaderChatProps) {
+  const isSearchReady = analysisStatus === undefined || analysisStatus === 'ready'
+  const useRetrieval = Boolean(bookId && searchChunks && isSearchReady)
   const [bookSearchChatModel] = useState(() =>
-    bookId && searchChunks
+    bookId && searchChunks && isSearchReady
       ? createBookSearchWebLlmChatModelAdapter(bookId, searchChunks)
       : webLlmChatModelAdapter,
   )
   const runtime = useLocalRuntime(chatModel ?? bookSearchChatModel)
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <ReaderChatContent {...context} useRetrieval={useRetrieval} />
-    </AssistantRuntimeProvider>
+    <BookEvidenceNavigationProvider onNavigate={onEvidenceNavigate}>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ReaderChatContent
+          {...context}
+          analysisStatus={analysisStatus}
+          useRetrieval={useRetrieval}
+        />
+      </AssistantRuntimeProvider>
+    </BookEvidenceNavigationProvider>
   )
 }
