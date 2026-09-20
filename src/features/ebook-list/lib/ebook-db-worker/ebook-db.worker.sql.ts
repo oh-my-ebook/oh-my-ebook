@@ -150,3 +150,14 @@ export const SELECT_OCR_PAGE_LINES_SQL = `SELECT raw_text, x0, y0, x1, y1 FROM o
   WHERE ocr_page_id = ? ORDER BY line_index`
 export const SELECT_OCR_PAGES_SQL = `SELECT page_number, status, width, height FROM ocr_pages
   WHERE book_id = ? ORDER BY page_number`
+export const SELECT_OCR_LINES_FOR_CHUNKING_SQL = `SELECT ocr_pages.id AS ocr_page_id,
+  ocr_pages.page_number, ocr_lines.line_index, ocr_lines.raw_text
+  FROM ocr_lines JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id
+  WHERE ocr_pages.book_id = ? ORDER BY ocr_pages.page_number, ocr_lines.line_index`
+export const DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL = 'DELETE FROM search_chunks WHERE book_id = ?'
+export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
+  id, book_id, ordinal, text, token_count, created_at
+) VALUES (?, ?, ?, ?, ?, ?)`
+export const INSERT_CHUNK_SOURCE_SQL = `INSERT INTO chunk_sources (
+  chunk_id, ocr_page_id, start_line_index, end_line_index, source_order
+) VALUES (?, ?, ?, ?, ?)`

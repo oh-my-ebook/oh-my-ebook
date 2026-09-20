@@ -3,6 +3,7 @@ import { SQLITE_COMMAND } from '../../ebook-consts'
 import type {
   AddBookInput,
   NextOcrPage,
+  OcrLineForChunking,
   OcrLinePage,
   OcrLineRecord,
   OcrPageRecord,
@@ -12,10 +13,13 @@ import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
   DELETE_BOOK_BY_ID_SQL,
+  DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
   ENABLE_FOREIGN_KEYS_SQL,
   GET_SCHEMA_VERSION_SQL,
   INITIAL_SCHEMA_SQL,
   INSERT_BOOK_SQL,
+  INSERT_CHUNK_SOURCE_SQL,
+  INSERT_SEARCH_CHUNK_SQL,
   ROLLBACK_TRANSACTION_SQL,
   SELECT_BOOK_EXISTS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
@@ -30,6 +34,7 @@ import {
   SELECT_OCR_PAGE_LINES_SQL,
   SELECT_READY_OCR_PAGE_SQL,
   SELECT_OCR_PAGES_SQL,
+  SELECT_OCR_LINES_FOR_CHUNKING_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
   SET_OCR_PAGE_FAILED_SQL,
@@ -57,6 +62,7 @@ import {
   isGetStoredOcrPageInput,
   isListOcrLinesInput,
   isStoreOcrPageInput,
+  isStoreSearchChunksInput,
   isUpdateCoverInput,
   isUpdateProgressInput,
   isUpdateTitleInput,
@@ -431,6 +437,74 @@ function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
   return { lines: ocrLines, total }
 }
 
+function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'ocr_page_id' in value &&
+    typeof value.ocr_page_id === 'string' &&
+    'page_number' in value &&
+    typeof value.page_number === 'number' &&
+    'line_index' in value &&
+    typeof value.line_index === 'number' &&
+    'raw_text' in value &&
+    typeof value.raw_text === 'string'
+  )
+}
+
+function getOcrLinesForChunking(database: Database, request: WorkerRequest): OcrLineForChunking[] {
+  const bookId = getBookId(request)
+  const lines = database.exec(SELECT_OCR_LINES_FOR_CHUNKING_SQL, {
+    bind: [bookId],
+    rowMode: 'object',
+    returnValue: 'resultRows',
+  })
+  if (!Array.isArray(lines)) throw new Error('Invalid OCR lines for chunking')
+
+  const ocrLines: OcrLineForChunking[] = []
+  for (const line of lines) {
+    if (!isOcrLineForChunking(line)) throw new Error('Invalid OCR lines for chunking')
+    ocrLines.push({
+      ocr_page_id: line.ocr_page_id,
+      page_number: line.page_number,
+      line_index: line.line_index,
+      raw_text: line.raw_text,
+    })
+  }
+  return ocrLines
+}
+
+function storeSearchChunks(database: Database, request: WorkerRequest): undefined {
+  const input = getPayload(request, request.command, isStoreSearchChunksInput)
+  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
+
+  const now = Date.now()
+  database.exec(BEGIN_TRANSACTION_SQL)
+  try {
+    database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
+    for (const chunk of input.chunks) {
+      database.exec(INSERT_SEARCH_CHUNK_SQL, {
+        bind: [chunk.id, input.bookId, chunk.ordinal, chunk.text, chunk.tokenCount, now],
+      })
+      for (const source of chunk.sources) {
+        database.exec(INSERT_CHUNK_SOURCE_SQL, {
+          bind: [
+            chunk.id,
+            source.ocrPageId,
+            source.startLineIndex,
+            source.endLineIndex,
+            source.sourceOrder,
+          ],
+        })
+      }
+    }
+    database.exec(COMMIT_TRANSACTION_SQL)
+  } catch (error) {
+    database.exec(ROLLBACK_TRANSACTION_SQL)
+    throw error
+  }
+  return undefined
+}
+
 export function executeSqliteCommand(database: Database, request: WorkerRequest): unknown {
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
@@ -461,6 +535,10 @@ export function executeSqliteCommand(database: Database, request: WorkerRequest)
       return getStoredOcrPage(database, request)
     case SQLITE_COMMAND.LIST_OCR_PAGES:
       return listOcrPages(database, request)
+    case SQLITE_COMMAND.GET_OCR_LINES_FOR_CHUNKING:
+      return getOcrLinesForChunking(database, request)
+    case SQLITE_COMMAND.STORE_SEARCH_CHUNKS:
+      return storeSearchChunks(database, request)
     default:
       throw new UnsupportedCommandError(request.command)
   }

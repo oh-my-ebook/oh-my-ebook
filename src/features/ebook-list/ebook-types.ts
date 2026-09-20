@@ -40,6 +40,21 @@ export interface OcrLineInput {
   y1: number
 }
 
+export interface ChunkSourceInput {
+  ocrPageId: string
+  startLineIndex: number
+  endLineIndex: number
+  sourceOrder: number
+}
+
+export interface SearchChunkInput {
+  id: string
+  ordinal: number
+  text: string
+  tokenCount: number
+  sources: readonly ChunkSourceInput[]
+}
+
 export interface NextOcrPage {
   id: string
   pageNumber: number
@@ -58,6 +73,13 @@ export interface OcrLineRecord {
 export interface OcrLinePage {
   lines: OcrLineRecord[]
   total: number
+}
+
+export interface OcrLineForChunking {
+  ocr_page_id: string
+  page_number: number
+  line_index: number
+  raw_text: string
 }
 
 export interface StoredOcrPage {
