@@ -196,8 +196,11 @@ describe('ReaderToc', () => {
 
     await user.keyboard('{ArrowDown}')
     expect(onPageChange).toHaveBeenCalledWith(3)
+    // 포커스도 새로 선택된 페이지로 옮겨가야, 이어서 Enter를 눌러도 이전 페이지로 되돌아가지 않는다.
+    expect(within(toc).getByRole('button', { name: '3페이지' })).toHaveFocus()
 
     await user.keyboard('{ArrowUp}')
     expect(onPageChange).toHaveBeenCalledWith(1)
+    expect(within(toc).getByRole('button', { name: '1페이지' })).toHaveFocus()
   })
 })

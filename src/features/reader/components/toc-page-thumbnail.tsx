@@ -70,6 +70,7 @@ export function TocPageThumbnail({ document, isCurrent, onSelect, page }: TocPag
     <Button
       aria-current={isCurrent ? 'page' : undefined}
       className="h-auto w-full justify-start gap-2 px-2 py-1.5 aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+      data-page-number={page.pageNumber}
       onClick={() => onSelect(page.pageNumber)}
       ref={rowRef}
       variant="ghost"

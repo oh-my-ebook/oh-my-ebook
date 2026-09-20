@@ -101,8 +101,11 @@ describe('Reader 목차 연결', () => {
 
     await user.keyboard('{ArrowDown}')
     expect(screen.getByRole('img', { name: 'PDF 2페이지' })).toBeInTheDocument()
+    // 포커스도 새로 선택된 페이지로 옮겨가야, 이어서 Enter를 눌러도 이전 페이지로 되돌아가지 않는다.
+    expect(within(toc).getByRole('button', { name: '2페이지' })).toHaveFocus()
 
     await user.keyboard('{ArrowUp}')
     expect(screen.getByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+    expect(within(toc).getByRole('button', { name: '1페이지' })).toHaveFocus()
   })
 })

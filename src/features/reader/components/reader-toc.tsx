@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
+import { focusTocPageThumbnail } from '../lib/toc-focus'
 import { TocPageThumbnail } from './toc-page-thumbnail'
 
 const TOC_TITLE = '목차'
@@ -102,6 +103,7 @@ function handleTocKeyDown(
   event.preventDefault()
   if (targetPage !== null) {
     onPageChange(targetPage)
+    focusTocPageThumbnail(event.currentTarget, targetPage)
   }
 }
 

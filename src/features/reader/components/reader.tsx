@@ -9,6 +9,7 @@ import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { PdfDocumentSource } from '../lib/pdf-document'
 import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
+import { focusTocPageThumbnail } from '../lib/toc-focus'
 import {
   FIT_HEIGHT_ZOOM,
   calculateFitHeightScale,
@@ -218,9 +219,14 @@ export function Reader({
         return
       }
 
-      const isFocusInToc =
-        event.target instanceof Element && event.target.closest(TOC_CONTAINER_SELECTOR) !== null
-      const targetPage = getArrowKeyTargetPage(event.key, isFocusInToc, previousPage, nextPage)
+      const tocContainer =
+        event.target instanceof Element ? event.target.closest(TOC_CONTAINER_SELECTOR) : null
+      const targetPage = getArrowKeyTargetPage(
+        event.key,
+        tocContainer !== null,
+        previousPage,
+        nextPage,
+      )
       if (targetPage === undefined) {
         return
       }
@@ -228,6 +234,11 @@ export function Reader({
       event.preventDefault()
       if (targetPage !== null) {
         handlePageChange(targetPage)
+        // 목차 안에서 화살표로 옮겼다면, 이어서 Enter를 눌러도 이전에 포커스가 남아 있던
+        // 페이지로 되돌아가지 않도록 새로 선택된 페이지의 썸네일로 포커스도 옮긴다.
+        if (tocContainer) {
+          focusTocPageThumbnail(tocContainer, targetPage)
+        }
       }
     }
 
