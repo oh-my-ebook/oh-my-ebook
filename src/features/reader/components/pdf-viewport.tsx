@@ -3,13 +3,15 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  extractPdfPageText,
   PDF_CSS_SCALE,
   type PdfDocumentHandle,
   type PdfPageHandle,
   type PdfPageInfo,
   type PdfPageViewport,
 } from '../lib/pdf-document'
-import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognition'
+import { recognizePdfPage } from '../lib/ocr/page-recognition'
+import type { PageTextLayer } from '../lib/text-layer'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
@@ -58,10 +60,10 @@ interface PdfViewportOutcome {
   status: 'error' | 'ready'
 }
 
-interface OcrOutcome {
+interface TextLayerOutcome {
   document: PdfDocumentHandle
   pageNumbers: string
-  pages: ReadonlyMap<number, OcrPageResult>
+  pages: ReadonlyMap<number, PageTextLayer>
 }
 
 function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
@@ -126,7 +128,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [attempt, setAttempt] = useState(0)
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
-  const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
+  const [textLayerOutcome, setTextLayerOutcome] = useState<TextLayerOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
   const status = getPdfViewportStatus(outcome, request)
 
@@ -235,35 +237,36 @@ export function PdfViewport(props: PdfViewportProps) {
     }
 
     const controller = new AbortController()
-    const recognizePages = async () => {
-      const recognizedPages = await Promise.all(
+    const loadTextLayers = async () => {
+      const textLayers = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
             const page = await document.getPage(pageNumber)
-            const result = await recognizePdfPage(page, controller.signal)
-            return [pageNumber, result] as const
+            const embeddedText = await extractPdfPageText(page, controller.signal)
+            const textLayer = embeddedText ?? (await recognizePdfPage(page, controller.signal))
+            return [pageNumber, textLayer] as const
           } catch {
             return null
           }
         }),
       )
       if (!controller.signal.aborted) {
-        setOcrOutcome({
+        setTextLayerOutcome({
           document,
           pageNumbers,
-          pages: new Map(recognizedPages.filter((page) => page !== null)),
+          pages: new Map(textLayers.filter((textLayer) => textLayer !== null)),
         })
       }
     }
 
-    void recognizePages()
+    void loadTextLayers()
     return () => controller.abort()
   }, [document, firstPageNumber, pageNumbers, secondPageNumber])
 
-  const ocrPages =
-    ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers
-      ? ocrOutcome.pages
-      : new Map<number, OcrPageResult>()
+  const textLayerPages =
+    textLayerOutcome?.document === document && textLayerOutcome.pageNumbers === pageNumbers
+      ? textLayerOutcome.pages
+      : new Map<number, PageTextLayer>()
 
   return (
     <section aria-busy={status === 'loading'} aria-label="PDF 본문" className="h-full min-h-0">
@@ -275,7 +278,7 @@ export function PdfViewport(props: PdfViewportProps) {
         role={status === 'loading' ? 'status' : undefined}
       >
         {pages.map((page) => {
-          const ocrPage = ocrPages.get(page.pageNumber)
+          const textLayer = textLayerPages.get(page.pageNumber)
           return (
             <div
               className="relative shrink-0 overflow-hidden transition-[width,height] duration-200 ease-out motion-reduce:transition-none [container-type:inline-size]"
@@ -288,19 +291,19 @@ export function PdfViewport(props: PdfViewportProps) {
                 data-slot="pdf-page-canvas"
                 hidden={status !== 'ready'}
               />
-              {status === 'ready' && ocrPage && (
+              {status === 'ready' && textLayer && (
                 <div
-                  aria-label={`PDF ${page.pageNumber}페이지 OCR 텍스트 레이어`}
+                  aria-label={`PDF ${page.pageNumber}페이지 텍스트 레이어`}
                   className="absolute inset-0 overflow-hidden"
                 >
-                  {ocrPage.lines.map((line, index) => (
+                  {textLayer.lines.map((line, index) => (
                     <span
                       className="absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80"
                       key={`${line.x0}-${line.y0}-${index}`}
                       style={{
-                        left: `${(line.x0 / ocrPage.width) * 100}%`,
-                        top: `${(line.y0 / ocrPage.height) * 100}%`,
-                        fontSize: `${(line.fontSize / ocrPage.width) * 100}cqw`,
+                        left: `${(line.x0 / textLayer.width) * 100}%`,
+                        top: `${(line.y0 / textLayer.height) * 100}%`,
+                        fontSize: `${(line.fontSize / textLayer.width) * 100}cqw`,
                         lineHeight: 1,
                         transform: `scaleX(${line.scaleX})`,
                       }}

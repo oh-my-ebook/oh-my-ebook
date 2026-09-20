@@ -5,9 +5,16 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { recognizePdfPage } = vi.hoisted(() => ({ recognizePdfPage: vi.fn() }))
+const { extractPdfPageText, recognizePdfPage } = vi.hoisted(() => ({
+  extractPdfPageText: vi.fn(),
+  recognizePdfPage: vi.fn(),
+}))
 
 vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
+vi.mock('../lib/pdf-document', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/pdf-document')>()),
+  extractPdfPageText,
+}))
 
 function createRenderTask() {
   const completion = createPromiseController<void>()
@@ -70,6 +77,7 @@ function getRenderedCanvas(pageNumber = 1) {
 describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
+    extractPdfPageText.mockResolvedValue(null)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
@@ -128,7 +136,31 @@ describe('PdfViewport', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('200 DPI OCR 결과를 텍스트 레이어로 표시한다', async () => {
+  it('PDF에 텍스트가 있으면 OCR 없이 그 텍스트를 표시한다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    extractPdfPageText.mockResolvedValueOnce({
+      width: 600,
+      height: 900,
+      lines: [
+        { text: 'PDF에 들어 있는 문장', x0: 60, y0: 90, x1: 300, y1: 108, fontSize: 18, scaleX: 1 },
+      ],
+    })
+
+    render(<PdfViewport document={document} page={createPageInfo(1)} scale={1} />)
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
+    expect(layer).toHaveTextContent('PDF에 들어 있는 문장')
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
+  it('PDF에 텍스트가 없으면 OCR 결과를 텍스트 레이어로 표시한다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
@@ -155,7 +187,7 @@ describe('PdfViewport', () => {
       await renderTask.completion.promise
     })
 
-    const layer = await screen.findByLabelText('PDF 1페이지 OCR 텍스트 레이어')
+    const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
     expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
   })

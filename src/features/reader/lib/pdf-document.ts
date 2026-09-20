@@ -7,6 +7,13 @@ import {
 
 // Vite의 `?url`로 현재 PDF.js 패키지에 포함된 worker 파일의 배포 URL을 가져온다.
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import {
+  createTextMeasurer,
+  fitTextLines,
+  toBoundingBox,
+  type PageTextLayer,
+  type TextBox,
+} from './text-layer'
 
 // PDF.js가 문서 분석을 별도 worker에서 수행하도록 worker 스크립트 경로를 지정한다.
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -44,6 +51,20 @@ export interface PdfPageHandle {
   getViewport(parameters: { scale: number }): PdfPageViewport
 }
 
+interface PdfTextItem {
+  str: string
+  transform: number[]
+  width: number
+  height: number
+}
+
+interface TextPdfPage extends PdfPageHandle {
+  getTextContent(): Promise<{ items: readonly PdfTextItem[] }>
+  getViewport(parameters: { scale: number }): PdfPageViewport & {
+    convertToViewportPoint(x: number, y: number): [number, number]
+  }
+}
+
 export interface PdfDocumentHandle {
   readonly numPages: number
   getPage(pageNumber: number): Promise<PdfPageHandle>
@@ -67,6 +88,48 @@ export type PdfDocumentLoader = (
   source: PdfDocumentSource,
   signal: AbortSignal,
 ) => Promise<LoadedPdfDocument>
+
+function isTextPdfPage(page: PdfPageHandle): page is TextPdfPage {
+  return 'getTextContent' in page && typeof page.getTextContent === 'function'
+}
+
+/**
+ * PDF에 들어 있는 텍스트를 선택할 수 있는 텍스트 레이어로 바꾼다.
+ * 글자가 없는 스캔 페이지나 회전된 페이지처럼 그대로 쓸 수 없으면 `null`을 반환한다.
+ */
+export async function extractPdfPageText(
+  page: PdfPageHandle,
+  signal: AbortSignal,
+): Promise<PageTextLayer | null> {
+  if (!isTextPdfPage(page)) {
+    return null
+  }
+  const viewport = page.getViewport({ scale: 1 })
+  const isRotatedPage = viewport.rotation !== 0
+  if (isRotatedPage) {
+    return null
+  }
+
+  const { items } = await page.getTextContent()
+  signal.throwIfAborted()
+  const textItems = items.filter(({ str }) => str.trim())
+  if (textItems.length === 0) {
+    return null
+  }
+
+  const textBoxes = textItems.map(({ str, transform, width, height }): TextBox => {
+    const [left, baseline] = transform.slice(4)
+    const bottomLeft = viewport.convertToViewportPoint(left, baseline)
+    const topRight = viewport.convertToViewportPoint(left + width, baseline + height)
+    return { text: str, bbox: toBoundingBox([bottomLeft, topRight]) }
+  })
+
+  return {
+    width: viewport.width,
+    height: viewport.height,
+    lines: fitTextLines(textBoxes, createTextMeasurer()),
+  }
+}
 
 /** `instanceof` 대신 오류 객체의 `name`이 예상한 PDF.js 오류 이름과 일치하는지 안전하게 확인한다. */
 function hasErrorName(error: unknown, expectedName: string) {
