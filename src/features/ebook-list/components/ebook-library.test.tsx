@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
 import * as pdfImport from '../lib/pdf-import'
@@ -49,7 +50,7 @@ describe('EbookLibrary', () => {
     const initialization = createPromiseController<unknown>()
     const store = createStore()
     store.request.mockImplementationOnce(() => initialization.promise)
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('서재를 불러오고 있습니다.')
@@ -67,7 +68,7 @@ describe('EbookLibrary', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.request.mockRejectedValueOnce(new Error('failed'))
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
@@ -87,7 +88,7 @@ describe('EbookLibrary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const addToast = vi.spyOn(toast, 'add')
 
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('failBookAnalysis', failedBook.id)
@@ -106,7 +107,7 @@ describe('EbookLibrary', () => {
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
     expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
@@ -133,9 +134,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <Toaster>
-        <EbookLibrary store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -169,9 +172,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <Toaster>
-        <EbookLibrary store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -192,7 +197,7 @@ describe('EbookLibrary', () => {
 
   it('파일이 아닌 항목을 페이지에 끌어다 놓아도 브라우저 기본 동작(이동)을 막는다', async () => {
     const store = createStore()
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     await screen.findByRole('button', { name: '책 추가' })
     const main = screen.getByRole('main')
@@ -222,7 +227,7 @@ describe('EbookLibrary', () => {
       coverMime: null,
       coverStatus: 'fallback',
     })
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     await screen.findByRole('button', { name: '책 추가' })
     const main = screen.getByRole('main')
@@ -265,7 +270,7 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
     await screen.findByRole('button', { name: '책 추가' })
 
     await user.upload(screen.getByLabelText('PDF 파일 선택'), [
@@ -291,7 +296,7 @@ describe('EbookLibrary', () => {
     })
     const usage = vi.spyOn(storage, 'getStorageUsage')
     usage.mockResolvedValueOnce(1).mockResolvedValueOnce(2)
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(await screen.findByText('기존 책')).toBeInTheDocument()
     expect(screen.getByText('읽지 않음 · 전체 1페이지')).toBeInTheDocument()
@@ -316,7 +321,7 @@ describe('EbookLibrary', () => {
       if (listRequestCount === 2) throw new Error('failed')
       return [createStoredBook('새 책')]
     })
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     expect(await screen.findByText('기존 책')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '새로고침' }))
@@ -335,7 +340,7 @@ describe('EbookLibrary', () => {
       if (command === 'listBooks') return [createStoredBook('기존 책')]
       return null
     })
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     await screen.findByText('기존 책')
     await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
@@ -368,7 +373,7 @@ describe('EbookLibrary', () => {
       return null
     })
     vi.spyOn(storage, 'getStorageUsage').mockResolvedValueOnce(10).mockResolvedValueOnce(2)
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     await screen.findByText('첫 번째 책')
     await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
@@ -424,9 +429,11 @@ describe('EbookLibrary', () => {
       coverStatus: 'fallback',
     })
     render(
-      <Toaster>
-        <EbookLibrary store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByRole('button', { name: '책 추가' })
@@ -461,9 +468,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <Toaster>
-        <EbookLibrary store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByText('기존 책')
@@ -487,9 +496,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <Toaster>
-        <EbookLibrary store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByText('기존 책')
@@ -513,7 +524,7 @@ describe('EbookLibrary', () => {
       }
       return null
     })
-    render(<EbookLibrary store={store} />)
+    render(<EbookLibrary store={store} />, { wrapper: MemoryRouter })
 
     await screen.findByText('기존 책')
     await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
@@ -534,9 +545,11 @@ describe('EbookLibrary', () => {
       return null
     })
     render(
-      <Toaster>
-        <EbookLibrary onOpenBook={onOpenBook} store={store} />
-      </Toaster>,
+      <MemoryRouter>
+        <Toaster>
+          <EbookLibrary onOpenBook={onOpenBook} store={store} />
+        </Toaster>
+      </MemoryRouter>,
     )
 
     await screen.findByText('기존 책')
