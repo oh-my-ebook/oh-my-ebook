@@ -5,6 +5,23 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>oh-my-ebook</title>
+    <script>
+      // React가 로드되기 전 첫 화면에도 저장된 테마 또는 시스템 테마를 적용한다.
+      ;(() => {
+        let theme
+        try {
+          theme = localStorage.getItem('theme')
+        } catch {
+          // 저장소가 차단되면 시스템 설정을 따른다.
+        }
+        document.documentElement.classList.toggle(
+          'dark',
+          theme === 'dark' ||
+            (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches),
+        )
+      })()
+    </script>
+    <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
     <div id="root"></div>

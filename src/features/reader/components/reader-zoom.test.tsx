@@ -1,7 +1,7 @@
 import { createRef, type PropsWithChildren } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { TestRouter } from '@/test/test-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PdfDocumentHandle } from '../lib/pdf-document'
 import { Reader } from './reader'
@@ -50,7 +50,7 @@ describe('Reader 크기 조절 연결', () => {
 
   it('확대·축소·높이 맞춤 결과를 한 페이지 본문 배율에 반영한다', async () => {
     const user = userEvent.setup()
-    render(<Reader title="테스트 PDF" url="/test.pdf" />, { wrapper: MemoryRouter })
+    render(<Reader title="테스트 PDF" url="/test.pdf" />, { wrapper: TestRouter })
 
     expect(screen.getByRole('status', { name: '현재 확대율' })).toHaveTextContent('75%')
     const firstPage = await screen.findByRole('img', { name: 'PDF 1페이지' })

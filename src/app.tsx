@@ -3,6 +3,7 @@ import { Route, Routes, useParams } from 'react-router'
 import { Reader } from './features/reader/components/reader'
 import { ebookStore } from './features/ebook-list/lib/ebook-store'
 import { prepareOcr } from './features/reader/lib/ocr/page-recognition'
+import { prepareCachedWebLlmModel } from './features/reader/lib/web-llm/webllm-model'
 import { EbookReaderPage } from './pages/ebook-reader-page'
 import { EbookListPage } from './pages/ebook-list-page'
 import { OcrConsolePage } from './pages/ocr-console-page'
@@ -19,6 +20,9 @@ function EbookReaderRoute() {
 function App() {
   useEffect(() => {
     prepareOcr().catch(() => undefined)
+    prepareCachedWebLlmModel().catch((error: unknown) => {
+      console.warn('저장된 채팅 모델을 미리 준비하지 못했습니다.', error)
+    })
   }, [])
 
   return (

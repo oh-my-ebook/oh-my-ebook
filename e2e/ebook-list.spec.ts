@@ -2,6 +2,166 @@
 
 import { expect, test } from '@playwright/test'
 import { resolve } from 'node:path'
+import { createPromiseController } from '../src/test/promise-controller.ts'
+
+for (const { saved, system, background } of [
+  { saved: 'dark', system: 'light', background: 'oklch(0.206 0.007 92)' },
+  { saved: 'light', system: 'dark', background: 'oklch(0.938 0.0145 91.5)' },
+  { saved: null, system: 'dark', background: 'oklch(0.206 0.007 92)' },
+] as const) {
+  test(`React 로딩 전부터 테마 배경을 표시한다 (저장: ${saved}, 시스템: ${system})`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: system })
+    await page.addInitScript((saved) => {
+      if (saved) localStorage.setItem('theme', saved)
+    }, saved)
+    await page.route('https://fonts.googleapis.com/**', (route) =>
+      route.fulfill({ contentType: 'text/css', body: '' }),
+    )
+    const loading = createPromiseController<void>()
+    await page.route(/\/src\/main\.tsx(?:\?|$)/, async (route) => {
+      await loading.promise
+      await route.continue()
+    })
+
+    try {
+      await page.goto('/', { waitUntil: 'commit' })
+      await expect(page.locator('#root')).toBeAttached()
+      await expect(page.locator('#root')).toBeEmpty()
+      await expect(page.locator('body')).toHaveCSS('background-color', background)
+      await expect(page.locator('#root')).toBeEmpty()
+    } finally {
+      loading.resolve()
+    }
+
+    await expect(page.getByRole('heading', { name: '내 서재' })).toBeVisible()
+    await expect(page.locator('body')).toHaveCSS('background-color', background)
+  })
+}
+
+test('저장된 선택이 없으면 시스템 테마로 시작하고 직접 전환한 선택을 우선한다', async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBeNull()
+
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.reload()
+  await expect(page.getByRole('button', { name: '다크 모드로 전환' })).toBeVisible()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+  await page.getByRole('button', { name: '다크 모드로 전환' }).click()
+  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark')
+  await page.reload()
+  await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+})
+
+test('저장된 테마 값이 잘못되어도 시스템 설정을 따른다', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('theme', 'invalid'))
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('/')
+
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
+})
+
+test('선택한 테마를 저장하고 새로고침 후 복원한다', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '다크 모드로 전환' }).click()
+  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark')
+
+  await page.reload()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await page.getByRole('button', { name: '라이트 모드로 전환' }).click()
+  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
+
+  await page.reload()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+  await expect(page.getByRole('button', { name: '다크 모드로 전환' })).toBeVisible()
+})
+
+test('localStorage가 차단되어도 서재와 테마 전환을 사용할 수 있다', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new DOMException('Storage is blocked', 'SecurityError')
+      },
+    })
+  })
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+
+  await page.goto('/')
+  await page.getByRole('button', { name: '다크 모드로 전환' }).click()
+
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(page.getByRole('button', { name: '라이트 모드로 전환' })).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('테마 전환 시 책 추가 카드의 색도 즉시 적용한다', async ({ page }) => {
+  await page.goto('/')
+  const card = page.getByRole('button', { name: '책 추가' })
+  await expect(card).toBeVisible()
+
+  for (const dark of [true, false]) {
+    const colors = await card.evaluate((element, dark) => {
+      getComputedStyle(element).getPropertyValue('background-color')
+      document.documentElement.classList.toggle('dark', dark)
+      const animations = element.getAnimations()
+      for (const animation of animations) {
+        animation.pause()
+        animation.currentTime = 0
+      }
+      const start = getComputedStyle(element).backgroundColor
+      for (const animation of animations) animation.finish()
+      return { start, end: getComputedStyle(element).backgroundColor }
+    }, dark)
+    expect(colors.start).toBe(colors.end)
+  }
+})
+
+test('서재 푸터는 화면 하단에 놓이고 내용이 길면 본문 다음으로 밀린다', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+
+  const footer = page.locator('footer')
+  await expect(footer).toBeInViewport()
+  expect(await footer.evaluate((element) => element.getBoundingClientRect().bottom)).toBe(900)
+
+  await page.setViewportSize({ width: 320, height: 400 })
+  const cardBottom = await page
+    .getByRole('article', { name: '책 추가' })
+    .evaluate((element) => element.getBoundingClientRect().bottom)
+  const footerTop = await footer.evaluate((element) => element.getBoundingClientRect().top)
+  expect(footerTop).toBeGreaterThanOrEqual(cardBottom)
+  await footer.scrollIntoViewIfNeeded()
+  await expect(page.getByRole('link', { name: '개인정보처리방침' })).toBeInViewport()
+})
+
+test('리더에서 선택한 테마를 서재에서도 전환할 수 있다', async ({ page }) => {
+  await page.goto('/sample-reader')
+  await page.getByRole('button', { name: '다크 모드로 전환' }).click()
+  await page.getByRole('button', { name: '책장으로 돌아가기' }).click()
+
+  const navigation = page.getByRole('navigation', { name: '주 탐색' })
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await navigation.getByRole('button', { name: '라이트 모드로 전환' }).click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+  await page.setViewportSize({ width: 320, height: 720 })
+  const toggle = navigation.getByRole('button', { name: '다크 모드로 전환' })
+  await expect(toggle).toBeInViewport()
+  await toggle.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('html')).toHaveClass(/dark/)
+})
 
 test('책장 진입 시 OPFS DB를 초기화하고 새로고침 후 빈 책장을 표시한다', async ({ page }) => {
   await page.goto('/')

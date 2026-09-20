@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { ErrorAlert } from '@/components/error-alert'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useState } from 'react'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
 import { clearOriginData } from '../lib/origin-data-manager'
@@ -65,41 +66,48 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   }
 
   return (
-    <main className="min-h-svh bg-background" {...dropZoneProps}>
+    <main className="flex min-h-svh flex-col bg-background" {...dropZoneProps}>
       <nav aria-label="주 탐색" className="border-b bg-card/92">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
           <strong>oh-my-ebook</strong>
           <span className="h-4 border-l" />
           <span className="rounded bg-muted px-3 py-1 text-sm">내 서재</span>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
       </nav>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6 border-b pb-8 max-[560px]:grid-cols-1 max-[560px]:items-start">
           <div className="flex min-w-0 flex-col gap-1 [&>p]:wrap-break-word">
-            <p className="text-xs text-muted-foreground">이 브라우저에만 보관되는 오프라인 서재</p>
             <h1 className="font-heading text-3xl font-bold tracking-tight">내 서재</h1>
             <p className="text-muted-foreground">
               저장한 PDF를 다시 열고 읽던 위치에서 이어 보세요.
             </p>
           </div>
-          <div className="flex items-center gap-2 max-[560px]:row-start-2 max-[560px]:flex-wrap">
-            {state.status === 'ready' && <LibrarySummary books={state.books} usage={usage} />}
-            <Button
-              disabled={state.status !== 'ready' || refreshing}
-              onClick={() => {
-                void refreshLibrary()
-              }}
-              variant="outline"
-            >
-              새로고침
-            </Button>
-            <Button
-              disabled={state.status !== 'ready'}
-              onClick={() => setClearDialogOpen(true)}
-              variant="outline"
-            >
-              저장소 관리
-            </Button>
+          <div className="flex min-w-0 flex-col items-end gap-2">
+            <p className="text-right text-xs break-keep text-muted-foreground">
+              PDF는 이 브라우저에만 보관되며, 서버나 다른 기기에 동기화되지 않습니다.
+            </p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {state.status === 'ready' && <LibrarySummary books={state.books} usage={usage} />}
+              <Button
+                disabled={state.status !== 'ready' || refreshing}
+                onClick={() => {
+                  void refreshLibrary()
+                }}
+                variant="outline"
+              >
+                새로고침
+              </Button>
+              <Button
+                disabled={state.status !== 'ready'}
+                onClick={() => setClearDialogOpen(true)}
+                variant="outline"
+              >
+                저장소 관리
+              </Button>
+            </div>
           </div>
         </header>
         {state.status === 'loading' && <EbookShelfLoading />}
@@ -151,11 +159,6 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               다시 시도
             </Button>
           </ErrorAlert>
-        )}
-        {state.status === 'ready' && (
-          <p className="text-sm text-muted-foreground">
-            PDF는 서버나 다른 기기에 동기화되지 않습니다.
-          </p>
         )}
       </div>
       <ClearOriginDataDialog
