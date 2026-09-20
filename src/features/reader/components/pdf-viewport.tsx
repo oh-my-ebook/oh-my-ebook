@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorAlert } from '@/components/error-alert'
 import {
   PDF_CSS_SCALE,
   type PdfDocumentHandle,
@@ -9,10 +9,16 @@ import {
   type PdfPageInfo,
   type PdfPageViewport,
 } from '../lib/pdf-document'
-import { recognizePdfPage, type OcrPageResult } from '../lib/ocr/page-recognition'
+import {
+  postprocessStoredOcrPage,
+  recognizePdfPage,
+  type OcrPageResult,
+  type StoredOcrPageResult,
+} from '../lib/ocr/page-recognition'
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
+  getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onStatusChange?: (status: PdfViewportStatus) => void
 }
@@ -68,6 +74,10 @@ function isRenderablePdfPage(page: PdfPageHandle): page is RenderablePdfPage {
   return 'render' in page && typeof page.render === 'function'
 }
 
+function isSameRenderTarget(a: PdfViewportRequest, b: PdfViewportRequest) {
+  return a.document === b.document && a.pageNumbers === b.pageNumbers
+}
+
 function isCurrentOutcome(
   outcome: PdfViewportOutcome | null,
   request: PdfViewportRequest,
@@ -75,10 +85,34 @@ function isCurrentOutcome(
   return (
     outcome !== null &&
     outcome.request.attempt === request.attempt &&
-    outcome.request.document === request.document &&
-    outcome.request.pageNumbers === request.pageNumbers &&
-    outcome.request.scale === request.scale
+    outcome.request.scale === request.scale &&
+    isSameRenderTarget(outcome.request, request)
   )
+}
+
+// 배율만 바뀌어 다시 그리는 동안에는, 같은 문서·페이지를 이미 성공적으로 그려둔 이전 결과를
+// 스켈레톤 대신 그대로 보여준다. 배율이 프레임마다 미세하게 바뀌는 리사이즈 중에도
+// 캔버스가 깜빡이지 않도록 하기 위함이다.
+function isRevalidatableOutcome(
+  outcome: PdfViewportOutcome | null,
+  request: PdfViewportRequest,
+): outcome is PdfViewportOutcome {
+  return (
+    outcome !== null && outcome.status === 'ready' && isSameRenderTarget(outcome.request, request)
+  )
+}
+
+function getPdfViewportStatus(
+  outcome: PdfViewportOutcome | null,
+  request: PdfViewportRequest,
+): PdfViewportStatus {
+  if (isCurrentOutcome(outcome, request)) {
+    return outcome.status
+  }
+  if (isRevalidatableOutcome(outcome, request)) {
+    return 'ready'
+  }
+  return 'loading'
 }
 
 function getDevicePixelRatio() {
@@ -88,7 +122,7 @@ function getDevicePixelRatio() {
 export function PdfViewport(props: PdfViewportSinglePageProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
-  const { document, onStatusChange, scale } = props
+  const { document, getStoredOcrPage, onStatusChange, scale } = props
   const requestedPages = props.pages ?? (props.page ? [props.page] : [])
   const pages = requestedPages.slice(0, 2)
   const firstPageNumber = pages[0]?.pageNumber
@@ -100,7 +134,7 @@ export function PdfViewport(props: PdfViewportProps) {
   const [outcome, setOutcome] = useState<PdfViewportOutcome | null>(null)
   const [ocrOutcome, setOcrOutcome] = useState<OcrOutcome | null>(null)
   const request = { attempt, document, pageNumbers, scale }
-  const status = isCurrentOutcome(outcome, request) ? outcome.status : 'loading'
+  const status = getPdfViewportStatus(outcome, request)
 
   useEffect(() => {
     onStatusChange?.(status)
@@ -155,11 +189,24 @@ export function PdfViewport(props: PdfViewportProps) {
       controller.signal.throwIfAborted()
     }
 
+    // 페이지 순서대로 캔버스 슬롯을 비우거나(재검증 실패) 새 캔버스로 교체한다(렌더링 성공).
+    const replaceCanvasSlots = (nextCanvases: readonly HTMLCanvasElement[]) => {
+      const canvasSlots = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
+      canvasSlots.forEach((slot, index) =>
+        slot.replaceChildren(...(nextCanvases[index] ? [nextCanvases[index]] : [])),
+      )
+    }
+
     const renderPages = async () => {
       try {
         await Promise.all(
           requestedPageNumbers.map((pageNumber, index) => renderPage(pageNumber, canvases[index])),
         )
+        if (controller.signal.aborted) {
+          return
+        }
+        // 이전 결과가 화면에 남아 있다면 새 캔버스가 준비된 뒤에만 교체해 깜빡임을 막는다.
+        replaceCanvasSlots(canvases)
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'ready',
@@ -169,7 +216,8 @@ export function PdfViewport(props: PdfViewportProps) {
           return
         }
         controller.abort()
-        canvases.forEach((canvas) => canvas.remove())
+        // 재검증 중 실패하면 숨겨질 이전 결과의 캔버스도 함께 비워 오래 남지 않게 한다.
+        replaceCanvasSlots([])
         setOutcome({
           request: { attempt, document, pageNumbers, scale },
           status: 'error',
@@ -177,13 +225,10 @@ export function PdfViewport(props: PdfViewportProps) {
       }
     }
 
-    const canvasContainers = canvasContainer.querySelectorAll('[data-slot="pdf-page-canvas"]')
-    canvasContainers.forEach((container, index) => container.replaceChildren(canvases[index]))
     void renderPages()
 
     return () => {
       controller.abort()
-      canvases.forEach((canvas) => canvas.remove())
     }
   }, [attempt, document, firstPageNumber, pageNumbers, scale, secondPageNumber])
 
@@ -200,8 +245,15 @@ export function PdfViewport(props: PdfViewportProps) {
       const recognizedPages = await Promise.all(
         requestedPageNumbers.map(async (pageNumber) => {
           try {
-            const page = await document.getPage(pageNumber)
-            const result = await recognizePdfPage(page, controller.signal)
+            let storedOcrPage: StoredOcrPageResult | null = null
+            try {
+              storedOcrPage = (await getStoredOcrPage?.(pageNumber)) ?? null
+            } catch {
+              // 저장소 조회에 실패해도 기존 즉석 OCR 경로를 유지한다.
+            }
+            const result = storedOcrPage
+              ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
+              : await recognizePdfPage(await document.getPage(pageNumber), controller.signal)
             return [pageNumber, result] as const
           } catch {
             return null
@@ -219,7 +271,7 @@ export function PdfViewport(props: PdfViewportProps) {
 
     void recognizePages()
     return () => controller.abort()
-  }, [document, firstPageNumber, pageNumbers, secondPageNumber])
+  }, [document, firstPageNumber, getStoredOcrPage, pageNumbers, secondPageNumber])
 
   const ocrPages =
     ocrOutcome?.document === document && ocrOutcome.pageNumbers === pageNumbers
@@ -278,15 +330,13 @@ export function PdfViewport(props: PdfViewportProps) {
       </div>
 
       {status === 'error' && (
-        <Alert className="mx-auto max-w-md" variant="destructive">
-          <AlertTitle>{pageRange}페이지를 표시하지 못했습니다.</AlertTitle>
-          <AlertDescription>페이지를 다시 그려 보세요.</AlertDescription>
-          <AlertAction>
-            <Button onClick={() => setAttempt((current) => current + 1)} variant="outline">
-              다시 시도
-            </Button>
-          </AlertAction>
-        </Alert>
+        <ErrorAlert
+          className="mx-auto max-w-md"
+          description="페이지를 다시 그려 보세요."
+          title={`${pageRange}페이지를 표시하지 못했습니다.`}
+        >
+          <Button onClick={() => setAttempt((current) => current + 1)}>다시 시도</Button>
+        </ErrorAlert>
       )}
     </section>
   )

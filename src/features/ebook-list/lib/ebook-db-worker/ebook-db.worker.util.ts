@@ -1,6 +1,7 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
-import type { AddBookInput } from '../../ebook-types'
+import type { AddBookInput, OcrLineInput } from '../../ebook-types'
 import { InvalidPayloadError } from './ebook-db.worker.error'
+import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './ebook-db.worker.sql'
 
 export interface UpdateCoverInput {
   id: string
@@ -21,6 +22,29 @@ export interface UpdateTitleInput {
 export interface PdfWriteInput {
   contentHash: string
   pdfData: ArrayBuffer
+}
+
+export interface InitializeOcrPagesInput {
+  bookId: string
+  pageCount: number
+}
+
+export interface StoreOcrPageInput {
+  pageId: string
+  width: number
+  height: number
+  lines: readonly OcrLineInput[]
+}
+
+export interface ListOcrLinesInput {
+  bookId: string
+  limit: number
+  offset: number
+}
+
+export interface GetStoredOcrPageInput {
+  bookId: string
+  pageNumber: number
 }
 
 export interface WorkerRequest {
@@ -159,6 +183,67 @@ export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
   )
 }
 
+function isIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+}
+
+function isOcrLineInput(value: unknown): value is OcrLineInput {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.rawText === 'string' &&
+    typeof value.x0 === 'number' &&
+    Number.isFinite(value.x0) &&
+    typeof value.y0 === 'number' &&
+    Number.isFinite(value.y0) &&
+    typeof value.x1 === 'number' &&
+    Number.isFinite(value.x1) &&
+    value.x1 > value.x0 &&
+    typeof value.y1 === 'number' &&
+    Number.isFinite(value.y1) &&
+    value.y1 > value.y0
+  )
+}
+
+export function isInitializeOcrPagesInput(value: unknown): value is InitializeOcrPagesInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.bookId) &&
+    typeof value.pageCount === 'number' &&
+    Number.isSafeInteger(value.pageCount) &&
+    value.pageCount > 0
+  )
+}
+
+export function isStoreOcrPageInput(value: unknown): value is StoreOcrPageInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.pageId) &&
+    isPositiveInteger(value.width) &&
+    isPositiveInteger(value.height) &&
+    Array.isArray(value.lines) &&
+    value.lines.every(isOcrLineInput)
+  )
+}
+
+export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.bookId) &&
+    isPositiveInteger(value.limit) &&
+    typeof value.offset === 'number' &&
+    Number.isSafeInteger(value.offset) &&
+    value.offset >= 0
+  )
+}
+
+export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPageInput {
+  return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
+}
+
 export function getPayload<T>(
   request: WorkerRequest,
   command: string,
@@ -188,12 +273,12 @@ export function normalizeStoredProgress(
     return book
   }
 
-  database.exec('UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?', {
+  database.exec(RESET_INVALID_BOOK_PROGRESS_SQL, {
     bind: [Date.now(), id],
   })
   return { ...book, last_page: 1 }
 }
 
 export function isRowAffected(database: Database): boolean {
-  return database.selectValue('SELECT changes()') === 1
+  return database.selectValue(SELECT_CHANGES_SQL) === 1
 }

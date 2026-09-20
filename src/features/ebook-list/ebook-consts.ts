@@ -21,6 +21,15 @@ export const SQLITE_COMMAND = {
   UPDATE_TITLE: 'updateTitle',
   UPDATE_PROGRESS: 'updateProgress',
   UPDATE_COVER: 'updateCover',
+  INITIALIZE_OCR_PAGES: 'initializeOcrPages',
+  PREPARE_OCR_PAGES_FOR_RUN: 'prepareOcrPagesForRun',
+  ACQUIRE_NEXT_OCR_PAGE: 'acquireNextOcrPage',
+  STORE_OCR_PAGE: 'storeOcrPage',
+  FAIL_OCR_PAGE: 'failOcrPage',
+  FAIL_BOOK_ANALYSIS: 'failBookAnalysis',
+  LIST_OCR_LINES: 'listOcrLines',
+  GET_STORED_OCR_PAGE: 'getStoredOcrPage',
+  LIST_OCR_PAGES: 'listOcrPages',
 } as const
 
 export const OPFS_COMMAND = {

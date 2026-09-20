@@ -5,9 +5,12 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
 import { PdfViewport } from './pdf-viewport'
 
-const { recognizePdfPage } = vi.hoisted(() => ({ recognizePdfPage: vi.fn() }))
+const { postprocessStoredOcrPage, recognizePdfPage } = vi.hoisted(() => ({
+  postprocessStoredOcrPage: vi.fn(),
+  recognizePdfPage: vi.fn(),
+}))
 
-vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage }))
+vi.mock('../lib/ocr/page-recognition', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
 
 function createRenderTask() {
   const completion = createPromiseController<void>()
@@ -20,6 +23,11 @@ function createRenderTask() {
   }
 }
 
+interface RenderCallParameters {
+  canvas: HTMLCanvasElement
+  transform?: number[]
+}
+
 function createPdfPage(renderTasks: ReturnType<typeof createRenderTask>[]) {
   const pendingRenderTasks = [...renderTasks]
   const getViewport = vi.fn(({ scale }: { scale: number }) => ({
@@ -27,7 +35,7 @@ function createPdfPage(renderTasks: ReturnType<typeof createRenderTask>[]) {
     height: 900 * scale,
     rotation: 0,
   }))
-  const render = vi.fn(() => {
+  const render = vi.fn((_parameters: RenderCallParameters) => {
     const renderTask = pendingRenderTasks.shift()
     if (!renderTask) {
       throw new Error('렌더링 작업이 준비되지 않았습니다.')
@@ -66,6 +74,7 @@ describe('PdfViewport', () => {
   beforeEach(() => {
     vi.stubGlobal('devicePixelRatio', 2)
     recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
+    postprocessStoredOcrPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
   afterEach(() => {
@@ -97,7 +106,7 @@ describe('PdfViewport', () => {
     expect(screen.queryByRole('img', { name: 'PDF 1페이지' })).not.toBeInTheDocument()
 
     await waitFor(() => expect(page.render).toHaveBeenCalledOnce())
-    const canvas = container.querySelector('canvas')
+    const [[{ canvas }]] = page.render.mock.calls
     expect(container.querySelector('[data-slot="pdf-page-frame"]')).toHaveStyle({
       width: '800px',
       height: '1200px',
@@ -155,7 +164,71 @@ describe('PdfViewport', () => {
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
   })
 
+  it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
+    const renderTask = createRenderTask()
+    const page = createPdfPage([renderTask])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const storedOcrPage = {
+      width: 1200,
+      height: 1800,
+      lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
+    }
+    postprocessStoredOcrPage.mockResolvedValueOnce({
+      width: 1200,
+      height: 1800,
+      lines: [],
+    })
+
+    render(
+      <PdfViewport
+        document={document}
+        getStoredOcrPage={vi.fn(async () => storedOcrPage)}
+        page={createPageInfo(1)}
+        scale={1}
+      />,
+    )
+
+    await act(async () => {
+      renderTask.completion.resolve(undefined)
+      await renderTask.completion.promise
+    })
+
+    await waitFor(() =>
+      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
+    )
+    expect(recognizePdfPage).not.toHaveBeenCalled()
+  })
+
   it('표시 크기가 바뀌면 이전 작업을 취소하고 늦은 완료를 무시한다', async () => {
+    const firstRender = createRenderTask()
+    const latestRender = createRenderTask()
+    const page = createPdfPage([firstRender, latestRender])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const pdfPage = { pageNumber: 1, width: 800, height: 1200, rotation: 0 }
+    const { rerender } = render(<PdfViewport document={document} page={pdfPage} scale={1} />)
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(1))
+
+    rerender(<PdfViewport document={document} page={pdfPage} scale={0.5} />)
+
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(2))
+    expect(firstRender.task.cancel).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      latestRender.completion.resolve(undefined)
+      await latestRender.completion.promise
+    })
+    const latestCanvas = getRenderedCanvas()
+    expect(latestCanvas).toHaveStyle({ width: '100%', height: '100%' })
+
+    await act(async () => {
+      firstRender.completion.resolve(undefined)
+      await firstRender.completion.promise
+    })
+
+    expect(getRenderedCanvas()).toBe(latestCanvas)
+  })
+
+  it('배율만 바뀌면 기존 캔버스를 유지한 채 다시 그리고 스켈레톤을 보여주지 않는다', async () => {
     const firstRender = createRenderTask()
     const latestRender = createRenderTask()
     const page = createPdfPage([firstRender, latestRender])
@@ -165,31 +238,105 @@ describe('PdfViewport', () => {
       <PdfViewport document={document} page={pdfPage} scale={1} />,
     )
     await waitFor(() => expect(page.render).toHaveBeenCalledTimes(1))
-    const firstCanvas = container.querySelector('canvas')
+    await act(async () => {
+      firstRender.completion.resolve(undefined)
+      await firstRender.completion.promise
+    })
+    const readyCanvas = getRenderedCanvas()
 
     rerender(<PdfViewport document={document} page={pdfPage} scale={0.5} />)
 
     await waitFor(() => expect(page.render).toHaveBeenCalledTimes(2))
-    const latestCanvas = container.querySelector('canvas')
-    expect(firstRender.task.cancel).toHaveBeenCalledOnce()
-    expect(latestCanvas).not.toBe(firstCanvas)
-    expect(container.querySelector('[data-slot="pdf-page-frame"]')).toHaveStyle({
-      width: '400px',
-      height: '600px',
-    })
-    expect(latestCanvas).toHaveStyle({ width: '100%', height: '100%' })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-slot="skeleton"]')).not.toBeInTheDocument()
+    expect(getRenderedCanvas()).toBe(readyCanvas)
 
     await act(async () => {
       latestRender.completion.resolve(undefined)
       await latestRender.completion.promise
     })
+
+    const updatedCanvas = getRenderedCanvas()
+    expect(updatedCanvas).not.toBe(readyCanvas)
+    expect(updatedCanvas).toHaveStyle({ width: '100%', height: '100%' })
+  })
+
+  it('두 페이지 스프레드에서 배율이 바뀌어도 각 페이지의 캔버스를 올바른 위치로 교체한다', async () => {
+    const firstRenderA = createRenderTask()
+    const firstRenderB = createRenderTask()
+    const latestRenderA = createRenderTask()
+    const latestRenderB = createRenderTask()
+    const pageA = createPdfPage([firstRenderA, latestRenderA])
+    const pageB = createPdfPage([firstRenderB, latestRenderB])
+    const { document } = createPdfDocument(
+      new Map([
+        [1, pageA.page],
+        [2, pageB.page],
+      ]),
+    )
+    const pages = [createPageInfo(1), createPageInfo(2)]
+    const { rerender } = render(<PdfViewport document={document} pages={pages} scale={1} />)
+
+    await waitFor(() => {
+      expect(pageA.render).toHaveBeenCalledTimes(1)
+      expect(pageB.render).toHaveBeenCalledTimes(1)
+    })
+    await act(async () => {
+      firstRenderA.completion.resolve(undefined)
+      firstRenderB.completion.resolve(undefined)
+      await Promise.all([firstRenderA.completion.promise, firstRenderB.completion.promise])
+    })
+    const readyCanvas1 = getRenderedCanvas(1)
+    const readyCanvas2 = getRenderedCanvas(2)
+
+    rerender(<PdfViewport document={document} pages={pages} scale={0.5} />)
+
+    await waitFor(() => {
+      expect(pageA.render).toHaveBeenCalledTimes(2)
+      expect(pageB.render).toHaveBeenCalledTimes(2)
+    })
+    // 재검증 중에는 각 페이지의 이전 캔버스가 서로 뒤섞이지 않고 자기 자리에 남아있다.
+    expect(getRenderedCanvas(1)).toBe(readyCanvas1)
+    expect(getRenderedCanvas(2)).toBe(readyCanvas2)
+
+    await act(async () => {
+      latestRenderA.completion.resolve(undefined)
+      latestRenderB.completion.resolve(undefined)
+      await Promise.all([latestRenderA.completion.promise, latestRenderB.completion.promise])
+    })
+
+    const updatedCanvas1 = getRenderedCanvas(1)
+    const updatedCanvas2 = getRenderedCanvas(2)
+    expect(updatedCanvas1).not.toBe(readyCanvas1)
+    expect(updatedCanvas2).not.toBe(readyCanvas2)
+    expect(updatedCanvas1).not.toBe(updatedCanvas2)
+  })
+
+  it('배율만 바뀌어 재검증하다 실패하면 화면을 가린 채 이전 캔버스도 정리한다', async () => {
+    const firstRender = createRenderTask()
+    const revalidateRender = createRenderTask()
+    const page = createPdfPage([firstRender, revalidateRender])
+    const { document } = createPdfDocument(new Map([[1, page.page]]))
+    const pdfPage = { pageNumber: 1, width: 800, height: 1200, rotation: 0 }
+    const { container, rerender } = render(
+      <PdfViewport document={document} page={pdfPage} scale={1} />,
+    )
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(1))
     await act(async () => {
       firstRender.completion.resolve(undefined)
       await firstRender.completion.promise
     })
 
-    expect(getRenderedCanvas()).toBe(latestCanvas)
-    expect(getRenderedCanvas()).toHaveStyle({ width: '100%', height: '100%' })
+    rerender(<PdfViewport document={document} page={pdfPage} scale={0.5} />)
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(2))
+
+    await act(async () => {
+      revalidateRender.completion.reject(new Error('재검증 렌더링 실패'))
+      await revalidateRender.completion.promise.catch(() => undefined)
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('1페이지를 표시하지 못했습니다.')
+    expect(container.querySelectorAll('canvas')).toHaveLength(0)
   })
 
   it('배율 변경을 200ms 동안 전환하고 동작 감소 설정에서는 전환하지 않는다', async () => {
@@ -307,7 +454,8 @@ describe('PdfViewport', () => {
       expect(secondPage.render).toHaveBeenCalledOnce()
     })
     expect(ignoredPage.render).not.toHaveBeenCalled()
-    expect(container.querySelectorAll('canvas')).toHaveLength(2)
+    // 완료 전까지는 빈 Canvas를 미리 붙이지 않아 흰 화면 깜빡임이 생기지 않는다.
+    expect(container.querySelectorAll('canvas')).toHaveLength(0)
     const frames = container.querySelectorAll('[data-slot="pdf-page-frame"]')
     expect(frames).toHaveLength(2)
     expect(frames[0]).toHaveStyle({ width: '800px', height: '1200px' })

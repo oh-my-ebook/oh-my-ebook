@@ -5,7 +5,9 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
-import { mockChatModelAdapter } from '../lib/mock-chat-adapter'
+import { webLlmChatModelAdapter } from '../lib/web-llm/webllm-chat-adapter'
+import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
+import { ModelDownloadAlert } from './model-download-alert'
 
 // 부모가 다시 렌더링될 때 메시지 영역까지 다시 그리지 않도록 모듈 범위에 둔다.
 const THREAD_COMPONENTS: ThreadComponents = {
@@ -31,15 +33,23 @@ interface ReaderChatContentProps {
 // Thread 렌더링과 함께 이 컴포넌트에 둔다. 전송 시점의 현재 페이지 번호를 모델 컨텍스트(system)에
 // 실어, 어댑터가 매 요청마다 최신 값을 읽게 한다.
 function ReaderChatContent({ currentPage }: ReaderChatContentProps) {
+  const isModelReady = useWebLlmModelStore((state) => state.status === 'ready')
   useAssistantInstructions({
     instruction: `사용자가 현재 PDF ${currentPage}페이지를 읽고 있습니다.`,
     disabled: currentPage === undefined,
   })
 
-  return <Thread components={THREAD_COMPONENTS} />
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+      <ModelDownloadAlert />
+      <div className="min-h-0 flex-1">
+        <Thread components={THREAD_COMPONENTS} composerDisabled={!isModelReady} />
+      </div>
+    </div>
+  )
 }
 
-export function ReaderChat({ chatModel = mockChatModelAdapter, currentPage }: ReaderChatProps) {
+export function ReaderChat({ chatModel = webLlmChatModelAdapter, currentPage }: ReaderChatProps) {
   const runtime = useLocalRuntime(chatModel)
 
   return (

@@ -5,8 +5,6 @@ const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
 const PANEL_TITLE = '함께 읽기'
 const MESSAGE_INPUT_LABEL = '질문 입력'
 const SEND_BUTTON_LABEL = '질문 보내기'
-const MOCK_RESPONSE_TEXT =
-  '질문을 확인했어요. 지금은 Mock 응답이라 실제 AI 답변은 아직 연결되지 않았어요.'
 
 async function hasHorizontalOverflow(page: import('@playwright/test').Page) {
   return page.locator('html').evaluate((root) => root.scrollWidth > root.clientWidth)
@@ -17,11 +15,8 @@ async function openReader(page: import('@playwright/test').Page) {
     navigator.storage.persisted = async () => true
   })
   await page.goto('/')
-  await expect(page.getByText('아직 저장한 책이 없습니다.')).toBeVisible()
-  await page.getByRole('button', { name: 'PDF 업로드' }).click()
-  await expect(page.getByRole('dialog', { name: '도서 추가' })).toBeVisible()
   const fileChooser = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: '컴퓨터에서 파일 선택' }).click()
+  await page.getByRole('button', { name: '책 추가' }).click()
   await (await fileChooser).setFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
   await expect(page.getByRole('article', { name: 'The Local Library' })).toBeVisible()
   await page.getByRole('button', { name: 'The Local Library 열기' }).click()
@@ -29,18 +24,14 @@ async function openReader(page: import('@playwright/test').Page) {
 }
 
 test.describe('보조 패널 채팅', () => {
-  test('넓은 화면에서 질문을 보내면 스트리밍 응답을 받는다', async ({ page }) => {
+  test('넓은 화면에서 모델을 다운로드하기 전에는 질문을 입력할 수 없다', async ({ page }) => {
     await openReader(page)
     await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
     await expect(page.getByRole('region', { name: PANEL_TITLE })).toBeVisible()
+    await expect(page.getByRole('button', { name: '모델 다운로드' })).toBeVisible()
 
-    const input = page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })
-    await input.fill('이 페이지 요약해줘')
-    await input.press('Enter')
-
-    await expect(page.getByText('이 페이지 요약해줘')).toBeVisible()
-    await expect(page.getByText(MOCK_RESPONSE_TEXT)).toBeVisible()
-    await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })).toBeDisabled()
+    await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeDisabled()
   })
 
   test('넓은 화면에서 키보드로 패널 너비를 조절한다', async ({ page }) => {
@@ -63,16 +54,15 @@ test.describe('보조 패널 채팅', () => {
   test.describe('좁은 화면(320px)', () => {
     test.use({ viewport: { width: 320, height: 700 } })
 
-    test('Sheet에서 질문을 보내고 조작부가 화면 밖으로 잘리지 않는다', async ({ page }) => {
+    test('Sheet에서 채팅 조작부가 화면 밖으로 잘리지 않는다', async ({ page }) => {
       await openReader(page)
       await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
-      await expect(page.getByRole('dialog', { name: PANEL_TITLE })).toBeVisible()
+      const panel = page.getByRole('dialog', { name: PANEL_TITLE })
+      await expect(panel).toBeVisible()
+      await expect.poll(async () => (await panel.boundingBox())?.x).toBe(80)
 
       const input = page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })
-      await input.fill('이 페이지 요약해줘')
-      await input.press('Enter')
-
-      await expect(page.getByText(MOCK_RESPONSE_TEXT)).toBeVisible()
+      await expect(input).toBeVisible()
 
       const viewportSize = page.viewportSize()
       const inputBox = await input.boundingBox()

@@ -1,16 +1,16 @@
 import type { PropsWithChildren } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelContext } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
+import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { Reader } from './reader'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
-
 vi.mock('../lib/pdf-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
@@ -28,18 +28,21 @@ vi.mock('@/components/ui/resizable', () => ({
 }))
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
-// 실제 Mock 어댑터 팩토리는 그대로 두고 응답 소스만 호출 인자를 기록하는 스파이로 바꾼다.
-vi.mock('../lib/mock-chat-adapter', async (importOriginal) => {
-  const mockChatAdapter = await importOriginal<typeof import('../lib/mock-chat-adapter')>()
+// 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
+vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
+  const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
     yield '답변'
   }
-  return {
-    ...mockChatAdapter,
-    mockChatModelAdapter: mockChatAdapter.createMockChatModelAdapter(spyingRespond),
-  }
+  return { webLlmChatModelAdapter: createMockChatModelAdapter(spyingRespond) }
 })
+
+// 다운로드 버튼을 누르는 시나리오가 추가돼도 jsdom에 없는 실제 WebGPU 경로를 타지 않게 한다.
+vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
+  prepareWebLlmModel: vi.fn(async () => undefined),
+}))
 
 const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
 const PANEL_TITLE = '함께 읽기'
@@ -144,6 +147,7 @@ describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
     respondSpy.mockReset()
+    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -192,13 +196,15 @@ describe('Reader 보조 패널 연결', () => {
 
     resizeObserverMock.resizeReaderAreaTo(400, 600)
 
-    await screen.findByRole('img', { name: 'PDF 1페이지' })
-    const pageFrame = screen
-      .getByRole('region', { name: 'PDF 본문' })
-      .querySelector('[data-slot="pdf-page-frame"]')
-    expect(pageFrame).toHaveStyle({
-      width: '400px',
-      height: '600px',
+    // 리사이즈 측정은 깜빡임을 막기 위해 한 애니메이션 프레임 뒤에 반영되므로 기다린다.
+    await waitFor(() => {
+      const pageFrame = screen
+        .getByRole('region', { name: 'PDF 본문' })
+        .querySelector('[data-slot="pdf-page-frame"]')
+      expect(pageFrame).toHaveStyle({
+        width: '400px',
+        height: '600px',
+      })
     })
   })
 
@@ -206,6 +212,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -229,6 +236,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(false)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -250,6 +258,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock, 2)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))

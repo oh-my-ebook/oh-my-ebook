@@ -9,7 +9,9 @@ function PageNavigatorHarness({ initialPage = 1, totalPages = 5 }) {
   return (
     <PageNavigator
       currentPage={currentPage}
+      nextPage={currentPage < totalPages ? currentPage + 1 : null}
       onPageChange={setCurrentPage}
+      previousPage={currentPage > 1 ? currentPage - 1 : null}
       totalPages={totalPages}
     />
   )
@@ -40,7 +42,15 @@ describe('PageNavigator', () => {
   it('서로 다른 아이콘으로 첫·이전·다음·마지막 페이지 이동을 요청한다', async () => {
     const user = userEvent.setup()
     const onPageChange = vi.fn()
-    render(<PageNavigator currentPage={3} onPageChange={onPageChange} totalPages={5} />)
+    render(
+      <PageNavigator
+        currentPage={3}
+        nextPage={4}
+        onPageChange={onPageChange}
+        previousPage={2}
+        totalPages={5}
+      />,
+    )
 
     const firstButton = screen.getByRole('button', { name: '첫 페이지' })
     const previousButton = screen.getByRole('button', { name: '이전 페이지' })
@@ -61,14 +71,30 @@ describe('PageNavigator', () => {
   })
 
   it('현재 페이지와 전체 페이지 수를 수정할 수 없는 텍스트로 표시한다', () => {
-    render(<PageNavigator currentPage={3} onPageChange={vi.fn()} totalPages={5} />)
+    render(
+      <PageNavigator
+        currentPage={3}
+        nextPage={4}
+        onPageChange={vi.fn()}
+        previousPage={2}
+        totalPages={5}
+      />,
+    )
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('3 / 5')
   })
 
   it('슬라이더의 range와 thumb에 이동 transition 스타일을 연결한다', () => {
-    render(<PageNavigator currentPage={3} onPageChange={vi.fn()} totalPages={5} />)
+    render(
+      <PageNavigator
+        currentPage={3}
+        nextPage={4}
+        onPageChange={vi.fn()}
+        previousPage={2}
+        totalPages={5}
+      />,
+    )
 
     expect(screen.getByLabelText('페이지 슬라이더').closest('[data-slot="slider"]')).toHaveClass(
       'reader-slider',
@@ -77,7 +103,13 @@ describe('PageNavigator', () => {
 
   it('첫 페이지와 마지막 페이지에서 해당 방향 이동을 비활성화한다', () => {
     const { rerender } = render(
-      <PageNavigator currentPage={1} onPageChange={vi.fn()} totalPages={5} />,
+      <PageNavigator
+        currentPage={1}
+        nextPage={2}
+        onPageChange={vi.fn()}
+        previousPage={null}
+        totalPages={5}
+      />,
     )
 
     expect(screen.getByRole('button', { name: '첫 페이지' })).toBeDisabled()
@@ -85,7 +117,15 @@ describe('PageNavigator', () => {
     expect(screen.getByRole('button', { name: '다음 페이지' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '마지막 페이지' })).toBeEnabled()
 
-    rerender(<PageNavigator currentPage={5} onPageChange={vi.fn()} totalPages={5} />)
+    rerender(
+      <PageNavigator
+        currentPage={5}
+        nextPage={null}
+        onPageChange={vi.fn()}
+        previousPage={4}
+        totalPages={5}
+      />,
+    )
     expect(screen.getByRole('button', { name: '첫 페이지' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '이전 페이지' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '다음 페이지' })).toBeDisabled()
@@ -94,7 +134,13 @@ describe('PageNavigator', () => {
 
   it('한 장 문서와 사용할 수 없는 상태에서는 모든 이동을 비활성화한다', () => {
     const { rerender } = render(
-      <PageNavigator currentPage={1} onPageChange={vi.fn()} totalPages={1} />,
+      <PageNavigator
+        currentPage={1}
+        nextPage={null}
+        onPageChange={vi.fn()}
+        previousPage={null}
+        totalPages={1}
+      />,
     )
 
     expect(screen.getByRole('status', { name: '페이지 위치' })).toHaveTextContent('1 / 1')
@@ -103,7 +149,16 @@ describe('PageNavigator', () => {
     }
     expect(screen.getByLabelText('페이지 슬라이더')).toBeDisabled()
 
-    rerender(<PageNavigator currentPage={2} disabled onPageChange={vi.fn()} totalPages={5} />)
+    rerender(
+      <PageNavigator
+        currentPage={2}
+        disabled
+        nextPage={3}
+        onPageChange={vi.fn()}
+        previousPage={1}
+        totalPages={5}
+      />,
+    )
     for (const button of screen.getAllByRole('button')) {
       expect(button).toBeDisabled()
     }
@@ -124,7 +179,15 @@ describe('PageNavigator', () => {
 
   it('슬라이더를 마우스로 드래그해 페이지를 이동한다', () => {
     const onPageChange = vi.fn()
-    render(<PageNavigator currentPage={1} onPageChange={onPageChange} totalPages={5} />)
+    render(
+      <PageNavigator
+        currentPage={1}
+        nextPage={2}
+        onPageChange={onPageChange}
+        previousPage={null}
+        totalPages={5}
+      />,
+    )
     const control = getSliderControl()
 
     fireEvent(control, new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 100 }))

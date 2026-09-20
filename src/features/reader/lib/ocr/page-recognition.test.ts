@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../../test/promise-controller'
 
 const { createPaddle, postprocessWithKiwi, predict } = vi.hoisted(() => ({
@@ -10,9 +10,27 @@ const { createPaddle, postprocessWithKiwi, predict } = vi.hoisted(() => ({
 vi.mock('@paddleocr/paddleocr-js', () => ({ PaddleOCR: { create: createPaddle } }))
 vi.mock('../kiwi/client', () => ({ postprocessWithKiwi }))
 
-import { recognizePdfPage } from './page-recognition'
+function createOcrPage() {
+  const context = { font: '', measureText: vi.fn(() => ({ width: 200 })) }
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+    context as unknown as CanvasRenderingContext2D,
+  )
+  const render = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }))
+  const getViewport = vi.fn(() => ({ width: 1_000, height: 1_500, rotation: 0 }))
+  return { getViewport, render }
+}
 
 describe('recognizePdfPage', () => {
+  // page-recognition 모듈은 PaddleOCR 인스턴스를 모듈 스코프에 캐시한다.
+  // 캐시 재사용·해제를 검증하는 테스트가 서로 영향을 주지 않도록 모듈을 매번 새로 불러온다.
+  let prepareOcr: typeof import('./page-recognition').prepareOcr
+  let recognizePdfPage: typeof import('./page-recognition').recognizePdfPage
+
+  beforeEach(async () => {
+    vi.resetModules()
+    ;({ prepareOcr, recognizePdfPage } = await import('./page-recognition'))
+  })
+
   afterEach(() => vi.restoreAllMocks())
 
   it('중단하면 PDF 렌더링을 취소하고 OCR 후처리를 시작하지 않는다', async () => {
@@ -39,14 +57,8 @@ describe('recognizePdfPage', () => {
     expect(postprocessWithKiwi).not.toHaveBeenCalled()
   })
 
-  it('PDF를 200 DPI로 그려 PaddleOCR와 Kiwi 결과를 좌표에 맞춘다', async () => {
-    const context = {
-      font: '',
-      measureText: vi.fn(() => ({ width: 200 })),
-    }
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      context as unknown as CanvasRenderingContext2D,
-    )
+  it('PDF를 160 DPI로 그려 PaddleOCR와 Kiwi 결과를 좌표에 맞춘다', async () => {
+    const { getViewport, render } = createOcrPage()
     predict.mockResolvedValue([
       {
         items: [
@@ -62,16 +74,14 @@ describe('recognizePdfPage', () => {
         ],
       },
     ])
-    createPaddle.mockResolvedValue({ predict })
+    createPaddle.mockResolvedValue({ predict, dispose: vi.fn().mockResolvedValue(undefined) })
     postprocessWithKiwi.mockResolvedValue('다듬은 문장')
-    const render = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }))
-    const getViewport = vi.fn(() => ({ width: 1_000, height: 1_500, rotation: 0 }))
     const page = { getViewport, render }
 
     const signal = new AbortController().signal
     const result = await recognizePdfPage(page, signal)
 
-    expect(getViewport).toHaveBeenCalledWith({ scale: 200 / 72 })
+    expect(getViewport).toHaveBeenCalledWith({ scale: 160 / 72 })
     expect(render).toHaveBeenCalledWith(
       expect.objectContaining({ background: '#ffffff', canvas: expect.any(HTMLCanvasElement) }),
     )
@@ -81,6 +91,11 @@ describe('recognizePdfPage', () => {
           wasmPaths: '/src/assets/vendor/ocr/runtime/',
         }),
       }),
+    )
+    expect(createPaddle.mock.calls[0]?.[0].ortOptions).not.toHaveProperty('numThreads')
+    expect(predict).toHaveBeenCalledWith(
+      expect.any(HTMLCanvasElement),
+      expect.objectContaining({ textDetLimitSideLen: 1_216, textDetLimitType: 'max' }),
     )
     expect(postprocessWithKiwi).toHaveBeenCalledWith('OCR 문장', signal)
     expect(result).toEqual({
@@ -98,6 +113,133 @@ describe('recognizePdfPage', () => {
         },
       ],
     })
+  })
+
+  it('페이지 인식 전에 PaddleOCR와 Kiwi 초기화를 함께 시작한다', async () => {
+    createPaddle.mockResolvedValue({ predict, dispose: vi.fn().mockResolvedValue(undefined) })
+    postprocessWithKiwi.mockResolvedValue('')
+
+    await prepareOcr()
+
+    expect(createPaddle).toHaveBeenCalledOnce()
+    expect(postprocessWithKiwi).toHaveBeenCalledWith('', expect.any(AbortSignal))
+  })
+
+  it('중단하면 실행 중인 PaddleOCR 인식을 기다리지 않고 즉시 실패한다', async () => {
+    const page = createOcrPage()
+    const stuckPredict = createPromiseController<never>()
+    predict.mockReturnValueOnce(stuckPredict.promise)
+    createPaddle.mockResolvedValue({ predict, dispose: vi.fn().mockResolvedValue(undefined) })
+    const controller = new AbortController()
+
+    const recognition = recognizePdfPage(page, controller.signal)
+    await vi.waitFor(() => expect(predict).toHaveBeenCalledOnce())
+    controller.abort()
+
+    await expect(recognition).rejects.toBe(controller.signal.reason)
+  })
+
+  it('중단된 페이지의 PaddleOCR 인스턴스는 정리된다', async () => {
+    const page = createOcrPage()
+    const stuckPredict = createPromiseController<never>()
+    predict.mockReturnValueOnce(stuckPredict.promise)
+    const dispose = vi.fn().mockResolvedValue(undefined)
+    createPaddle.mockResolvedValue({ predict, dispose })
+    const controller = new AbortController()
+
+    const recognition = recognizePdfPage(page, controller.signal)
+    await vi.waitFor(() => expect(predict).toHaveBeenCalledOnce())
+    controller.abort()
+    await expect(recognition).rejects.toBe(controller.signal.reason)
+
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce())
+  })
+
+  it('중단 후 다음 페이지는 새 PaddleOCR 인스턴스로 즉시 인식을 시작한다', async () => {
+    const stuckPage = createOcrPage()
+    const stuckPredict = createPromiseController<never>()
+    predict.mockReturnValueOnce(stuckPredict.promise)
+    createPaddle.mockResolvedValue({ predict, dispose: vi.fn().mockResolvedValue(undefined) })
+    const firstController = new AbortController()
+
+    const firstRecognition = recognizePdfPage(stuckPage, firstController.signal)
+    await vi.waitFor(() => expect(predict).toHaveBeenCalledOnce())
+    firstController.abort()
+    await expect(firstRecognition).rejects.toBe(firstController.signal.reason)
+
+    const nextPage = createOcrPage()
+    predict.mockResolvedValueOnce([{ items: [] }])
+    postprocessWithKiwi.mockResolvedValue('')
+
+    await recognizePdfPage(nextPage, new AbortController().signal)
+
+    expect(createPaddle).toHaveBeenCalledTimes(2)
+  })
+
+  it('중단 없이 이어지는 페이지는 같은 PaddleOCR 인스턴스를 재사용한다', async () => {
+    createPaddle.mockResolvedValue({ predict, dispose: vi.fn().mockResolvedValue(undefined) })
+    predict.mockResolvedValue([{ items: [] }])
+    postprocessWithKiwi.mockResolvedValue('')
+
+    await recognizePdfPage(createOcrPage(), new AbortController().signal)
+    await recognizePdfPage(createOcrPage(), new AbortController().signal)
+
+    expect(createPaddle).toHaveBeenCalledTimes(1)
+  })
+
+  it('PaddleOCR 초기화 도중 중단해도 초기화가 끝난 뒤 인스턴스를 정리한다', async () => {
+    const page = createOcrPage()
+    const initialization = createPromiseController<{
+      predict: typeof predict
+      dispose: () => Promise<void>
+    }>()
+    createPaddle.mockReturnValueOnce(initialization.promise)
+    const controller = new AbortController()
+
+    const recognition = recognizePdfPage(page, controller.signal)
+    await vi.waitFor(() => expect(createPaddle).toHaveBeenCalledOnce())
+    controller.abort()
+    await expect(recognition).rejects.toBe(controller.signal.reason)
+
+    const dispose = vi.fn().mockResolvedValue(undefined)
+    initialization.resolve({ predict, dispose })
+
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce())
+  })
+
+  it('렌더링 직후 PaddleOCR 호출 전의 좁은 틈에서 중단돼도 처리되지 않은 예외를 남기지 않는다', async () => {
+    // dispose()가 호출되면 진행 중이던 predict() 요청을 실제 라이브러리처럼 거부시킨다.
+    const stuckPredict = createPromiseController<never>()
+    const dispose = vi.fn(() => {
+      stuckPredict.reject(new Error('Worker transport client has been disposed.'))
+      return Promise.resolve()
+    })
+    // PaddleOCR 인스턴스를 미리 캐시해 둔다. 이후 중단이 이 인스턴스를 그대로 정리한다.
+    createPaddle.mockResolvedValue({ predict, dispose })
+    predict.mockResolvedValueOnce([{ items: [] }])
+    postprocessWithKiwi.mockResolvedValue('')
+    await recognizePdfPage(createOcrPage(), new AbortController().signal)
+
+    predict.mockReturnValueOnce(stuckPredict.promise)
+
+    const { getViewport } = createOcrPage()
+    const renderCompletion = createPromiseController<void>()
+    const render = vi.fn(() => ({ promise: renderCompletion.promise, cancel: vi.fn() }))
+    const page = { getViewport, render }
+    const controller = new AbortController()
+
+    const recognition = recognizePdfPage(page, controller.signal)
+    await vi.waitFor(() => expect(render).toHaveBeenCalledOnce())
+
+    // 렌더링이 끝난 직후, PaddleOCR 호출로 이어지기 전의 microtask 틈에서 중단한다.
+    // controller.abort()가 queueMicrotask로 미뤄지므로, signal.reason은 recognition이
+    // 정리된 뒤에 읽어야 abort 전 값(undefined)을 비교하는 실수를 피할 수 있다.
+    renderCompletion.resolve()
+    queueMicrotask(() => controller.abort())
+
+    const rejection = await recognition.catch((error: unknown) => error)
+    expect(rejection).toBe(controller.signal.reason)
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce())
   })
 
   it('양면 페이지의 OCR 줄을 읽기 순서로 Kiwi에 넘기고 좌표를 유지한다', async () => {

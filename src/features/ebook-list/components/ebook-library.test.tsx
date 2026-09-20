@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as storage from '../lib/storage-manager'
@@ -35,6 +35,9 @@ function createStoredBook(title: string) {
     cover_status: 'fallback' as const,
     pdf_status: 'available' as const,
     last_page: null,
+    analysis_status: 'analyzing' as const,
+    ocr_completed_at: null,
+    indexed_at: null,
     created_at: 0,
     updated_at: 0,
   }
@@ -42,7 +45,7 @@ function createStoredBook(title: string) {
 
 describe('EbookLibrary', () => {
   afterEach(() => vi.restoreAllMocks())
-  it('초기화 중 책장 조작을 비활성화하고 완료 후 빈 상태를 알린다', async () => {
+  it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const initialization = createPromiseController<unknown>()
     const store = createStore()
     store.request.mockImplementationOnce(() => initialization.promise)
@@ -51,13 +54,12 @@ describe('EbookLibrary', () => {
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('서재를 불러오고 있습니다.')
     expect(screen.getByText('책 표지를 준비하고 있어요.')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '책 추가' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
     initialization.resolve(null)
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
-    expect(screen.getByText(/이 브라우저에만 저장/)).toBeInTheDocument()
-    expect(screen.getByText(/브라우저 데이터를 삭제하면/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(store.request).toHaveBeenCalledWith('listBooks')
   })
 
@@ -70,7 +72,7 @@ describe('EbookLibrary', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(store.request).toHaveBeenCalledTimes(3)
   })
 
@@ -100,16 +102,111 @@ describe('EbookLibrary', () => {
       </Toaster>,
     )
 
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
     await user.upload(
       screen.getByLabelText('PDF 파일 선택'),
       new File(['pdf'], 'first.pdf', { type: 'application/pdf' }),
     )
 
     expect(store.saveBook).toHaveBeenCalledOnce()
-    expect(screen.getByRole('button', { name: 'PDF 업로드' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(await screen.findByText('first.pdf을 추가했습니다.')).toBeVisible()
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent('확인 불가')
+  })
+
+  it('페이지 어디로든 파일을 끌고 오면 책 추가 카드가 강조되고, 놓으면 책을 추가한다', async () => {
+    const store = createStore()
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      pdfData: new ArrayBuffer(1),
+      contentHash: 'hash',
+      fileName: 'dropped.pdf',
+      title: '드롭한 책',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 1,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
+    render(
+      <Toaster>
+        <EbookLibrary store={store} />
+      </Toaster>,
+    )
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+    const file = new File(['pdf'], 'dropped.pdf', { type: 'application/pdf' })
+
+    fireEvent.dragEnter(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute('data-dragging', 'true')
+
+    fireEvent.drop(main, { dataTransfer: { types: ['Files'], files: [file] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute(
+      'data-dragging',
+      'false',
+    )
+    expect(await screen.findByText('dropped.pdf을 추가했습니다.')).toBeVisible()
+    expect(store.saveBook).toHaveBeenCalledOnce()
+  })
+
+  it('파일이 아닌 항목을 페이지에 끌어다 놓아도 브라우저 기본 동작(이동)을 막는다', async () => {
+    const store = createStore()
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+
+    expect(fireEvent.dragOver(main, { dataTransfer: { types: ['text/plain'] } })).toBe(false)
+    expect(fireEvent.drop(main, { dataTransfer: { types: ['text/plain'] } })).toBe(false)
+    expect(store.saveBook).not.toHaveBeenCalled()
+  })
+
+  it('업로드 중 disabled로 바뀌어도 드래그를 벗어나면 강조 표시가 풀린다', async () => {
+    const store = createStore()
+    const upload = createPromiseController<string>()
+    store.saveBook.mockImplementationOnce(() => upload.promise)
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      pdfData: new ArrayBuffer(1),
+      contentHash: 'hash',
+      fileName: 'first.pdf',
+      title: '첫 번째 책',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 1,
+      pageCount: 1,
+      coverData: null,
+      coverMime: null,
+      coverStatus: 'fallback',
+    })
+    render(<EbookLibrary store={store} />)
+
+    await screen.findByRole('button', { name: '책 추가' })
+    const main = screen.getByRole('main')
+
+    fireEvent.dragEnter(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute('data-dragging', 'true')
+
+    await userEvent.upload(
+      screen.getByLabelText('PDF 파일 선택'),
+      new File(['pdf'], 'first.pdf', { type: 'application/pdf' }),
+    )
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeDisabled()
+
+    fireEvent.dragLeave(main, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('button', { name: '책 추가' })).toHaveAttribute(
+      'data-dragging',
+      'false',
+    )
+
+    upload.resolve('saved-id')
   })
 
   it('업로드 전에 quota 기반으로 파일을 차단하지 않고 일부 실패 후 다음 파일을 처리한다', async () => {
@@ -133,7 +230,7 @@ describe('EbookLibrary', () => {
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
     render(<EbookLibrary store={store} />)
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
 
     await user.upload(screen.getByLabelText('PDF 파일 선택'), [
       new File(['one'], 'one.pdf', { type: 'application/pdf' }),
@@ -296,7 +393,7 @@ describe('EbookLibrary', () => {
       </Toaster>,
     )
 
-    await screen.findByText('아직 저장한 책이 없습니다.')
+    await screen.findByRole('button', { name: '책 추가' })
     await user.upload(
       screen.getByLabelText('PDF 파일 선택'),
       new File(['pdf'], 'new-book.pdf', { type: 'application/pdf' }),
@@ -312,7 +409,8 @@ describe('EbookLibrary', () => {
     await user.click(screen.getByRole('button', { name: '새 책 메뉴' }))
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '삭제' }))
-    expect(await screen.findByText('아직 저장한 책이 없습니다.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(savedBook.title)).not.toBeInTheDocument())
+    expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
       '소장 도서 0권 (0 B)',
     )

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { GlobalWorkerOptions } from 'pdfjs-dist'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { analyzePdf, PdfImportError } from './pdf-import'
 
 const fixture = (name: string) => readFile(resolve('e2e/fixtures/ebook', name))
@@ -60,6 +60,8 @@ if (!('getOrInsertComputed' in Map.prototype)) {
 }
 
 describe('analyzePdf', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   it('원본 내용의 SHA-256으로 식별하고 Info 메타데이터를 읽는다', async () => {
     const bytes = await fixture('with-metadata.pdf')
     const analyzed = await analyzePdf(new File([bytes], 'different-name.pdf'))
@@ -128,6 +130,8 @@ describe('analyzePdf', () => {
   })
 
   it('canvas를 사용할 수 없어도 유효한 원본은 기본 표지 상태로 반환한다', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+
     const analyzed = await analyzePdf(
       new File([await fixture('rotated-one-page.pdf')], 'rotated.pdf'),
     )

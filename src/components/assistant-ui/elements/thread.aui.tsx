@@ -115,6 +115,7 @@ const taskAwareGroupBy = (
 export type ThreadProps = {
   components?: ThreadComponents | undefined;
   autoFocus?: boolean | undefined;
+  composerDisabled?: boolean | undefined;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -159,15 +160,19 @@ const ThreadHistorySkeleton: FC = () => (
 export const Thread: FC<ThreadProps> = ({
   components = EMPTY_COMPONENTS,
   autoFocus = true,
+  composerDisabled = false,
 }) => {
   return (
     <ThreadComponentsContext.Provider value={components}>
-      <ThreadRoot autoFocus={autoFocus} />
+      <ThreadRoot autoFocus={autoFocus} composerDisabled={composerDisabled} />
     </ThreadComponentsContext.Provider>
   );
 };
 
-const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
+const ThreadRoot: FC<{ autoFocus: boolean; composerDisabled: boolean }> = ({
+  autoFocus,
+  composerDisabled,
+}) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 
   return (
@@ -208,7 +213,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
             className="aui-thread-viewport-footer bg-card sticky bottom-0 mt-auto flex flex-col gap-4 overflow-visible rounded-t-(--composer-radius) pb-3"
           >
             <ThreadScrollToBottom />
-            <Composer autoFocus={autoFocus} />
+            <Composer autoFocus={autoFocus} disabled={composerDisabled} />
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
@@ -341,7 +346,10 @@ const ThreadWelcome: FC = () => {
   );
 };
 
-const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
+const Composer: FC<{ autoFocus: boolean; disabled: boolean }> = ({
+  autoFocus,
+  disabled,
+}) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <div
@@ -351,19 +359,20 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         <ComposerPrimitive.Input
           render={<textarea />}
           placeholder="질문을 입력하세요"
-          className="aui-composer-input field-sizing-content caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2 py-0.5 leading-6 outline-none"
+          className="aui-composer-input field-sizing-content caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2 py-0.5 leading-6 outline-none disabled:cursor-not-allowed disabled:opacity-50"
           rows={1}
           autoFocus={autoFocus}
+          disabled={disabled}
           enterKeyHint="send"
           aria-label="질문 입력"
         />
-        <ComposerAction />
+        <ComposerAction disabled={disabled} />
       </div>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+const ComposerAction: FC<{ disabled: boolean }> = ({ disabled }) => {
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-end">
       <div className="flex items-center gap-1.5">
@@ -376,7 +385,7 @@ const ComposerAction: FC = () => {
           </AuiIf>
         </AuiIf>
         <AuiIf condition={(s) => !s.thread.isRunning}>
-          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="질문 보내기" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="질문 보내기" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+          <ComposerPrimitive.Send disabled={disabled} render={<TooltipIconButton tooltip="질문 보내기" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="질문 보내기" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
         </AuiIf>
         <AuiIf condition={(s) => s.thread.isRunning}>
           <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="답변 중지" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
