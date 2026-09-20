@@ -316,6 +316,48 @@ describe('recognizePdfPageRaw', () => {
   })
 })
 
+describe('공유 PaddleOCR 인스턴스', () => {
+  // Reader의 실시간 인식과 백그라운드 분석 파이프라인이 같은 PaddleOCR 인스턴스를 공유한다.
+  let recognizePdfPage: typeof import('./page-recognition').recognizePdfPage
+  let recognizePdfPageRaw: typeof import('./page-recognition').recognizePdfPageRaw
+
+  beforeEach(async () => {
+    vi.resetModules()
+    ;({ recognizePdfPage, recognizePdfPageRaw } = await import('./page-recognition'))
+  })
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('다른 요청이 같은 인스턴스를 아직 쓰고 있으면 중단해도 인스턴스를 정리하지 않는다', async () => {
+    const stuckPredict = createPromiseController<never>()
+    const backgroundPredict = createPromiseController<[{ items: never[] }]>()
+    predict.mockReturnValueOnce(stuckPredict.promise).mockReturnValueOnce(backgroundPredict.promise)
+    const dispose = vi.fn().mockResolvedValue(undefined)
+    createPaddle.mockResolvedValue({ predict, dispose })
+
+    // Reader가 화면에 보이는 페이지를 실시간으로 인식한다.
+    const readerController = new AbortController()
+    const readerRecognition = recognizePdfPage(createOcrPage(), readerController.signal)
+    await vi.waitFor(() => expect(predict).toHaveBeenCalledTimes(1))
+
+    // 그 사이 백그라운드 분석 파이프라인이 같은 인스턴스로 다른 페이지를 인식 중이다.
+    const backgroundRecognition = recognizePdfPageRaw(createOcrPage(), new AbortController().signal)
+    await vi.waitFor(() => expect(predict).toHaveBeenCalledTimes(2))
+
+    // Reader에서 페이지를 넘기거나 나가면서 자신의 요청만 중단한다.
+    readerController.abort()
+    await expect(readerRecognition).rejects.toBe(readerController.signal.reason)
+
+    // 백그라운드 요청이 아직 같은 인스턴스를 쓰고 있으므로 정리하면 안 된다.
+    expect(dispose).not.toHaveBeenCalled()
+
+    backgroundPredict.resolve([{ items: [] }])
+    await expect(backgroundRecognition).resolves.toMatchObject({ lines: [] })
+    expect(createPaddle).toHaveBeenCalledOnce()
+    expect(dispose).not.toHaveBeenCalled()
+  })
+})
+
 describe('postprocessStoredOcrPage', () => {
   let postprocessStoredOcrPage: typeof import('./page-recognition').postprocessStoredOcrPage
 
