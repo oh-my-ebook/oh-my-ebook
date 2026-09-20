@@ -78,7 +78,7 @@ const COPY_BUTTON: Record<
   { label: string; Icon: typeof CopyIcon; iconClassName?: string }
 > = {
   copied: { label: '복사됨', Icon: CheckIcon, iconClassName: 'text-primary' },
-  failed: { label: '복사 실패', Icon: XIcon },
+  failed: { label: '복사 실패', Icon: XIcon, iconClassName: 'text-destructive' },
   idle: { label: '복사', Icon: CopyIcon },
 }
 
