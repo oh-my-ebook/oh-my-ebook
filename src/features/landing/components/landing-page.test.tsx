@@ -50,6 +50,22 @@ describe('LandingPage', () => {
     expect(screen.queryByText('내 자료로 읽고, 질문하고, 이해하는 서재.')).not.toBeInTheDocument()
   })
 
+  it('PDF 전자책의 독서 흐름을 핵심 가치로 안내한다', () => {
+    setupResizeObserver()
+    render(<LandingPage />, { wrapper: TestRouter })
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      '책 밖으로 나가지 않고,읽던 맥락 그대로.',
+    )
+    expect(
+      screen.getByText(/다른 앱을 열거나 책의 맥락을 다시 설명할 필요가 없습니다/),
+    ).toBeVisible()
+    expect(screen.getByRole('heading', { name: /읽고, 묻고,/ })).toHaveTextContent(
+      /읽고, 묻고,\s*그 자리에서 이어서./,
+    )
+    expect(screen.queryByText(/강의 자료/)).not.toBeInTheDocument()
+  })
+
   it('실제 채팅처럼 요약 질문을 보내고 자유 질문에는 체험 범위를 안내한다', async () => {
     setupResizeObserver()
     const user = userEvent.setup()

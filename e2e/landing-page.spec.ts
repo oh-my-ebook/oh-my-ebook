@@ -11,7 +11,7 @@ test('모델을 다운로드하지 않고 체험한 뒤 책장에 진입한다',
   })
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    '외부 업로드 없이,읽던 맥락 그대로.',
+    '책 밖으로 나가지 않고,읽던 맥락 그대로.',
   )
   await page.getByRole('link', { name: '먼저 체험해 보기' }).click()
   const paragraph = page

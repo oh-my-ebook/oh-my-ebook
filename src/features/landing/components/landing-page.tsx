@@ -27,16 +27,16 @@ export function LandingPage() {
       <main id="main">
         <section className="landing-hero" aria-labelledby="hero-title">
           <BookCarousel />
-          <p className="landing-eyebrow">내 PDF로 읽고, 질문하고, 이해하는 공간</p>
+          <p className="landing-eyebrow">PDF 전자책을 위한 몰입형 리더</p>
           <h1 id="hero-title">
-            외부 업로드 없이,
+            책 밖으로 나가지 않고,
             <br />
             <span>읽던 맥락 그대로.</span>
           </h1>
           <p className="landing-hero-description">
-            전공 서적부터 PDF 기반 EBOOK까지
+            PDF로 된 전자책도 읽다가 바로 질문하세요.
             <br />
-            별도 챗봇에 맥락을 다시 설명할 필요 없이, 읽기와 이해에 집중하세요.
+            다른 앱을 열거나 책의 맥락을 다시 설명할 필요가 없습니다.
           </p>
           <div className="landing-actions">
             <Link className={buttonVariants({ size: 'lg' })} to="/library">
@@ -48,7 +48,9 @@ export function LandingPage() {
               <ArrowDown data-icon="inline-end" />
             </a>
           </div>
-          <p className="landing-caption">회원가입 없이 시작 · PDF와 대화는 내 기기에</p>
+          <p className="landing-caption">
+            회원가입 없이 시작 · PDF는 외부 서버에 업로드하지 않아요
+          </p>
         </section>
         <div className="landing-proof">
           <span>
@@ -67,17 +69,16 @@ export function LandingPage() {
         <section id="features" className="landing-section" aria-labelledby="features-title">
           <div className="landing-feature-intro">
             <div>
-              <p className="landing-eyebrow">PDF 학습을 위한 읽기 도구</p>
+              <p className="landing-eyebrow">독서 흐름을 끊지 않는 PDF 리더</p>
               <h2 id="features-title">
-                PDF에도,
-                <br />
-                읽는 사람을 위한 배려.
+                읽고, 묻고,
+                <br />그 자리에서 이어서.
               </h2>
             </div>
             <p>
-              공부하던 전공 서적, 다시 펼친 강의 자료.
+              어려운 문장을 만날 때마다 앱을 오가며 맥락을 옮기지 마세요.
               <br />
-              파일을 여는 일 다음의 경험을 생각했습니다.
+              PDF 전자책 안에서 질문하고, 답을 확인한 뒤 바로 이어 읽으세요.
             </p>
           </div>
           <div className="landing-feature-grid">
@@ -192,7 +193,7 @@ export function LandingPage() {
           </div>
         </section>
         <section className="landing-finish landing-section" aria-labelledby="finish-title">
-          <p className="landing-eyebrow">읽던 자료에서, 다음 이해로</p>
+          <p className="landing-eyebrow">읽던 책에서, 다음 이해로</p>
           <h2 id="finish-title">
             읽다 멈춘 개념,
             <br />
