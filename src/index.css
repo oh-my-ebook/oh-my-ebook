@@ -682,6 +682,7 @@
     grid-template-columns: 1fr 1fr;
     align-items: center;
     gap: 70px;
+    padding-block: 96px;
     border-block: 1px solid var(--border);
   }
 

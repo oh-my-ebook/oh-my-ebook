@@ -71,14 +71,15 @@ export function LandingPage() {
             <div>
               <p className="landing-eyebrow">독서 흐름을 끊지 않는 PDF 리더</p>
               <h2 id="features-title">
-                읽고, 묻고,
-                <br />그 자리에서 이어서.
+                궁금한 건 바로 묻고,
+                <br />
+                읽던 책은 계속 읽고.
               </h2>
             </div>
             <p>
-              어려운 문장을 만날 때마다 앱을 오가며 맥락을 옮기지 마세요.
+              이해가 막힐 때마다 다른 앱을 열고 맥락을 다시 설명할 필요 없어요.
               <br />
-              PDF 전자책 안에서 질문하고, 답을 확인한 뒤 바로 이어 읽으세요.
+              PDF 전자책을 읽던 화면에서 질문하고, 답을 확인한 뒤 계속 읽으세요.
             </p>
           </div>
           <div className="landing-feature-grid">
@@ -134,13 +135,14 @@ export function LandingPage() {
               </div>
               <p className="landing-eyebrow">02 / 읽기 순서와 한국어 보정</p>
               <h3>
-                글자의 순서까지,
+                복잡하게 나뉜 페이지도,
                 <br />
-                읽는 흐름에 맞춰.
+                읽는 순서 그대로.
               </h3>
               <p>
-                여러 단으로 나뉜 페이지의 읽기 순서를 정리하고 한국어 띄어쓰기를 보정합니다. 선택한
-                문장의 맥락을 더 잘 전달하도록.
+                펼친 두 페이지를 한 번에 스캔했거나 시험 문제처럼 여러 단으로 구성된 페이지도, 읽는
+                순서대로 글자를 인식합니다. 띄어쓰기를 보정해 문장도 자연스럽게 드래그해 선택할 수
+                있어요.
               </p>
             </article>
           </div>
@@ -193,18 +195,19 @@ export function LandingPage() {
           </div>
         </section>
         <section className="landing-finish landing-section" aria-labelledby="finish-title">
-          <p className="landing-eyebrow">읽던 책에서, 다음 이해로</p>
+          <p className="landing-eyebrow">PDF 전자책에 집중하는 시간</p>
           <h2 id="finish-title">
-            읽다 멈춘 개념,
-            <br />
-            이제 질문하며 이해하세요.
+            앱을 오가는 대신,
+            <br />한 권에 더 깊이.
           </h2>
           <Link className={buttonVariants({ size: 'lg' })} to="/library">
             나만의 책장 시작하기
             <ArrowRight data-icon="inline-end" />
           </Link>
           <p className="landing-caption">
-            AI 기능은 WebGPU 지원 환경이 필요해요.
+            AI 기능은 WebGPU와 필요한 GPU 기능을 지원하는 환경에서만 사용할 수 있어요.
+            <br />
+            모바일이나 일부 브라우저·기기에서는 실행되지 않을 수 있습니다.
             <br />
             데스크톱 Chrome·Edge를 권장하며, 첫 사용 시 모델을 다운로드합니다.
           </p>

@@ -60,9 +60,16 @@ describe('LandingPage', () => {
     expect(
       screen.getByText(/다른 앱을 열거나 책의 맥락을 다시 설명할 필요가 없습니다/),
     ).toBeVisible()
-    expect(screen.getByRole('heading', { name: /읽고, 묻고,/ })).toHaveTextContent(
-      /읽고, 묻고,\s*그 자리에서 이어서./,
+    expect(screen.getByRole('heading', { name: /궁금한 건 바로 묻고,/ })).toHaveTextContent(
+      /궁금한 건 바로 묻고,\s*읽던 책은 계속 읽고./,
     )
+    expect(screen.getByText(/펼친 두 페이지를 한 번에 스캔했거나/)).toHaveTextContent(
+      /읽는 순서대로 글자를 인식합니다/,
+    )
+    expect(screen.getByRole('heading', { name: /앱을 오가는 대신,/ })).toHaveTextContent(
+      /앱을 오가는 대신,\s*한 권에 더 깊이./,
+    )
+    expect(screen.getByText(/모바일이나 일부 브라우저·기기에서는/)).toBeVisible()
     expect(screen.queryByText(/강의 자료/)).not.toBeInTheDocument()
   })
 

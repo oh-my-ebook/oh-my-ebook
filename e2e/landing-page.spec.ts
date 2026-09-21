@@ -54,3 +54,18 @@ test('좁은 화면과 동작 감소 환경에서 키보드로 표지를 바꾸�
   )
   await expect(page.getByText(/All rights reserved/)).toBeVisible()
 })
+
+test('개인정보 영역의 원형 장식이 위아래 구분선과 겹치지 않는다', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/')
+
+  const sectionBox = await page.locator('.landing-private').boundingBox()
+  const orbitBox = await page.locator('.landing-orbit-outer').boundingBox()
+
+  if (!sectionBox || !orbitBox) {
+    throw new Error('개인정보 영역이나 원형 장식의 위치를 확인할 수 없습니다.')
+  }
+
+  expect(orbitBox.y).toBeGreaterThan(sectionBox.y)
+  expect(orbitBox.y + orbitBox.height).toBeLessThan(sectionBox.y + sectionBox.height)
+})
