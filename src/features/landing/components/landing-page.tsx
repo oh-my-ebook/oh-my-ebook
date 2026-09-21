@@ -1,7 +1,8 @@
 import { ArrowDown, ArrowRight, Fingerprint, Laptop, ScanText, TextSelect } from 'lucide-react'
 import { Link } from 'react-router'
+import { AppFooter } from '@/components/app-footer'
+import { AppHeader } from '@/components/app-header'
 import { buttonVariants } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { BookCarousel } from './book-carousel'
 import { ReadingDemo } from './reading-demo'
 
@@ -11,22 +12,18 @@ export function LandingPage() {
       <a className="landing-skip" href="#main">
         본문으로 건너뛰기
       </a>
-      <header className="border-b bg-card/92">
-        <div className="landing-header">
-          <Link className="landing-wordmark" to="/" aria-label="oh-my-ebook 홈">
-            <img src="/landing/logo.jpg" alt="" width="32" height="32" />
-            oh-my-ebook
-          </Link>
-          <nav aria-label="랜딩 탐색" className="landing-navigation">
-            <a href="#features">읽는 경험</a>
-            <a href="#privacy">나만의 공간</a>
-          </nav>
-          <Link className={buttonVariants({ variant: 'outline' })} to="/library">
-            책장 열기
-            <ArrowRight data-icon="inline-end" />
-          </Link>
-        </div>
-      </header>
+      <AppHeader navigationLabel="랜딩 탐색">
+        <a className="text-sm text-muted-foreground max-[700px]:hidden" href="#features">
+          읽는 경험
+        </a>
+        <a className="text-sm text-muted-foreground max-[700px]:hidden" href="#privacy">
+          나만의 공간
+        </a>
+        <Link className={buttonVariants({ variant: 'outline' })} to="/library">
+          책장 열기
+          <ArrowRight data-icon="inline-end" />
+        </Link>
+      </AppHeader>
       <main id="main">
         <section className="landing-hero" aria-labelledby="hero-title">
           <BookCarousel />
@@ -212,25 +209,7 @@ export function LandingPage() {
           </p>
         </section>
       </main>
-      <footer className="landing-footer">
-        <Separator />
-        <div>
-          <Link className="landing-wordmark" to="/">
-            <img src="/landing/logo.jpg" alt="" width="32" height="32" />
-            oh-my-ebook
-          </Link>
-          <p>내 자료로 읽고, 질문하고, 이해하는 서재.</p>
-          <nav aria-label="서비스 안내">
-            <Link to="/privacy">개인정보처리방침</Link>
-            <Link to="/terms">이용약관</Link>
-            <Link to="/licenses">오픈소스 라이선스</Link>
-          </nav>
-        </div>
-        <p className="landing-caption">
-          © {new Date().getFullYear()} oh-my-ebook. All rights reserved. · 표지와 체험 본문은 이
-          서비스를 위해 직접 제작했습니다.
-        </p>
-      </footer>
+      <AppFooter />
     </div>
   )
 }

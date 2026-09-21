@@ -300,41 +300,10 @@
     overflow-wrap: anywhere;
   }
 
-  .landing-header,
   .landing-section,
-  .landing-footer,
   .landing-proof {
     width: min(100% - 3rem, 1120px);
     margin-inline: auto;
-  }
-
-  .landing-header {
-    display: flex;
-    min-height: 56px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .landing-wordmark {
-    display: inline-flex;
-    gap: 0.55rem;
-    align-items: center;
-    font-size: 0.875rem;
-    font-weight: 700;
-    letter-spacing: normal;
-  }
-
-  .landing-wordmark img {
-    border-radius: var(--radius-lg);
-  }
-
-  .landing-navigation,
-  .landing-footer nav {
-    display: flex;
-    gap: 2rem;
-    font-size: 0.8rem;
-    color: var(--muted-foreground);
   }
 
   .landing a:focus-visible {
@@ -342,8 +311,7 @@
     outline-offset: 5px;
   }
 
-  .landing-navigation a:hover,
-  .landing-footer nav a:hover {
+  .landing header nav a:hover {
     color: var(--primary);
   }
 
@@ -813,28 +781,6 @@
     margin-top: 20px;
   }
 
-  .landing-footer {
-    padding-bottom: 24px;
-  }
-
-  .landing-footer > div:last-of-type {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    padding-block: 28px;
-  }
-
-  .landing-footer > div > p {
-    color: var(--muted-foreground);
-    font-size: 0.7rem;
-  }
-  .landing-footer nav {
-    gap: 20px;
-    font-size: 0.7rem;
-  }
-
   @keyframes landing-arrive {
     from {
       opacity: 0;
@@ -847,20 +793,9 @@
   }
 
   @media (max-width: 700px) {
-    .landing-header,
     .landing-section,
-    .landing-footer,
     .landing-proof {
       width: calc(100% - 2rem);
-    }
-    .landing-navigation {
-      display: none;
-    }
-    .landing-header {
-      min-height: 56px;
-    }
-    .landing-wordmark {
-      font-size: 0.875rem;
     }
     .landing-books {
       --book-spread: 90px;
