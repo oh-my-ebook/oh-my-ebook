@@ -149,6 +149,34 @@ function createLoadedDocument(pageCount = 1): LoadedPdfDocument {
   }
 }
 
+function createCitationAdapter(pageNumber: number): ChatModelAdapter {
+  return {
+    async *run() {
+      yield {
+        content: [
+          { type: 'text', text: '답변' },
+          {
+            type: 'data',
+            name: 'book-citations',
+            data: {
+              chunks: [
+                {
+                  id: `chunk-${pageNumber}`,
+                  ordinal: 0,
+                  text: `${pageNumber}페이지 인용 출처 본문`,
+                  tokenCount: 4,
+                  score: 2,
+                  sources: [{ pageNumber, startLineIndex: 0, endLineIndex: 0 }],
+                },
+              ],
+            },
+          },
+        ],
+      } satisfies ChatModelRunResult
+    },
+  }
+}
+
 async function renderLoadedReader(
   resizeObserverMock: ReturnType<typeof setupResizeObserverMock>,
   pageCount = 1,
@@ -354,52 +382,66 @@ describe('Reader 보조 패널 연결', () => {
     expect(respondSpy.mock.calls[1]?.[1]?.system).not.toContain('1페이지 OCR 본문')
   })
 
-  it('답변 근거로 이동한 뒤 이전 읽던 페이지로 돌아온다', async () => {
+  it('답변 인용 출처로 이동한 뒤 이전 읽던 페이지로 돌아온다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
     useWebLlmModelStore.setState({ status: 'ready' })
-    const evidenceAdapter: ChatModelAdapter = {
-      async *run() {
-        yield {
-          content: [
-            { type: 'text', text: '답변' },
-            {
-              type: 'data',
-              name: 'book-evidence',
-              data: {
-                chunks: [
-                  {
-                    id: 'chunk-2',
-                    ordinal: 1,
-                    text: '2페이지 근거 본문',
-                    tokenCount: 4,
-                    score: 2,
-                    sources: [{ pageNumber: 2, startLineIndex: 0, endLineIndex: 0 }],
-                  },
-                ],
-              },
-            },
-          ],
-        } satisfies ChatModelRunResult
-      },
-    }
-    await renderLoadedReader(resizeObserverMock, 2, undefined, evidenceAdapter)
+    const citationAdapter = createCitationAdapter(2)
+    await renderLoadedReader(resizeObserverMock, 2, undefined, citationAdapter)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
     await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
     await user.keyboard('{Enter}')
-    const evidenceTrigger = await screen.findByRole('button', { name: '근거 보기' })
-    await user.hover(evidenceTrigger)
-    await user.click(await screen.findByRole('button', { name: '2페이지 근거로 이동' }))
+    const citationTrigger = await screen.findByRole('button', { name: '2페이지 인용 출처' })
+    await user.hover(citationTrigger)
+    await user.click(await screen.findByRole('button', { name: '2페이지 원문으로 이동' }))
 
     await screen.findByRole('img', { name: 'PDF 2페이지' })
     expect(await screen.findByText('2페이지 OCR 본문')).toHaveAttribute(
-      'data-evidence-highlight',
+      'data-citation-highlight',
       'true',
     )
-    await user.click(screen.getByRole('button', { name: '이전 위치로 돌아가기' }))
+    const returnButton = screen.getByRole('button', { name: '읽던 곳으로 · 1쪽' })
+    expect(screen.getByRole('main', { name: 'PDF 읽기 영역' })).toContainElement(returnButton)
+    expect(returnButton).toHaveClass(
+      'h-7',
+      'text-[0.8rem]',
+      'border-0',
+      'bg-secondary',
+      'text-secondary-foreground',
+    )
+    expect(returnButton).not.toHaveClass('border')
+    await user.click(returnButton)
     expect(await screen.findByRole('img', { name: 'PDF 1페이지' })).toBeInTheDocument()
+  })
+
+  it('현재 페이지의 인용 출처를 닫으면 기존 OCR 강조색으로 돌아간다', async () => {
+    const user = userEvent.setup()
+    const resizeObserverMock = setupResizeObserverMock()
+    setupMatchMediaMock(true)
+    useWebLlmModelStore.setState({ status: 'ready' })
+    await renderLoadedReader(resizeObserverMock, 1, undefined, createCitationAdapter(1))
+    const ocrLine = await screen.findByText('1페이지 OCR 본문')
+
+    expect(ocrLine).toHaveClass('bg-ocr-highlight/20')
+    expect(ocrLine).not.toHaveAttribute('data-citation-highlight')
+
+    await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
+    await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
+    await user.keyboard('{Enter}')
+    const citationTrigger = await screen.findByRole('button', { name: '1페이지 인용 출처' })
+    await user.hover(citationTrigger)
+    await user.click(await screen.findByRole('button', { name: '1페이지 원문으로 이동' }))
+
+    expect(ocrLine).toHaveAttribute('data-citation-highlight', 'true')
+    expect(ocrLine).toHaveClass('bg-primary/15')
+
+    await user.click(screen.getByRole('button', { name: '읽던 곳으로 · 1쪽' }))
+
+    expect(ocrLine).not.toHaveAttribute('data-citation-highlight')
+    expect(ocrLine).toHaveClass('bg-ocr-highlight/20')
+    expect(screen.queryByRole('button', { name: '읽던 곳으로 · 1쪽' })).not.toBeInTheDocument()
   })
 
   it('리더가 받은 도서 메타데이터를 질문 컨텍스트에 전달한다', async () => {

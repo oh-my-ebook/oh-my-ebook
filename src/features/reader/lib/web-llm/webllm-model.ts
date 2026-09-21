@@ -66,6 +66,9 @@ function getModelErrorMessage(error: unknown) {
   if (/WebGPU|shader-f16|compatible GPU/i.test(message)) {
     return '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.'
   }
+  if (/Cache\.add|execute ['"]add['"] on ['"]Cache['"]/i.test(message)) {
+    return '모델 파일을 브라우저에 저장하지 못했습니다. 기기 저장 공간을 확보한 뒤 다시 시도해 주세요. 계속 실패하면 VPN이나 네트워크 설정을 확인해 주세요.'
+  }
   // "GPU에서 메모리 부족으로 모델 다운로드 실패"처럼 메모리·네트워크 단어가 함께 나올 수 있어,
   // 더 구체적인 메모리 판별을 네트워크보다 먼저 검사한다.
   // 또한 "GPU"만 단독으로 들어간 메시지는 메모리와 무관한 경우가 많아(예: GPU 어댑터 조회 실패) 판별에서 제외한다.

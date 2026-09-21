@@ -574,19 +574,22 @@ describe('ReaderChat', () => {
     expect(receivedContexts[0]?.system).not.toContain('null')
   })
 
-  it('답변 하단의 근거를 미리 보고 PDF 위치로 이동한다', async () => {
+  it('답변 하단에 페이지별 인용 출처를 나열하고 PDF 위치로 이동한다', async () => {
     setupResizeObserverMock()
     useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
-    const onEvidenceNavigate = vi.fn()
-    const evidenceAdapter: ChatModelAdapter = {
+    const onCitationNavigate = vi.fn()
+    const finish = createPromiseController<void>()
+    const citationAdapter: ChatModelAdapter = {
       async *run() {
+        yield { content: [{ type: 'text', text: '검색 발췌를 사용한 답변' }] }
+        await finish.promise
         yield {
           content: [
-            { type: 'text', text: '근거를 사용한 답변' },
+            { type: 'text', text: '검색 발췌를 사용한 답변' },
             {
               type: 'data',
-              name: 'book-evidence',
+              name: 'book-citations',
               data: {
                 chunks: [
                   {
@@ -597,6 +600,14 @@ describe('ReaderChat', () => {
                     score: 1.5,
                     sources: [{ pageNumber: 7, startLineIndex: 2, endLineIndex: 4 }],
                   },
+                  {
+                    id: 'chunk-2',
+                    ordinal: 1,
+                    text: '두 번째 인용 출처 본문',
+                    tokenCount: 4,
+                    score: 1.2,
+                    sources: [{ pageNumber: 9, startLineIndex: 0, endLineIndex: 1 }],
+                  },
                 ],
               },
             },
@@ -604,16 +615,27 @@ describe('ReaderChat', () => {
         } satisfies ChatModelRunResult
       },
     }
-    render(<ReaderChat chatModel={evidenceAdapter} onEvidenceNavigate={onEvidenceNavigate} />)
+    render(<ReaderChat chatModel={citationAdapter} onCitationNavigate={onCitationNavigate} />)
 
     await user.type(screen.getByRole('textbox', { name: MESSAGE_INPUT_NAME }), '질문')
     await user.keyboard('{Enter}')
-    const evidenceTrigger = await screen.findByRole('button', { name: '근거 보기' })
-    await user.hover(evidenceTrigger)
+    expect(await screen.findByText('검색 발췌를 사용한 답변')).toBeInTheDocument()
+    expect(document.querySelectorAll('.aui-md[data-status="running"]')).toHaveLength(1)
+    expect(document.querySelector('[data-slot="aui_assistant-message-indicator"]')).toBeNull()
+    expect(screen.queryByRole('button', { name: '7페이지 인용 출처' })).not.toBeInTheDocument()
+
+    finish.resolve()
+    const citationTrigger = await screen.findByRole('button', { name: '7페이지 인용 출처' })
+    expect(document.querySelector('.aui-md[data-status="running"]')).toBeNull()
+    expect(document.querySelector('[data-slot="aui_assistant-message-indicator"]')).toBeNull()
+    expect(screen.getByRole('button', { name: '9페이지 인용 출처' })).toBeInTheDocument()
+    await user.hover(citationTrigger)
 
     expect(await screen.findByText('호버 카드에 보여 줄 책 본문')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '7페이지 근거로 이동' }))
-    expect(onEvidenceNavigate).toHaveBeenCalledWith({
+    expect(document.querySelector('[data-side="bottom"]')).not.toBeNull()
+    const navigateButton = screen.getByRole('button', { name: '7페이지 원문으로 이동' })
+    await user.click(navigateButton)
+    expect(onCitationNavigate).toHaveBeenCalledWith({
       pageNumber: 7,
       startLineIndex: 2,
       endLineIndex: 4,
