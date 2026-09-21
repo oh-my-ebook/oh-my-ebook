@@ -71,15 +71,15 @@ export function LandingPage() {
             <div>
               <p className="landing-eyebrow">독서 흐름을 끊지 않는 PDF 리더</p>
               <h2 id="features-title">
-                궁금한 건 바로 묻고,
+                읽다가 궁금한 순간,
                 <br />
-                읽던 책은 계속 읽고.
+                흐름을 놓치지 않고 바로 질문하세요.
               </h2>
             </div>
             <p>
-              이해가 막힐 때마다 다른 앱을 열고 맥락을 다시 설명할 필요 없어요.
+              궁금한 문장이 나올 때마다 다른 AI를 열고 책의 맥락을 다시 설명하지 않아도 돼요.
               <br />
-              PDF 전자책을 읽던 화면에서 질문하고, 답을 확인한 뒤 계속 읽으세요.
+              PDF 전자책을 읽던 화면에서 바로 묻고, 답을 확인한 뒤 이어서 읽으세요.
             </p>
           </div>
           <div className="landing-feature-grid">
@@ -111,26 +111,44 @@ export function LandingPage() {
             </article>
             <article className="landing-feature">
               <div className="landing-order-illustration" aria-hidden="true">
-                <div>
-                  <span>가</span>
-                  <p>
-                    줄을 따라
-                    <br />
-                    단을 따라
-                    <br />
-                    자연스럽게
-                  </p>
+                <div className="landing-order-spread">
+                  <div className="landing-order-page">
+                    <div className="landing-order-column">
+                      <span>1</span>
+                      <i />
+                      <i />
+                      <i data-selected="true" />
+                      <i />
+                    </div>
+                    <div className="landing-order-column">
+                      <span>2</span>
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </div>
+                  </div>
+                  <div className="landing-order-fold" />
+                  <div className="landing-order-page">
+                    <div className="landing-order-column">
+                      <span>3</span>
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </div>
+                    <div className="landing-order-column">
+                      <span>4</span>
+                      <i />
+                      <i data-selected="true" />
+                      <i />
+                      <i />
+                    </div>
+                  </div>
                 </div>
-                <ArrowRight size={22} />
-                <div>
-                  <span>나</span>
-                  <p>
-                    문장 순서도
-                    <br />
-                    띄어쓰기도
-                    <br />
-                    차근차근
-                  </p>
+                <div className="landing-order-selection">
+                  <TextSelect size={18} />
+                  <span>읽는 순서대로 선택</span>
                 </div>
               </div>
               <p className="landing-eyebrow">02 / 읽기 순서와 한국어 보정</p>
@@ -195,10 +213,10 @@ export function LandingPage() {
           </div>
         </section>
         <section className="landing-finish landing-section" aria-labelledby="finish-title">
-          <p className="landing-eyebrow">PDF 전자책에 집중하는 시간</p>
+          <p className="landing-eyebrow">질문도 답도, 읽던 PDF 안에서</p>
           <h2 id="finish-title">
-            앱을 오가는 대신,
-            <br />한 권에 더 깊이.
+            다른 AI로 옮겨 갈 필요 없이,
+            <br />한 권을 더 깊이 이해하세요.
           </h2>
           <Link className={buttonVariants({ size: 'lg' })} to="/library">
             나만의 책장 시작하기
