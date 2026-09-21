@@ -633,7 +633,8 @@ describe('ReaderChat', () => {
 
     expect(await screen.findByText('호버 카드에 보여 줄 책 본문')).toBeInTheDocument()
     expect(document.querySelector('[data-side="bottom"]')).not.toBeNull()
-    await user.click(screen.getByRole('button', { name: '7페이지 원문으로 이동' }))
+    const navigateButton = screen.getByRole('button', { name: '7페이지 원문으로 이동' })
+    await user.click(navigateButton)
     expect(onCitationNavigate).toHaveBeenCalledWith({
       pageNumber: 7,
       startLineIndex: 2,
