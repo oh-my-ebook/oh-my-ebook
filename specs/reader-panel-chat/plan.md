@@ -61,6 +61,12 @@ assistant-ui의 `SelectionToolbarPrimitive`는 채팅 메시지 안의 선택만
 
 `App`의 시작 effect에서 `prepareCachedWebLlmModel()`을 호출한다. Cache Storage를 지원하고 상태가 idle일 때 모델 캐시 저장소의 존재 여부를 먼저 확인한다. 저장소가 없으면 WebLLM 모듈도 불러오지 않는다. 저장소가 있으면 라이브러리의 `hasModelInCache()`로 가중치 전체를 확인한 뒤 기존 단일 엔진 준비 경로를 재사용한다. 캐시 확인 실패는 자동 로딩을 건너뛰고, GPU 준비 실패는 기존 오류·재시도 경로로 처리한다. 모델·컨텍스트 크기·캐시 백엔드·다운로드 호스트는 유지한다. 단위 테스트에서 캐시 유무·확인 실패·수동 요청과의 중첩을, 컴포넌트 테스트에서 한국어 단계 표시와 앱 시작 연결을 검증한다.
 
+## 답변 하단 인용 출처 배지 (FR-014)
+
+RAG 어댑터는 스트리밍 중에는 응답 텍스트만 제공하고, 응답 완료 시 `book-citations` data part를 한 번 추가한다. 응답 문장과 청크의 위치 매핑은 없으므로 문장 중간에 인용 번호를 추측해 넣지 않고, 답변 맨 끝에 페이지별 배지를 `flex-wrap`으로 나열한다.
+
+배지 표현은 assistant-ui `Sources`의 document source를 사용한다. 각 배지를 기존 shadcn HoverCard 트리거로 삼아 hover·focus 시 검색 청크 본문과 PDF 이동 Button을 배지 아래에 표시한다. `onCitationNavigate` 계약으로 PDF highlight·복귀 흐름을 연결한다.
+
 ## 컴포넌트 배치
 
 - `src/features/reader/components/reader-panel.tsx`: `WideReaderPanel`·`NarrowReaderPanel`의 빈 콘텐츠 영역에 `ReaderChat`을 렌더링하도록 수정. 패널이 Base UI `Collapsible.Panel`/`Dialog.Popup`으로 닫힐 때 콘텐츠가 DOM에서 언마운트되는 기존 동작을 그대로 활용해 FR-006(패널을 닫으면 대화 내역 초기화)을 별도 리셋 로직 없이 만족시킨다.

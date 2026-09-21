@@ -354,25 +354,25 @@ describe('Reader 보조 패널 연결', () => {
     expect(respondSpy.mock.calls[1]?.[1]?.system).not.toContain('1페이지 OCR 본문')
   })
 
-  it('답변 근거로 이동한 뒤 이전 읽던 페이지로 돌아온다', async () => {
+  it('답변 인용 출처로 이동한 뒤 이전 읽던 페이지로 돌아온다', async () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
     useWebLlmModelStore.setState({ status: 'ready' })
-    const evidenceAdapter: ChatModelAdapter = {
+    const citationAdapter: ChatModelAdapter = {
       async *run() {
         yield {
           content: [
             { type: 'text', text: '답변' },
             {
               type: 'data',
-              name: 'book-evidence',
+              name: 'book-citations',
               data: {
                 chunks: [
                   {
                     id: 'chunk-2',
                     ordinal: 1,
-                    text: '2페이지 근거 본문',
+                    text: '2페이지 인용 출처 본문',
                     tokenCount: 4,
                     score: 2,
                     sources: [{ pageNumber: 2, startLineIndex: 0, endLineIndex: 0 }],
@@ -384,18 +384,18 @@ describe('Reader 보조 패널 연결', () => {
         } satisfies ChatModelRunResult
       },
     }
-    await renderLoadedReader(resizeObserverMock, 2, undefined, evidenceAdapter)
+    await renderLoadedReader(resizeObserverMock, 2, undefined, citationAdapter)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
     await user.type(screen.getByRole('textbox', { name: '질문 입력' }), '질문')
     await user.keyboard('{Enter}')
-    const evidenceTrigger = await screen.findByRole('button', { name: '근거 보기' })
-    await user.hover(evidenceTrigger)
-    await user.click(await screen.findByRole('button', { name: '2페이지 근거로 이동' }))
+    const citationTrigger = await screen.findByRole('button', { name: '2페이지 인용 출처' })
+    await user.hover(citationTrigger)
+    await user.click(await screen.findByRole('button', { name: '2페이지 원문으로 이동' }))
 
     await screen.findByRole('img', { name: 'PDF 2페이지' })
     expect(await screen.findByText('2페이지 OCR 본문')).toHaveAttribute(
-      'data-evidence-highlight',
+      'data-citation-highlight',
       'true',
     )
     await user.click(screen.getByRole('button', { name: '이전 위치로 돌아가기' }))

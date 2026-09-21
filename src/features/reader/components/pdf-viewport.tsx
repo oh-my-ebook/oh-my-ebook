@@ -37,7 +37,7 @@ export interface OcrText {
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
-  evidenceSource?: SearchChunkSource
+  citationSource?: SearchChunkSource
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onOcrTextChange?: (ocrText: OcrText) => void
@@ -145,7 +145,7 @@ export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
   const {
     document,
-    evidenceSource,
+    citationSource,
     getStoredOcrPage,
     onOcrTextChange,
     onStatusChange,
@@ -363,18 +363,18 @@ export function PdfViewport(props: PdfViewportProps) {
                   className="absolute inset-0 overflow-hidden"
                 >
                   {textLayer.lines.map((line, index) => {
-                    const isEvidenceLine =
-                      evidenceSource?.pageNumber === page.pageNumber &&
-                      index >= evidenceSource.startLineIndex &&
-                      index <= evidenceSource.endLineIndex
+                    const isCitationLine =
+                      citationSource?.pageNumber === page.pageNumber &&
+                      index >= citationSource.startLineIndex &&
+                      index <= citationSource.endLineIndex
                     return (
                       <span
                         className={
-                          isEvidenceLine
+                          isCitationLine
                             ? 'absolute origin-top-left cursor-text select-text whitespace-pre bg-primary/15 text-transparent outline-1 outline-primary/30 selection:bg-ocr-highlight/80'
                             : 'absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80'
                         }
-                        data-evidence-highlight={isEvidenceLine ? 'true' : undefined}
+                        data-citation-highlight={isCitationLine ? 'true' : undefined}
                         data-line-index={index}
                         data-slot="pdf-ocr-line"
                         key={`${line.x0}-${line.y0}-${index}`}
