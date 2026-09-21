@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TestRouter } from '@/test/test-router'
@@ -69,6 +69,7 @@ describe('LandingPage', () => {
     expect(screen.getByRole('heading', { name: /다른 AI로 옮겨 갈 필요 없이,/ })).toHaveTextContent(
       /다른 AI로 옮겨 갈 필요 없이,\s*한 권을 더 깊이 이해하세요./,
     )
+    expect(screen.getByText(/필요한 페이지가 메모리에 없으면/)).toBeVisible()
     expect(screen.getByText(/모바일이나 일부 브라우저·기기에서는/)).toBeVisible()
     expect(screen.queryByText(/강의 자료/)).not.toBeInTheDocument()
   })
@@ -83,7 +84,14 @@ describe('LandingPage', () => {
     expect(within(demo).queryByRole('tab')).not.toBeInTheDocument()
     await user.click(within(demo).getByRole('button', { name: '이 페이지 요약' }))
     expect(await within(demo).findByText('이 페이지에 대해 요약해줘')).toBeInTheDocument()
-    expect(await within(demo).findByText(/페이지 테이블이 두 주소를 연결/)).toBeInTheDocument()
+    const log = await within(demo).findByRole('log')
+    await waitFor(() =>
+      expect(log).toHaveTextContent('프로세스는 자신만의 가상 주소 공간을 사용합니다.'),
+    )
+    expect(log).not.toHaveTextContent('직접 관리할 필요가 없습니다.')
+    await waitFor(() => expect(log).toHaveTextContent('직접 관리할 필요가 없습니다.'), {
+      timeout: 3000,
+    })
     await user.type(within(demo).getByRole('textbox', { name: '질문 입력' }), '다른 질문')
     await user.click(within(demo).getByRole('button', { name: '질문 보내기' }))
     expect(await within(demo).findByText(/자유로운 질문은 실제 PDF 리더/)).toBeInTheDocument()

@@ -1,4 +1,12 @@
-import { ArrowDown, ArrowRight, Fingerprint, Laptop, ScanText, TextSelect } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowRight,
+  Fingerprint,
+  Laptop,
+  MousePointer2,
+  ScanText,
+  TextSelect,
+} from 'lucide-react'
 import { Link } from 'react-router'
 import { AppFooter } from '@/components/app-footer'
 import { AppHeader } from '@/components/app-header'
@@ -94,6 +102,9 @@ export function LandingPage() {
                   </p>
                   <i />
                   <i />
+                  <i className="mb-3" />
+                  <i />
+                  <i />
                   <i />
                 </div>
                 <ScanText size={26} />
@@ -117,11 +128,19 @@ export function LandingPage() {
                       <span>1</span>
                       <i />
                       <i />
-                      <i data-selected="true" />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
                       <i />
                     </div>
                     <div className="landing-order-column">
                       <span>2</span>
+                      <i />
+                      <i />
+                      <i />
+                      <i />
                       <i />
                       <i />
                       <i />
@@ -136,15 +155,24 @@ export function LandingPage() {
                       <i />
                       <i />
                       <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
                     </div>
                     <div className="landing-order-column">
                       <span>4</span>
                       <i />
-                      <i data-selected="true" />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
                       <i />
                       <i />
                     </div>
                   </div>
+                  <MousePointer2 className="landing-order-pointer" size={18} />
                 </div>
                 <div className="landing-order-selection">
                   <TextSelect size={18} />
