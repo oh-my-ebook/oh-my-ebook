@@ -72,14 +72,21 @@ test('개인정보 영역의 원형 장식이 위아래 구분선과 겹치지 �
   const orbitStyles = await page.locator('.landing-orbit').evaluateAll((nodes) =>
     nodes.map((node) => {
       const animation = node.getAnimations()[0]
-      animation.currentTime = 1500
+      animation.currentTime = 3600
       animation.pause()
       const style = getComputedStyle(node)
+      const keyframes =
+        animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : []
       return {
         animationDelay: style.animationDelay,
         animationDuration: style.animationDuration,
         borderColor: style.borderTopColor,
         opacity: Number(style.opacity),
+        scale: Number(style.scale),
+        startScale: keyframes.at(0)?.scale,
+        endOpacity: keyframes.at(-1)?.opacity,
+        endScale: keyframes.at(-1)?.scale,
+        width: style.width,
       }
     }),
   )
@@ -92,13 +99,21 @@ test('개인정보 영역의 원형 장식이 위아래 구분선과 겹치지 �
     return color
   })
 
-  expect(orbitStyles.map(({ animationDelay }) => animationDelay)).toEqual(['0s', '0s'])
+  expect(orbitStyles.map(({ animationDelay }) => animationDelay)).toEqual(['0s', '3s'])
   expect(orbitStyles.map(({ animationDuration }) => animationDuration)).toEqual(['6s', '6s'])
+  expect(orbitStyles.map(({ width }) => width)).toEqual([
+    orbitStyles[0].width,
+    orbitStyles[0].width,
+  ])
+  expect(orbitStyles.map(({ startScale }) => startScale)).toEqual(['0.42', '0.42'])
+  expect(orbitStyles.map(({ endScale }) => endScale)).toEqual(['1', '1'])
+  expect(orbitStyles.map(({ endOpacity }) => endOpacity)).toEqual(['0', '0'])
   expect(orbitStyles.map(({ borderColor }) => borderColor)).toEqual([
     expectedBorderColor,
     expectedBorderColor,
   ])
-  expect(orbitStyles.every(({ opacity }) => opacity >= 0.6)).toBe(true)
+  expect(orbitStyles[0].scale).toBeGreaterThan(orbitStyles[1].scale)
+  expect(orbitStyles.every(({ opacity }) => opacity > 0)).toBe(true)
 })
 
 test('문장 선택과 읽기 순서, 로컬 처리를 움직임으로 설명한다', async ({ page }) => {

@@ -871,18 +871,15 @@
 
   .landing-orbit {
     position: absolute;
+    width: 95%;
     border: 1.5px solid color-mix(in srgb, var(--muted-foreground) 14%, var(--border));
     border-radius: 50%;
     aspect-ratio: 1;
     animation: landing-private-ripple 6s ease-out infinite both;
   }
 
-  .landing-orbit-outer {
-    width: 95%;
-  }
-
   .landing-orbit-inner {
-    width: 70%;
+    animation-delay: 3s;
   }
 
   .landing-private-book {
@@ -1158,17 +1155,21 @@
 
   @keyframes landing-private-ripple {
     0% {
-      scale: 0.78;
+      scale: 0.42;
       opacity: 0;
     }
 
-    22% {
-      opacity: 0.8;
+    12% {
+      opacity: 0.72;
+    }
+
+    72% {
+      opacity: 0.42;
     }
 
     100% {
       scale: 1;
-      opacity: 0.3;
+      opacity: 0;
     }
   }
 
