@@ -319,7 +319,7 @@ export function Reader({
   const readerMain = (
     <main
       aria-label="PDF 읽기 영역"
-      className="m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
+      className="relative m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
       ref={containerRef}
     >
       {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}
@@ -348,6 +348,19 @@ export function Reader({
           pages={pageSpread.pages}
           scale={displayScale}
         />
+      )}
+
+      {citationNavigation && (
+        <Button
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+          onClick={handleCitationReturn}
+          size="sm"
+          type="button"
+          variant="citation"
+        >
+          <Undo2 data-icon="inline-start" />
+          읽던 곳으로 · {citationNavigation.returnPage}쪽
+        </Button>
       )}
     </main>
   )
@@ -418,12 +431,6 @@ export function Reader({
       <footer className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t bg-card px-4 py-2">
         {isPageReady && (
           <>
-            {citationNavigation && (
-              <Button onClick={handleCitationReturn} size="sm" type="button" variant="secondary">
-                <Undo2 data-icon="inline-start" />
-                이전 위치로 돌아가기
-              </Button>
-            )}
             <div className="min-w-64 flex-1">
               <PageNavigator
                 currentPage={currentPage}
