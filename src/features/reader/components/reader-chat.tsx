@@ -13,7 +13,7 @@ import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-lis
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
 import type { BookMetadata } from '../lib/book-metadata'
-import { BOOK_EVIDENCE_DATA_NAME } from '../lib/rag/book-evidence'
+import { BOOK_CITATIONS_DATA_NAME } from '../lib/rag/book-citations'
 import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import {
   createBookSearchWebLlmChatModelAdapter,
@@ -21,7 +21,7 @@ import {
 } from '../lib/web-llm/webllm-chat-adapter'
 import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
 import { ModelDownloadAlert } from './model-download-alert'
-import { BookEvidence, BookEvidenceNavigationProvider } from './book-evidence'
+import { BookCitationNavigationProvider, BookCitations } from './book-citations'
 
 const THREAD_COMPONENTS: ThreadComponents = {
   Welcome: ReaderChatWelcome,
@@ -59,7 +59,7 @@ interface ReaderChatProps extends ReaderChatContext {
   analysisStatus?: BookAnalysisStatus
   bookId?: string
   chatModel?: ChatModelAdapter
-  onEvidenceNavigate?(source: SearchChunkSource): void
+  onCitationNavigate?(source: SearchChunkSource): void
   onQuoteRequestHandled?(requestId: number): void
   quoteRequest?: ReaderQuoteRequest | null
   searchChunks?: SearchChunks
@@ -126,7 +126,7 @@ function ReaderChatContent({
   const assistant = useAui()
   const isModelReady = useWebLlmModelStore((state) => state.status === 'ready')
   const isSearchReady = analysisStatus === undefined || analysisStatus === 'ready'
-  useAssistantDataUI({ name: BOOK_EVIDENCE_DATA_NAME, render: BookEvidence })
+  useAssistantDataUI({ name: BOOK_CITATIONS_DATA_NAME, render: BookCitations })
   useAssistantContext({
     getContext: () => getSystemPrompt({ bookMetadata, currentPage, currentPageText, useRetrieval }),
   })
@@ -177,7 +177,7 @@ export function ReaderChat({
   analysisStatus,
   bookId,
   chatModel,
-  onEvidenceNavigate,
+  onCitationNavigate,
   searchChunks,
   ...context
 }: ReaderChatProps) {
@@ -191,7 +191,7 @@ export function ReaderChat({
   const runtime = useLocalRuntime(chatModel ?? bookSearchChatModel)
 
   return (
-    <BookEvidenceNavigationProvider onNavigate={onEvidenceNavigate}>
+    <BookCitationNavigationProvider onNavigate={onCitationNavigate}>
       <AssistantRuntimeProvider runtime={runtime}>
         <ReaderChatContent
           {...context}
@@ -199,6 +199,6 @@ export function ReaderChat({
           useRetrieval={useRetrieval}
         />
       </AssistantRuntimeProvider>
-    </BookEvidenceNavigationProvider>
+    </BookCitationNavigationProvider>
   )
 }

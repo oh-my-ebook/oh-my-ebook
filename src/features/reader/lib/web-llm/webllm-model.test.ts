@@ -6,6 +6,8 @@ import type { WebLlmEngine } from './webllm-model'
 
 const NETWORK_ERROR_MESSAGE =
   '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
+const CACHE_ERROR_MESSAGE =
+  '모델 파일을 브라우저에 저장하지 못했습니다. 기기 저장 공간을 확보한 뒤 다시 시도해 주세요. 계속 실패하면 VPN이나 네트워크 설정을 확인해 주세요.'
 const GPU_MEMORY_ERROR_MESSAGE =
   'GPU에서 모델을 실행하지 못했습니다. 다른 탭을 닫고 다시 시도해 주세요.'
 const UNKNOWN_ERROR_MESSAGE = 'AI를 실행하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.'
@@ -145,6 +147,11 @@ describe('WebLLM 모델 로딩과 상태', () => {
   })
 
   it.each([
+    [
+      '브라우저 캐시 저장 실패',
+      "Failed to execute 'add' on 'Cache': Cache.add() encountered a network error",
+      CACHE_ERROR_MESSAGE,
+    ],
     ['GPU 메모리 부족', 'GPU device lost during allocation', GPU_MEMORY_ERROR_MESSAGE],
     // 메모리와 다운로드 단어가 함께 나와도 네트워크 오류로 잘못 안내하지 않는다.
     [

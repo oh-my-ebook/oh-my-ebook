@@ -1,10 +1,5 @@
 import { useRef } from 'react'
-import {
-  AssistantRuntimeProvider,
-  useAui,
-  useLocalRuntime,
-  type ChatModelAdapter,
-} from '@assistant-ui/react'
+import { AssistantRuntimeProvider, useAui, useLocalRuntime } from '@assistant-ui/react'
 import { ArrowUpRight, BookOpen, PanelRight } from 'lucide-react'
 import { Link } from 'react-router'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
@@ -13,26 +8,42 @@ import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  createMockChatModelAdapter,
+  type MockResponder,
+} from '@/features/reader/lib/mock-chat-adapter'
 import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
 
 const threadComponents: ThreadComponents = { Welcome: ReaderChatWelcome }
 const explainQuestion = '선택한 문장을 현재 페이지와 책의 맥락에 맞춰 자세히 설명해 주세요.'
-const demoModel: ChatModelAdapter = {
-  async run({ messages }) {
-    const question = messages
-      .at(-1)
-      ?.content.filter((part) => part.type === 'text')
-      .map((part) => part.text)
-      .join('\n')
-    const text =
-      question === '이 페이지에 대해 요약해줘'
-        ? '프로세스는 자신만의 가상 주소 공간을 사용합니다. 가상 주소와 물리 주소는 서로 다르며, 페이지 테이블이 두 주소를 연결합니다. 이 구조 덕분에 프로그램은 물리 메모리가 어디에 배치됐는지 직접 관리할 필요가 없습니다.'
-        : question === explainQuestion
-          ? '프로그램에는 연속된 주소 공간이 보이지만, 실제 데이터는 RAM의 서로 다른 위치에 놓일 수 있다는 뜻이에요. 페이지 테이블이 둘 사이의 연결표 역할을 합니다. 가상 주소를 실제 데이터가 있는 물리 주소로 바꿔 주는 거예요.'
-          : '이 체험은 페이지 요약과 가상 메모리 설명을 미리 작성한 답변으로 보여 드립니다. 자유로운 질문은 실제 PDF 리더에서 모델을 내려받은 뒤 이용해 주세요.'
-    return { content: [{ type: 'text', text }] }
-  },
+const demoRespond: MockResponder = async function* (question, _context, abortSignal) {
+  const chunks =
+    question === '이 페이지에 대해 요약해줘'
+      ? [
+          '프로세스는 자신만의 가상 주소 공간을 사용합니다.',
+          ' 가상 주소와 물리 주소는 서로 다르며,',
+          ' 페이지 테이블이 두 주소를 연결합니다.',
+          ' 이 구조 덕분에 프로그램은 물리 메모리가 어디에 배치됐는지 직접 관리할 필요가 없습니다.',
+        ]
+      : question === explainQuestion
+        ? [
+            '프로그램에는 연속된 주소 공간이 보이지만,',
+            ' 실제 데이터는 RAM의 서로 다른 위치에 놓일 수 있다는 뜻이에요.',
+            ' 페이지 테이블이 둘 사이의 연결표 역할을 합니다.',
+            ' 가상 주소를 실제 데이터가 있는 물리 주소로 바꿔 주는 거예요.',
+          ]
+        : [
+            '이 체험은 페이지 요약과 가상 메모리 설명을 미리 작성한 답변으로 보여 드립니다.',
+            ' 자유로운 질문은 실제 PDF 리더에서 모델을 내려받은 뒤 이용해 주세요.',
+          ]
+
+  for (const chunk of chunks) {
+    await new Promise((resolve) => setTimeout(resolve, 220))
+    if (abortSignal.aborted) return
+    yield chunk
+  }
 }
+const demoModel = createMockChatModelAdapter(demoRespond)
 
 export function ReadingDemo() {
   const runtime = useLocalRuntime(demoModel)
@@ -79,11 +90,15 @@ function ReadingDemoContent() {
               프로그램이 보는 주소가 곧 RAM의 실제 위치를 뜻하는 것은 아닙니다.
             </p>
             <p data-slot="pdf-ocr-line">
-              가상 메모리는 프로세스가 사용하는 주소와 실제 물리 메모리의 주소를 분리한다.
+              가상 메모리는 프로세스가 사용하는 주소와 실제 물리 메모리의 주소를 분리합니다.
             </p>
             <p data-slot="pdf-ocr-line">
               가상 주소는 페이지 테이블을 통해 물리 주소에 연결됩니다. 프로그램은 물리 메모리의
               배치를 직접 다루지 않고도 메모리에 접근할 수 있습니다.
+            </p>
+            <p data-slot="pdf-ocr-line">
+              필요한 페이지가 메모리에 없으면 운영체제가 저장 장치에서 불러옵니다. 당장 쓰지 않는
+              페이지는 잠시 내보내 한정된 RAM을 여러 프로그램이 나누어 쓰게 합니다.
             </p>
             <p className="landing-page-number">
               01 <span> / </span> 03

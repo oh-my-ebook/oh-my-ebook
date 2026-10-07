@@ -17,7 +17,7 @@ export function BookCarousel() {
     <section className="landing-books" aria-label="직접 만든 책 표지">
       <div className="landing-book-stage" aria-hidden="true">
         {books.map((book, index) => {
-          const offset = ((index - active + books.length + 2) % books.length) - 2
+          const offset = ((active - index + books.length + 2) % books.length) - 2
           return (
             <div
               className="landing-book"

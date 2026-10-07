@@ -4,6 +4,16 @@ import { expect, test } from '@playwright/test'
 import { resolve } from 'node:path'
 import { createPromiseController } from '../src/test/promise-controller.ts'
 
+test('활성 버튼에 포인터 커서를 표시한다', async ({ page }) => {
+  await page.goto('/library')
+
+  await expect(page.getByRole('button', { name: '책 추가' })).toHaveCSS('cursor', 'pointer')
+  await expect(page.getByRole('button', { name: '다크 모드로 전환' })).toHaveCSS(
+    'cursor',
+    'pointer',
+  )
+})
+
 for (const { saved, system, background } of [
   { saved: 'dark', system: 'light', background: 'oklch(0.206 0.007 92)' },
   { saved: 'light', system: 'dark', background: 'oklch(0.938 0.0145 91.5)' },

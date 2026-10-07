@@ -56,12 +56,16 @@ describe('EbookLibrary', () => {
     render(<EbookLibrary store={createStore()} />, { wrapper: TestRouter })
     await screen.findByRole('button', { name: '책 추가' })
 
+    const header = screen.getByRole('banner')
+    expect(within(header).getByRole('link', { name: 'oh-my-ebook 홈' })).toContainElement(
+      within(header).getByRole('img', { name: 'oh-my-ebook' }),
+    )
     expect(
-      within(screen.getByRole('banner')).getByText(
-        'PDF는 이 브라우저에만 보관되며, 서버나 다른 기기에 동기화되지 않습니다.',
-      ),
+      screen.getByText('PDF는 이 브라우저에만 보관되며, 서버나 다른 기기에 동기화되지 않습니다.'),
     ).toBeVisible()
     expect(screen.queryByText('이 브라우저에만 보관되는 오프라인 서재')).not.toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('All rights reserved.')
+    expect(screen.queryByText('내 자료로 읽고, 질문하고, 이해하는 서재.')).not.toBeInTheDocument()
   })
 
   it('서재 탐색 바에서 어두운 테마와 밝은 테마를 전환한다', async () => {

@@ -56,7 +56,7 @@ interface ReaderLoadingProps {
   label: string
 }
 
-interface EvidenceNavigation {
+interface CitationNavigation {
   returnPage: number
   source: SearchChunkSource
 }
@@ -173,7 +173,7 @@ export function Reader({
   const tocButtonRef = useRef<HTMLButtonElement>(null)
   const [ocrText, setOcrText] = useState<OcrText | null>(null)
   const [quoteRequest, setQuoteRequest] = useState<ReaderQuoteRequest | null>(null)
-  const [evidenceNavigation, setEvidenceNavigation] = useState<EvidenceNavigation | null>(null)
+  const [citationNavigation, setCitationNavigation] = useState<CitationNavigation | null>(null)
   const quoteRequestIdRef = useRef(0)
 
   const handleTextSelectionAction = useCallback(
@@ -242,11 +242,11 @@ export function Reader({
   }
 
   const handlePageChange = (pageNumber: number) => {
-    setEvidenceNavigation(null)
+    setCitationNavigation(null)
     goToPage(pageNumber)
   }
 
-  const handleEvidenceNavigate = (source: SearchChunkSource) => {
+  const handleCitationNavigate = (source: SearchChunkSource) => {
     if (
       documentState.status !== 'ready' ||
       source.pageNumber < 1 ||
@@ -254,17 +254,17 @@ export function Reader({
     ) {
       return
     }
-    setEvidenceNavigation((current) => ({
+    setCitationNavigation((current) => ({
       returnPage: current?.returnPage ?? currentPage,
       source,
     }))
     goToPage(source.pageNumber)
   }
 
-  const handleEvidenceReturn = () => {
-    if (!evidenceNavigation) return
-    const { returnPage } = evidenceNavigation
-    setEvidenceNavigation(null)
+  const handleCitationReturn = () => {
+    if (!citationNavigation) return
+    const { returnPage } = citationNavigation
+    setCitationNavigation(null)
     goToPage(returnPage)
   }
 
@@ -319,7 +319,7 @@ export function Reader({
   const readerMain = (
     <main
       aria-label="PDF 읽기 영역"
-      className="m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
+      className="relative m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
       ref={containerRef}
     >
       {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}
@@ -341,13 +341,26 @@ export function Reader({
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
-          evidenceSource={evidenceNavigation?.source}
+          citationSource={citationNavigation?.source}
           getStoredOcrPage={getStoredOcrPage}
           onOcrTextChange={setOcrText}
           onTextSelectionAction={handleTextSelectionAction}
           pages={pageSpread.pages}
           scale={displayScale}
         />
+      )}
+
+      {citationNavigation && (
+        <Button
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+          onClick={handleCitationReturn}
+          size="sm"
+          type="button"
+          variant="citation"
+        >
+          <Undo2 data-icon="inline-start" />
+          읽던 곳으로 · {citationNavigation.returnPage}쪽
+        </Button>
       )}
     </main>
   )
@@ -370,7 +383,7 @@ export function Reader({
         currentPage={currentPage}
         currentPageText={currentPageText}
         key={url}
-        onEvidenceNavigate={handleEvidenceNavigate}
+        onCitationNavigate={handleCitationNavigate}
         onQuoteRequestHandled={handleQuoteRequestHandled}
         quoteRequest={quoteRequest}
         searchChunks={searchChunks}
@@ -418,12 +431,6 @@ export function Reader({
       <footer className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t bg-card px-4 py-2">
         {isPageReady && (
           <>
-            {evidenceNavigation && (
-              <Button onClick={handleEvidenceReturn} size="sm" type="button" variant="secondary">
-                <Undo2 data-icon="inline-start" />
-                이전 위치로 돌아가기
-              </Button>
-            )}
             <div className="min-w-64 flex-1">
               <PageNavigator
                 currentPage={currentPage}

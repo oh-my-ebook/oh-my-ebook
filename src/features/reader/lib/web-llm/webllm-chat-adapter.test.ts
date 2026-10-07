@@ -104,8 +104,8 @@ describe('createWebLlmChatModelAdapter', () => {
     })
   })
 
-  it('최신 질문의 검색 발췌와 근거 응답 지시를 system message에 넣는다', async () => {
-    const { create, engine } = createEngine(['답변'])
+  it('최신 질문의 검색 발췌를 프롬프트에 넣고 인용 출처는 답변 완료 후 추가한다', async () => {
+    const { create, engine } = createEngine(['답', '변'])
     const retrieveChunks = vi.fn(async () => [
       {
         id: 'chunk-1',
@@ -139,9 +139,13 @@ describe('createWebLlmChatModelAdapter', () => {
         ],
       }),
     )
+    expect(
+      results.slice(0, -1).every((result) => !result.content?.some((part) => part.type === 'data')),
+    ).toBe(true)
+    expect(results.at(-1)?.status).toEqual({ type: 'complete', reason: 'stop' })
     expect(results.at(-1)?.content).toContainEqual({
       type: 'data',
-      name: 'book-evidence',
+      name: 'book-citations',
       data: {
         chunks: [
           expect.objectContaining({

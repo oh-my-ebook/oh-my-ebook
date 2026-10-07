@@ -1,8 +1,9 @@
-import { Link } from 'react-router'
+import { AppFooter } from '@/components/app-footer'
+import { AppHeader } from '@/components/app-header'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import { ErrorAlert } from '@/components/error-alert'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { useState } from 'react'
 import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
 import { clearOriginData } from '../lib/origin-data-manager'
@@ -66,21 +67,12 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
   }
 
   return (
-    <main className="flex min-h-svh flex-col bg-background" {...dropZoneProps}>
-      <nav aria-label="주 탐색" className="border-b bg-card/92">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6 lg:px-10">
-          <Link to="/" aria-label="oh-my-ebook 홈">
-            <strong>oh-my-ebook</strong>
-          </Link>
-          <span className="h-4 border-l" />
-          <span className="rounded bg-muted px-3 py-1 text-sm">내 서재</span>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </nav>
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6 border-b pb-8 max-[560px]:grid-cols-1 max-[560px]:items-start">
+    <div className="flex min-h-svh flex-col bg-background" {...dropZoneProps}>
+      <AppHeader navigationLabel="주 탐색">
+        <Badge variant="secondary">내 서재</Badge>
+      </AppHeader>
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6 border-b pb-8 max-[560px]:grid-cols-1 max-[560px]:items-start">
           <div className="flex min-w-0 flex-col gap-1 [&>p]:wrap-break-word">
             <h1 className="font-heading text-3xl font-bold tracking-tight">내 서재</h1>
             <p className="text-muted-foreground">
@@ -111,7 +103,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
               </Button>
             </div>
           </div>
-        </header>
+        </div>
         {state.status === 'loading' && <EbookShelfLoading />}
 
         {state.status === 'error' && (
@@ -162,25 +154,13 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
             </Button>
           </ErrorAlert>
         )}
-      </div>
+      </main>
       <ClearOriginDataDialog
         onClear={clearAllData}
         onOpenChange={setClearDialogOpen}
         open={clearDialogOpen}
       />
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-7xl flex-wrap gap-x-4 gap-y-1 px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-10">
-          <Link className="hover:text-foreground hover:underline" to="/privacy">
-            개인정보처리방침
-          </Link>
-          <Link className="hover:text-foreground hover:underline" to="/terms">
-            이용약관
-          </Link>
-          <Link className="hover:text-foreground hover:underline" to="/licenses">
-            오픈소스 라이선스
-          </Link>
-        </div>
-      </footer>
-    </main>
+      <AppFooter />
+    </div>
   )
 }

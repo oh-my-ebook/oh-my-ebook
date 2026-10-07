@@ -7,7 +7,7 @@ import type {
 import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
 import type { SearchChunkResult } from '@/features/ebook-list/ebook-types'
 import { decodeQuoteTexts } from '@/lib/quote'
-import { BOOK_EVIDENCE_DATA_NAME } from '../rag/book-evidence'
+import { BOOK_CITATIONS_DATA_NAME } from '../rag/book-citations'
 import {
   estimateTextTokens,
   formatSearchContextWithChunks,
@@ -148,7 +148,7 @@ function fitMessagesToPromptBudget(
 function toWebLlmMessages(
   { context, messages }: ChatModelRunOptions,
   chunks?: SearchChunkResult[],
-): { evidenceChunks: readonly SearchChunkResult[]; messages: ChatCompletionMessageParam[] } {
+): { citationChunks: readonly SearchChunkResult[]; messages: ChatCompletionMessageParam[] } {
   if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
     console.debug('[ReaderChat] getContext', context.system ?? '')
   }
@@ -158,7 +158,7 @@ function toWebLlmMessages(
     content: getText(message),
   }))
   if (chunks === undefined) {
-    return { evidenceChunks: [], messages: fitMessagesToPromptBudget(context.system, history) }
+    return { citationChunks: [], messages: fitMessagesToPromptBudget(context.system, history) }
   }
 
   const fixedSystem = [context.system, RETRIEVAL_PROMPT].filter(Boolean).join('\n\n')
@@ -172,7 +172,7 @@ function toWebLlmMessages(
   const formattedContext = formatSearchContextWithChunks(chunks, excerptBudget)
   const retrievalSystem = [fixedSystem, formattedContext.context].filter(Boolean).join('\n\n')
   return {
-    evidenceChunks: formattedContext.chunks,
+    citationChunks: formattedContext.chunks,
     messages: fitMessagesToPromptBudget(retrievalSystem, history),
   }
 }
@@ -217,20 +217,20 @@ export function createWebLlmChatModelAdapter(
         for await (const chunk of stream) {
           text += chunk.choices[0]?.delta.content ?? ''
           if (text) {
-            yield {
-              content: [
-                { type: 'text', text },
-                ...(requestContext.evidenceChunks.length > 0
-                  ? [
-                      {
-                        type: 'data' as const,
-                        name: BOOK_EVIDENCE_DATA_NAME,
-                        data: { chunks: requestContext.evidenceChunks },
-                      },
-                    ]
-                  : []),
-              ],
-            }
+            yield { content: [{ type: 'text', text }] }
+          }
+        }
+        if (text && requestContext.citationChunks.length > 0) {
+          yield {
+            content: [
+              { type: 'text', text },
+              {
+                type: 'data',
+                name: BOOK_CITATIONS_DATA_NAME,
+                data: { chunks: requestContext.citationChunks },
+              },
+            ],
+            status: { type: 'complete', reason: 'stop' },
           }
         }
       } catch (error) {

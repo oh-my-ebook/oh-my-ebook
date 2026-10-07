@@ -43,9 +43,9 @@ describe('formatSearchContext', () => {
     expect(formatSearchContext([], tokenBudget)).toBe('')
   })
 
-  it('실제 프롬프트에 포함된 청크만 근거로 반환한다', () => {
-    const chunks = [createChunk(0, '첫 번째 근거'), createChunk(1, '두 번째 근거')]
-    const firstChunkBudget = estimateTextTokens('[문서 발췌 | p.1]\n첫 번째 근거')
+  it('실제 프롬프트에 포함된 청크만 인용 출처로 반환한다', () => {
+    const chunks = [createChunk(0, '첫 번째 발췌'), createChunk(1, '두 번째 발췌')]
+    const firstChunkBudget = estimateTextTokens('[문서 발췌 | p.1]\n첫 번째 발췌')
 
     const result = formatSearchContextWithChunks(chunks, firstChunkBudget)
 
