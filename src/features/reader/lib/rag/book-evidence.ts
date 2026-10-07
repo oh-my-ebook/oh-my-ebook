@@ -1,8 +1,8 @@
 import type { SearchChunkResult, SearchChunkSource } from '@/features/ebook-list/ebook-types'
 
-export const BOOK_CITATIONS_DATA_NAME = 'book-citations'
+export const BOOK_EVIDENCE_DATA_NAME = 'book-evidence'
 
-export interface BookCitationsData {
+export interface BookEvidenceData {
   chunks: readonly SearchChunkResult[]
 }
 
@@ -42,7 +42,7 @@ function isSearchChunkResult(value: unknown): value is SearchChunkResult {
   )
 }
 
-export function isBookCitationsData(value: unknown): value is BookCitationsData {
+export function isBookEvidenceData(value: unknown): value is BookEvidenceData {
   return (
     typeof value === 'object' &&
     value !== null &&

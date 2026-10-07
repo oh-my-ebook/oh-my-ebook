@@ -1,16 +1,7 @@
-import {
-  ArrowDown,
-  ArrowRight,
-  Fingerprint,
-  Laptop,
-  MousePointer2,
-  ScanText,
-  TextSelect,
-} from 'lucide-react'
+import { ArrowDown, ArrowRight, Fingerprint, Laptop, ScanText, TextSelect } from 'lucide-react'
 import { Link } from 'react-router'
-import { AppFooter } from '@/components/app-footer'
-import { AppHeader } from '@/components/app-header'
 import { buttonVariants } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { BookCarousel } from './book-carousel'
 import { ReadingDemo } from './reading-demo'
 
@@ -20,31 +11,35 @@ export function LandingPage() {
       <a className="landing-skip" href="#main">
         본문으로 건너뛰기
       </a>
-      <AppHeader navigationLabel="랜딩 탐색">
-        <a className="text-sm text-muted-foreground max-[700px]:hidden" href="#features">
-          읽는 경험
-        </a>
-        <a className="text-sm text-muted-foreground max-[700px]:hidden" href="#privacy">
-          나만의 공간
-        </a>
-        <Link className={buttonVariants({ variant: 'outline' })} to="/library">
-          책장 열기
-          <ArrowRight data-icon="inline-end" />
-        </Link>
-      </AppHeader>
+      <header className="border-b bg-card/92">
+        <div className="landing-header">
+          <Link className="landing-wordmark" to="/" aria-label="oh-my-ebook 홈">
+            <img src="/landing/logo.jpg" alt="" width="32" height="32" />
+            oh-my-ebook
+          </Link>
+          <nav aria-label="랜딩 탐색" className="landing-navigation">
+            <a href="#features">읽는 경험</a>
+            <a href="#privacy">나만의 공간</a>
+          </nav>
+          <Link className={buttonVariants({ variant: 'outline' })} to="/library">
+            책장 열기
+            <ArrowRight data-icon="inline-end" />
+          </Link>
+        </div>
+      </header>
       <main id="main">
         <section className="landing-hero" aria-labelledby="hero-title">
           <BookCarousel />
-          <p className="landing-eyebrow">PDF 전자책을 위한 몰입형 리더</p>
+          <p className="landing-eyebrow">내 PDF로 읽고, 질문하고, 이해하는 공간</p>
           <h1 id="hero-title">
-            책 밖으로 나가지 않고,
+            외부 업로드 없이,
             <br />
             <span>읽던 맥락 그대로.</span>
           </h1>
           <p className="landing-hero-description">
-            PDF로 된 전자책도 읽다가 바로 질문하세요.
+            전공 서적부터 PDF 기반 EBOOK까지
             <br />
-            다른 앱을 열거나 책의 맥락을 다시 설명할 필요가 없습니다.
+            별도 챗봇에 맥락을 다시 설명할 필요 없이, 읽기와 이해에 집중하세요.
           </p>
           <div className="landing-actions">
             <Link className={buttonVariants({ size: 'lg' })} to="/library">
@@ -56,9 +51,7 @@ export function LandingPage() {
               <ArrowDown data-icon="inline-end" />
             </a>
           </div>
-          <p className="landing-caption">
-            회원가입 없이 시작 · PDF는 외부 서버에 업로드하지 않아요
-          </p>
+          <p className="landing-caption">회원가입 없이 시작 · PDF와 대화는 내 기기에</p>
         </section>
         <div className="landing-proof">
           <span>
@@ -77,17 +70,17 @@ export function LandingPage() {
         <section id="features" className="landing-section" aria-labelledby="features-title">
           <div className="landing-feature-intro">
             <div>
-              <p className="landing-eyebrow">독서 흐름을 끊지 않는 PDF 리더</p>
+              <p className="landing-eyebrow">PDF 학습을 위한 읽기 도구</p>
               <h2 id="features-title">
-                읽다가 궁금한 순간,
+                PDF에도,
                 <br />
-                흐름을 놓치지 않고 바로 질문하세요.
+                읽는 사람을 위한 배려.
               </h2>
             </div>
             <p>
-              궁금한 문장이 나올 때마다 다른 AI를 열고 책의 맥락을 다시 설명하지 않아도 돼요.
+              공부하던 전공 서적, 다시 펼친 강의 자료.
               <br />
-              PDF 전자책을 읽던 화면에서 바로 묻고, 답을 확인한 뒤 이어서 읽으세요.
+              파일을 여는 일 다음의 경험을 생각했습니다.
             </p>
           </div>
           <div className="landing-feature-grid">
@@ -100,9 +93,6 @@ export function LandingPage() {
                     <br />
                     <mark>다시 살아나는 순간.</mark>
                   </p>
-                  <i />
-                  <i />
-                  <i className="mb-3" />
                   <i />
                   <i />
                   <i />
@@ -122,73 +112,37 @@ export function LandingPage() {
             </article>
             <article className="landing-feature">
               <div className="landing-order-illustration" aria-hidden="true">
-                <div className="landing-order-spread">
-                  <div className="landing-order-page">
-                    <div className="landing-order-column">
-                      <span>1</span>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="landing-order-column">
-                      <span>2</span>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                  </div>
-                  <div className="landing-order-fold" />
-                  <div className="landing-order-page">
-                    <div className="landing-order-column">
-                      <span>3</span>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="landing-order-column">
-                      <span>4</span>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                  </div>
-                  <MousePointer2 className="landing-order-pointer" size={18} />
+                <div>
+                  <span>가</span>
+                  <p>
+                    줄을 따라
+                    <br />
+                    단을 따라
+                    <br />
+                    자연스럽게
+                  </p>
                 </div>
-                <div className="landing-order-selection">
-                  <TextSelect size={18} />
-                  <span>읽는 순서대로 선택</span>
+                <ArrowRight size={22} />
+                <div>
+                  <span>나</span>
+                  <p>
+                    문장 순서도
+                    <br />
+                    띄어쓰기도
+                    <br />
+                    차근차근
+                  </p>
                 </div>
               </div>
               <p className="landing-eyebrow">02 / 읽기 순서와 한국어 보정</p>
               <h3>
-                복잡하게 나뉜 페이지도,
+                글자의 순서까지,
                 <br />
-                읽는 순서 그대로.
+                읽는 흐름에 맞춰.
               </h3>
               <p>
-                펼친 두 페이지를 한 번에 스캔했거나 시험 문제처럼 여러 단으로 구성된 페이지도, 읽는
-                순서대로 글자를 인식합니다. 띄어쓰기를 보정해 문장도 자연스럽게 드래그해 선택할 수
-                있어요.
+                여러 단으로 나뉜 페이지의 읽기 순서를 정리하고 한국어 띄어쓰기를 보정합니다. 선택한
+                문장의 맥락을 더 잘 전달하도록.
               </p>
             </article>
           </div>
@@ -241,25 +195,42 @@ export function LandingPage() {
           </div>
         </section>
         <section className="landing-finish landing-section" aria-labelledby="finish-title">
-          <p className="landing-eyebrow">질문도 답도, 읽던 PDF 안에서</p>
+          <p className="landing-eyebrow">읽던 자료에서, 다음 이해로</p>
           <h2 id="finish-title">
-            다른 AI로 옮겨 갈 필요 없이,
-            <br />한 권을 더 깊이 이해하세요.
+            읽다 멈춘 개념,
+            <br />
+            이제 질문하며 이해하세요.
           </h2>
           <Link className={buttonVariants({ size: 'lg' })} to="/library">
             나만의 책장 시작하기
             <ArrowRight data-icon="inline-end" />
           </Link>
           <p className="landing-caption">
-            AI 기능은 WebGPU와 필요한 GPU 기능을 지원하는 환경에서만 사용할 수 있어요.
-            <br />
-            모바일이나 일부 브라우저·기기에서는 실행되지 않을 수 있습니다.
+            AI 기능은 WebGPU 지원 환경이 필요해요.
             <br />
             데스크톱 Chrome·Edge를 권장하며, 첫 사용 시 모델을 다운로드합니다.
           </p>
         </section>
       </main>
-      <AppFooter />
+      <footer className="landing-footer">
+        <Separator />
+        <div>
+          <Link className="landing-wordmark" to="/">
+            <img src="/landing/logo.jpg" alt="" width="32" height="32" />
+            oh-my-ebook
+          </Link>
+          <p>내 자료로 읽고, 질문하고, 이해하는 서재.</p>
+          <nav aria-label="서비스 안내">
+            <Link to="/privacy">개인정보처리방침</Link>
+            <Link to="/terms">이용약관</Link>
+            <Link to="/licenses">오픈소스 라이선스</Link>
+          </nav>
+        </div>
+        <p className="landing-caption">
+          © {new Date().getFullYear()} oh-my-ebook. All rights reserved. · 표지와 체험 본문은 이
+          서비스를 위해 직접 제작했습니다.
+        </p>
+      </footer>
     </div>
   )
 }
