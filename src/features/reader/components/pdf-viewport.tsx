@@ -4,14 +4,9 @@ import type { SearchChunkSource } from '@/lib/ebook/search'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'
-import {
-  extractPdfPageImages,
-  extractPdfPageText,
-  type PageImageRegions,
-  type PdfDocumentHandle,
-  type PdfPageHandle,
-  type PdfPageInfo,
-} from '@/lib/pdf/pdf-document'
+import { extractPdfPageImages, type PageImageRegions } from '@/lib/pdf/extract-images'
+import { extractPdfPageText } from '@/lib/pdf/extract-text'
+import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '@/lib/pdf/document'
 import {
   isRenderablePdfPage,
   renderPdfPageImage,
@@ -21,8 +16,8 @@ import {
   postprocessStoredOcrPage,
   recognizePdfPage,
   type StoredOcrPageResult,
-} from '@/lib/pdf/ocr/page-recognition'
-import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layer'
+} from '@/lib/pdf/ocr/recognize-page'
+import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layout'
 import {
   PdfSelectionToolbar,
   type PdfSelectionAction,

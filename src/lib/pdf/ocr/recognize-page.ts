@@ -1,4 +1,4 @@
-import type { PdfPageHandle, PdfPageViewport } from '../pdf-document'
+import type { PdfPageHandle, PdfPageViewport } from '../document'
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import { sortInReadingOrder } from './reading-order'
 import {
@@ -7,7 +7,7 @@ import {
   toBoundingBox,
   type PageTextLayer,
   type TextBox,
-} from '../text-layer'
+} from '../text-layout'
 
 // PDF의 72 DPI 좌표를 OCR에 사용할 160 DPI 픽셀 좌표로 변환한다.
 const OCR_SCALE = 160 / 72

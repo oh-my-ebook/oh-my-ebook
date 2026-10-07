@@ -1,4 +1,4 @@
-import type { PdfPageInfo } from '@/lib/pdf/pdf-document'
+import type { PdfPageInfo } from '@/lib/pdf/document'
 
 export type PageViewMode = 'single' | 'spread'
 export type PageOrientation = 'landscape' | 'portrait'

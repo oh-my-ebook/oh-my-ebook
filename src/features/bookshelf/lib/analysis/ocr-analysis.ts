@@ -1,5 +1,5 @@
-import { loadPdfDocument } from '@/lib/pdf/pdf-document'
-import { recognizePdfPageRaw } from '@/lib/pdf/ocr/page-recognition'
+import { loadPdfDocument } from '@/lib/pdf/load-document'
+import { recognizePdfPageRaw } from '@/lib/pdf/ocr/recognize-page'
 import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
 import type { NextOcrPage, OcrLineForChunking } from '@/lib/ebook/storage/protocol'
 import type { BookshelfStore } from '../bookshelf-store'

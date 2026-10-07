@@ -6,22 +6,18 @@ import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assist
 import type { BookMetadata } from '@/lib/ebook/book'
 import { createPromiseController } from '../test/promise-controller'
 import { TestRouter } from '@/test/test-router'
-import type {
-  LoadedPdfDocument,
-  PdfDocumentHandle,
-  PdfDocumentLoader,
-} from '@/lib/pdf/pdf-document'
+import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
 import { useWebLlmModelStore } from '../features/chat/lib/web-llm/model'
 import { ReaderPage } from './reader-page'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
 const recognizePdfPageMock = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/pdf/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/pdf-document')>()
+vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/lib/pdf/ocr/page-recognition', () => ({
+vi.mock('@/lib/pdf/ocr/recognize-page', () => ({
   recognizePdfPage: recognizePdfPageMock,
 }))
 

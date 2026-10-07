@@ -5,11 +5,7 @@ import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
-import type {
-  LoadedPdfDocument,
-  PdfDocumentHandle,
-  PdfDocumentLoader,
-} from '@/lib/pdf/pdf-document'
+import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
 import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
@@ -27,12 +23,12 @@ const recognizePdfPageMock = vi.hoisted(() =>
 )
 const disconnectResizeObserver = vi.fn()
 
-vi.mock('@/lib/pdf/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/pdf-document')>()
+vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/lib/pdf/ocr/page-recognition', async (importOriginal) => {
-  const pageRecognition = await importOriginal<typeof import('@/lib/pdf/ocr/page-recognition')>()
+vi.mock('@/lib/pdf/ocr/recognize-page', async (importOriginal) => {
+  const pageRecognition = await importOriginal<typeof import('@/lib/pdf/ocr/recognize-page')>()
   return {
     ...pageRecognition,
     prepareOcr: prepareOcrMock,

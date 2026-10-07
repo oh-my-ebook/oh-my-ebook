@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/pdf-document'
+import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/document'
 import { Reader } from './reader'
 
 // jsdom에는 IntersectionObserver가 없다. 목차를 열면 TocPageThumbnail이 이를 사용하는데,

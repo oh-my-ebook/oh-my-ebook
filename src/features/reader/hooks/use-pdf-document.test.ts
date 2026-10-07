@@ -2,13 +2,13 @@ import { StrictMode } from 'react'
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createPromiseController, type PromiseController } from '../../../test/promise-controller'
-import {
-  type LoadedPdfDocument,
-  type PdfDocumentHandle,
-  type PdfDocumentLoader,
-  type PdfPageHandle,
-  type PdfDocumentSource,
-} from '@/lib/pdf/pdf-document'
+import type {
+  LoadedPdfDocument,
+  PdfDocumentHandle,
+  PdfDocumentLoader,
+  PdfPageHandle,
+  PdfDocumentSource,
+} from '@/lib/pdf/document'
 import { usePdfDocument } from './use-pdf-document'
 
 function createPage(width: number, height: number, rotation = 0): PdfPageHandle {

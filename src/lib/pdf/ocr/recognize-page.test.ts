@@ -54,14 +54,14 @@ function mockMeasuringContext() {
 }
 
 describe('recognizePdfPage', () => {
-  // page-recognition 모듈은 PaddleOCR 인스턴스를 모듈 스코프에 캐시한다.
+  // recognize-page 모듈은 PaddleOCR 인스턴스를 모듈 스코프에 캐시한다.
   // 캐시 재사용·해제를 검증하는 테스트가 서로 영향을 주지 않도록 모듈을 매번 새로 불러온다.
-  let prepareOcr: typeof import('./page-recognition').prepareOcr
-  let recognizePdfPage: typeof import('./page-recognition').recognizePdfPage
+  let prepareOcr: typeof import('./recognize-page').prepareOcr
+  let recognizePdfPage: typeof import('./recognize-page').recognizePdfPage
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ prepareOcr, recognizePdfPage } = await import('./page-recognition'))
+    ;({ prepareOcr, recognizePdfPage } = await import('./recognize-page'))
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -295,11 +295,11 @@ describe('recognizePdfPage', () => {
 })
 
 describe('recognizePdfPageRaw', () => {
-  let recognizePdfPageRaw: typeof import('./page-recognition').recognizePdfPageRaw
+  let recognizePdfPageRaw: typeof import('./recognize-page').recognizePdfPageRaw
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ recognizePdfPageRaw } = await import('./page-recognition'))
+    ;({ recognizePdfPageRaw } = await import('./recognize-page'))
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -317,12 +317,12 @@ describe('recognizePdfPageRaw', () => {
 })
 describe('공유 PaddleOCR 인스턴스', () => {
   // Reader의 실시간 인식과 백그라운드 분석 파이프라인이 같은 PaddleOCR 인스턴스를 공유한다.
-  let recognizePdfPage: typeof import('./page-recognition').recognizePdfPage
-  let recognizePdfPageRaw: typeof import('./page-recognition').recognizePdfPageRaw
+  let recognizePdfPage: typeof import('./recognize-page').recognizePdfPage
+  let recognizePdfPageRaw: typeof import('./recognize-page').recognizePdfPageRaw
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ recognizePdfPage, recognizePdfPageRaw } = await import('./page-recognition'))
+    ;({ recognizePdfPage, recognizePdfPageRaw } = await import('./recognize-page'))
   })
 
   afterEach(() => vi.restoreAllMocks())

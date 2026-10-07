@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/pdf-document'
+import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/document'
 import { isRenderablePdfPage, renderPdfPageToCanvas } from '../lib/pdf-page-render'
 
 const THUMBNAIL_WIDTH = 64

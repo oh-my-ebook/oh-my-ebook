@@ -3,7 +3,7 @@ import { XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/pdf-document'
+import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/document'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
 import { TocPageThumbnail } from './toc-page-thumbnail'
 

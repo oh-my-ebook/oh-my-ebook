@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import {
-  loadPdfDocument,
-  toPdfDocumentError,
-  type LoadedPdfDocument,
-  type PdfDocumentError,
-  type PdfDocumentLoader,
-  type PdfDocumentSource,
-  type PdfPageInfo,
-} from '@/lib/pdf/pdf-document'
+import { loadPdfDocument } from '@/lib/pdf/load-document'
+import { toPdfDocumentError, type PdfDocumentError } from '@/lib/pdf/errors'
+import type {
+  LoadedPdfDocument,
+  PdfDocumentLoader,
+  PdfDocumentSource,
+  PdfPageInfo,
+} from '@/lib/pdf/document'
 
 interface LoadingState {
   status: 'loading'

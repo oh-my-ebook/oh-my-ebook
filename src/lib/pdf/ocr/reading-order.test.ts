@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sortInReadingOrder } from './reading-order'
-import type { TextBox } from '../text-layer'
+import type { TextBox } from '../text-layout'
 
 function line(text: string, x0: number, y0: number, x1: number, y1: number): TextBox {
   return { text, bbox: { x0, y0, x1, y1 } }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitTextLines } from './text-layer'
+import { fitTextLines } from './text-layout'
 
 describe('fitTextLines', () => {
   it('글자 상자를 선택 가능한 한 줄 텍스트 크기로 맞춘다', () => {

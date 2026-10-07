@@ -1,4 +1,4 @@
-import type { TextBox } from '../text-layer'
+import type { TextBox } from '../text-layout'
 
 // 줄 높이 중앙값의 몇 배 이상 비어 있어야 페이지·카드 같은 영역 경계로 볼지 정한다.
 // 줄 간격이나 번호와 본문 사이 간격은 이보다 좁고, 양면 캡처의 가운데 여백은 훨씬 넓다.
