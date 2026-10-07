@@ -1,3 +1,4 @@
+import type { BookAnalysisStatus } from '@/lib/ebook/book'
 import type {
   COMMAND,
   EBOOK_STORE_ERROR_MESSAGES,
@@ -30,8 +31,6 @@ export interface EbookWorkerRequest {
 export type EbookStoreResponse =
   { requestId: number; result: unknown } | { requestId: number; error: { code: string } }
 
-export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'
-
 export interface OcrLineInput {
   rawText: string
   x0: number
@@ -62,27 +61,6 @@ export interface SearchTermFrequencyInput {
 
 export interface SearchIndexChunkInput extends SearchChunkInput {
   terms: readonly SearchTermFrequencyInput[]
-}
-
-export interface SearchChunkQuery {
-  bookId: string
-  terms: readonly string[]
-  limit: number
-}
-
-export interface SearchChunkSource {
-  pageNumber: number
-  startLineIndex: number
-  endLineIndex: number
-}
-
-export interface SearchChunkResult {
-  id: string
-  ordinal: number
-  text: string
-  tokenCount: number
-  score: number
-  sources: readonly SearchChunkSource[]
 }
 
 export interface NextOcrPage {

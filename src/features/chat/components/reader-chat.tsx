@@ -7,12 +7,12 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { useEffect, useState } from 'react'
+import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook/book'
+import type { SearchChunkSource } from '@/lib/ebook/search'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
-import type { BookAnalysisStatus, SearchChunkSource } from '@/features/bookshelf/ebook-types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { decodeQuoteTexts, encodeQuoteTexts, type ReaderQuoteRequest } from '@/lib/quote'
-import type { BookMetadata } from '../../../lib/book-metadata'
 import { BOOK_CITATIONS_DATA_NAME } from '../lib/rag/book-citations'
 import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import {

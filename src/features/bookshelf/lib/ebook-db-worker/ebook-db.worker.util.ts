@@ -1,10 +1,10 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
+import type { SearchChunkQuery } from '@/lib/ebook/search'
 import type {
   AddBookInput,
   ChunkSourceInput,
   OcrLineInput,
   SearchChunkInput,
-  SearchChunkQuery,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
 } from '../../ebook-types'

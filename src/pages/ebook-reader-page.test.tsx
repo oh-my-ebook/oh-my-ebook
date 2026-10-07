@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { BookMetadata } from '../lib/book-metadata'
+import type { BookMetadata } from '@/lib/ebook/book'
 import { createPromiseController } from '../test/promise-controller'
 import { EbookReaderPage } from './ebook-reader-page'
 

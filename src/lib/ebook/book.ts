@@ -5,3 +5,5 @@ export interface BookMetadata {
   subject?: string
   title: string
 }
+
+export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'

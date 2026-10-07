@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, CopyIcon, XIcon } from 'lucide-react'
-import type { SearchChunkSource } from '@/features/bookshelf/ebook-types'
+import type { SearchChunkSource } from '@/lib/ebook/search'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'

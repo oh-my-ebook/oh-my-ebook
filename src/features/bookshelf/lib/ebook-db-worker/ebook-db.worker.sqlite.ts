@@ -1,8 +1,9 @@
 import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
+import type { BookAnalysisStatus } from '@/lib/ebook/book'
+import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook/search'
 import { SQLITE_COMMAND } from '../../ebook-consts'
 import type {
   AddBookInput,
-  BookAnalysisStatus,
   ChunkSourcePage,
   ChunkSourceRecord,
   NextOcrPage,
@@ -11,8 +12,6 @@ import type {
   OcrLineRecord,
   OcrPageRecord,
   SearchChunkInput,
-  SearchChunkResult,
-  SearchChunkSource,
   SearchChunkPage,
   SearchChunkRecord,
   SearchPostingPage,

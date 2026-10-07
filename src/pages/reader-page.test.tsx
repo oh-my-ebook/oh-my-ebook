@@ -3,9 +3,9 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assistant-ui/react'
+import type { BookMetadata } from '@/lib/ebook/book'
 import { createPromiseController } from '../test/promise-controller'
 import { TestRouter } from '@/test/test-router'
-import type { BookMetadata } from '../lib/book-metadata'
 import type {
   LoadedPdfDocument,
   PdfDocumentHandle,
