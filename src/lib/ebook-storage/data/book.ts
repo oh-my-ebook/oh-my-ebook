@@ -1,4 +1,12 @@
-import type { BookAnalysisStatus } from '../ebook/book'
+export interface BookMetadata {
+  author?: string
+  keywords?: string
+  publisher?: string
+  subject?: string
+  title: string
+}
+
+export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'
 
 export interface AddBookInput {
   pdfData: ArrayBuffer

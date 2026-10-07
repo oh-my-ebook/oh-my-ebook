@@ -35,8 +35,8 @@ import type {
   SearchPostingRecord,
   SearchTermPage,
   SearchTermRecord,
-} from '@/lib/ebook-storage/search-index'
-import type { OcrLinePage, OcrLineRecord, OcrPageRecord } from '@/lib/ebook-storage/ocr'
+} from '@/lib/ebook-storage/data/search-index'
+import type { OcrLinePage, OcrLineRecord, OcrPageRecord } from '@/lib/ebook-storage/data/ocr'
 import type { OcrConsoleStore } from '../lib/ocr-console-store'
 
 const BOOKS_PER_PAGE = 10

@@ -1,4 +1,4 @@
-import type { AddBookInput } from './book'
+import type { AddBookInput } from './data/book'
 import type { EbookClientCommand, EbookStoreCommand } from './commands'
 import type { EbookWorkerRequest } from './worker-messages'
 import { EbookStoreError, isEbookStoreErrorCode } from './errors'

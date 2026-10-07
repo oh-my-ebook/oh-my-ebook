@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook/search'
+import type { SearchChunkQuery, SearchChunkResult } from './data/search'
 import { SQLITE_COMMAND } from './commands'
 
 describe('BM25 검색 명령과 결과 타입', () => {

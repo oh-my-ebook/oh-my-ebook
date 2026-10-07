@@ -1,4 +1,4 @@
-import type { SearchChunkResult } from '@/lib/ebook/search'
+import type { SearchChunkResult } from '@/lib/ebook-storage/data/search'
 
 export const MAX_SEARCH_CONTEXT_CHUNKS = 5
 

@@ -1,13 +1,13 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
-import type { SearchChunkQuery } from '@/lib/ebook/search'
-import type { AddBookInput } from '../book'
+import type { SearchChunkQuery } from '../data/search'
+import type { AddBookInput } from '../data/book'
 import type {
   ChunkSourceInput,
   SearchChunkInput,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
-} from '../search-index'
-import type { OcrLineInput } from '../ocr'
+} from '../data/search-index'
+import type { OcrLineInput } from '../data/ocr'
 import { InvalidPayloadError } from './errors'
 import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './queries'
 

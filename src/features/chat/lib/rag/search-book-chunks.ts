@@ -1,5 +1,9 @@
 import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
-import type { SearchChunkQuery, SearchChunkResult, SearchChunkSource } from '@/lib/ebook/search'
+import type {
+  SearchChunkQuery,
+  SearchChunkResult,
+  SearchChunkSource,
+} from '@/lib/ebook-storage/data/search'
 import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
 
 const SEARCH_CHUNK_LIMIT = 5

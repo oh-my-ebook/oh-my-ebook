@@ -1,4 +1,4 @@
-import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook/search'
+import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook-storage/data/search'
 
 export const BOOK_CITATIONS_DATA_NAME = 'book-citations'
 
