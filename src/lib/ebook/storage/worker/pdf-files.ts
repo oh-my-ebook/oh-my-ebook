@@ -1,4 +1,4 @@
-import { OPFS_COMMAND } from '../protocol'
+import { OPFS_COMMAND } from '../commands'
 import { UnsupportedCommandError } from './errors'
 import { getPayload, isContentHash, isPdfWriteInput, type WorkerRequest } from './validation'
 

@@ -1,7 +1,7 @@
 import { loadPdfDocument } from '@/lib/pdf/load-document'
 import { recognizePdfPageRaw } from '@/lib/pdf/ocr/recognize-page'
 import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
-import type { NextOcrPage, OcrLineForChunking } from '@/lib/ebook/storage/protocol'
+import type { NextOcrPage, OcrLineForChunking } from '@/lib/ebook/storage/ocr'
 import type { BookshelfStore } from '../bookshelf-store'
 import { createSearchChunks } from './search-chunking'
 

@@ -29,16 +29,14 @@ import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress
 import type {
   ChunkSourcePage,
   ChunkSourceRecord,
-  OcrLinePage,
-  OcrLineRecord,
-  OcrPageRecord,
   SearchChunkPage,
   SearchChunkRecord,
   SearchPostingPage,
   SearchPostingRecord,
   SearchTermPage,
   SearchTermRecord,
-} from '@/lib/ebook/storage/protocol'
+} from '@/lib/ebook/storage/search-index'
+import type { OcrLinePage, OcrLineRecord, OcrPageRecord } from '@/lib/ebook/storage/ocr'
 import type { OcrConsoleStore } from '../lib/ocr-console-store'
 
 const BOOKS_PER_PAGE = 10

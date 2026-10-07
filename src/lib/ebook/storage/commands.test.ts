@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook/search'
-import { SQLITE_COMMAND } from './protocol'
+import { SQLITE_COMMAND } from './commands'
 
-describe('BM25 검색 계약', () => {
+describe('BM25 검색 명령과 결과 타입', () => {
   it('질문과 검색 결과의 페이지 출처를 표현한다', () => {
     const query = {
       bookId: 'book-1',

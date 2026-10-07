@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
-import { COMMAND } from '../protocol'
-import type { EbookStoreResponse } from '../protocol'
+import { COMMAND } from '../commands'
+import type { EbookStoreResponse } from '../worker-messages'
 import { getErrorCode, UnsupportedCommandError } from './errors'
 import {
   clearOpfs,

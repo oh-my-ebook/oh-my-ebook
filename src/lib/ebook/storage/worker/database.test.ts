@@ -1,6 +1,6 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
 import { describe, expect, it, vi } from 'vitest'
-import { SQLITE_COMMAND } from '../protocol'
+import { SQLITE_COMMAND } from '../commands'
 import { deleteBookById, executeSqliteCommand } from './database'
 
 function createDatabase({

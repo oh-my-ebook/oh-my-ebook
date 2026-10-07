@@ -1,9 +1,6 @@
-import {
-  type AddBookInput,
-  type EbookClientCommand,
-  type EbookStoreCommand,
-  type EbookWorkerRequest,
-} from './protocol'
+import type { AddBookInput } from './book'
+import type { EbookClientCommand, EbookStoreCommand } from './commands'
+import type { EbookWorkerRequest } from './worker-messages'
 import { EbookStoreError, isEbookStoreErrorCode } from './errors'
 
 interface EbookWorker {
