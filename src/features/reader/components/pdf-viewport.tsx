@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, CopyIcon, XIcon } from 'lucide-react'
-import type { SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import type { SearchChunkSource } from '@/lib/ebook-storage/data/search'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorAlert } from '@/components/error-alert'
-import {
-  extractPdfPageImages,
-  extractPdfPageText,
-  type PageImageRegions,
-  type PdfDocumentHandle,
-  type PdfPageHandle,
-  type PdfPageInfo,
-} from '../lib/pdf-document'
+import { extractPdfPageImages, type PageImageRegions } from '@/lib/pdf/extract-images'
+import { extractPdfPageText } from '@/lib/pdf/extract-text'
+import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '@/lib/pdf/document'
 import {
   isRenderablePdfPage,
   renderPdfPageImage,
@@ -21,8 +16,8 @@ import {
   postprocessStoredOcrPage,
   recognizePdfPage,
   type StoredOcrPageResult,
-} from '../lib/ocr/page-recognition'
-import type { BoundingBox, PageTextLayer } from '../lib/text-layer'
+} from '@/lib/pdf/ocr/recognize-page'
+import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layout'
 import {
   PdfSelectionToolbar,
   type PdfSelectionAction,
@@ -37,7 +32,7 @@ export interface OcrText {
 
 interface PdfViewportBaseProps {
   document: PdfDocumentHandle
-  evidenceSource?: SearchChunkSource
+  citationSource?: SearchChunkSource
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   scale: number
   onOcrTextChange?: (ocrText: OcrText) => void
@@ -145,7 +140,7 @@ export function PdfViewport(props: PdfViewportPagesProps): React.JSX.Element
 export function PdfViewport(props: PdfViewportProps) {
   const {
     document,
-    evidenceSource,
+    citationSource,
     getStoredOcrPage,
     onOcrTextChange,
     onStatusChange,
@@ -363,18 +358,18 @@ export function PdfViewport(props: PdfViewportProps) {
                   className="absolute inset-0 overflow-hidden"
                 >
                   {textLayer.lines.map((line, index) => {
-                    const isEvidenceLine =
-                      evidenceSource?.pageNumber === page.pageNumber &&
-                      index >= evidenceSource.startLineIndex &&
-                      index <= evidenceSource.endLineIndex
+                    const isCitationLine =
+                      citationSource?.pageNumber === page.pageNumber &&
+                      index >= citationSource.startLineIndex &&
+                      index <= citationSource.endLineIndex
                     return (
                       <span
                         className={
-                          isEvidenceLine
+                          isCitationLine
                             ? 'absolute origin-top-left cursor-text select-text whitespace-pre bg-primary/15 text-transparent outline-1 outline-primary/30 selection:bg-ocr-highlight/80'
                             : 'absolute origin-top-left cursor-text select-text whitespace-pre bg-ocr-highlight/20 text-transparent outline-1 outline-ocr-highlight/40 selection:bg-ocr-highlight/80'
                         }
-                        data-evidence-highlight={isEvidenceLine ? 'true' : undefined}
+                        data-citation-highlight={isCitationLine ? 'true' : undefined}
                         data-line-index={index}
                         data-slot="pdf-ocr-line"
                         key={`${line.x0}-${line.y0}-${index}`}

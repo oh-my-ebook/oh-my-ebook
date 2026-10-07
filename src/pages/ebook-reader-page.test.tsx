@@ -1,14 +1,14 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { BookMetadata } from '../features/reader/lib/book-metadata'
+import type { BookMetadata } from '@/lib/ebook-storage/data/book'
 import { createPromiseController } from '../test/promise-controller'
 import { EbookReaderPage } from './ebook-reader-page'
 
 const readerProps = vi.hoisted(() => vi.fn())
 
-vi.mock('../features/reader/components/reader', () => ({
-  Reader: (props: {
+vi.mock('./reader-page', () => ({
+  ReaderPage: (props: {
     bookMetadata?: BookMetadata
     initialPage?: number
     onPageChange?(pageNumber: number): void

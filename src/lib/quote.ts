@@ -1,5 +1,12 @@
 const MULTI_QUOTE_PREFIX = 'multi-quote:'
 
+export interface ReaderQuoteRequest {
+  action: 'attach' | 'explain'
+  id: number
+  pageNumber: number
+  text: string
+}
+
 export function encodeQuoteTexts(quoteTexts: readonly string[]) {
   return `${MULTI_QUOTE_PREFIX}${JSON.stringify(quoteTexts)}`
 }

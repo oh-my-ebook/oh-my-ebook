@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { createPromiseController } from '../../../test/promise-controller'
-import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '../lib/pdf-document'
+import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '@/lib/pdf/document'
 import { PdfViewport } from './pdf-viewport'
 
 const {
@@ -19,12 +19,9 @@ const {
   renderPdfPageImage: vi.fn(),
 }))
 
-vi.mock('../lib/ocr/page-recognition', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
-vi.mock('../lib/pdf-document', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/pdf-document')>()),
-  extractPdfPageImages,
-  extractPdfPageText,
-}))
+vi.mock('@/lib/pdf/ocr/recognize-page', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
+vi.mock('@/lib/pdf/extract-images', () => ({ extractPdfPageImages }))
+vi.mock('@/lib/pdf/extract-text', () => ({ extractPdfPageText }))
 vi.mock('../lib/pdf-page-render', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/pdf-page-render')>()),
   renderPdfPageImage,

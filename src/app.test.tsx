@@ -5,19 +5,15 @@ import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
-import type {
-  LoadedPdfDocument,
-  PdfDocumentHandle,
-  PdfDocumentLoader,
-} from './features/reader/lib/pdf-document'
+import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
 import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const prepareCachedModelMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
-vi.mock('./features/reader/lib/web-llm/webllm-model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./features/reader/lib/web-llm/webllm-model')>()),
+vi.mock('./features/chat/lib/web-llm/model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./features/chat/lib/web-llm/model')>()),
   prepareCachedWebLlmModel: prepareCachedModelMock,
 }))
 
@@ -27,13 +23,12 @@ const recognizePdfPageMock = vi.hoisted(() =>
 )
 const disconnectResizeObserver = vi.fn()
 
-vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
+vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('./features/reader/lib/ocr/page-recognition', async (importOriginal) => {
-  const pageRecognition =
-    await importOriginal<typeof import('./features/reader/lib/ocr/page-recognition')>()
+vi.mock('@/lib/pdf/ocr/recognize-page', async (importOriginal) => {
+  const pageRecognition = await importOriginal<typeof import('@/lib/pdf/ocr/recognize-page')>()
   return {
     ...pageRecognition,
     prepareOcr: prepareOcrMock,

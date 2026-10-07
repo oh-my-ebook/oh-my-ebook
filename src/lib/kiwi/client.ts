@@ -64,7 +64,7 @@ function requestKiwi(
   }
 
   if (!worker) {
-    const createdWorker = new Worker(new URL('../../workers/kiwi.worker.ts', import.meta.url), {
+    const createdWorker = new Worker(new URL('./kiwi.worker.ts', import.meta.url), {
       type: 'module',
     })
     createdWorker.onmessage = ({ data }: MessageEvent<KiwiResponse>) => {

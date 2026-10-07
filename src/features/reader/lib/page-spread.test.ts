@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PdfPageInfo } from './pdf-document'
+import type { PdfPageInfo } from '@/lib/pdf/document'
 import { calculatePageSpread, getPageOrientation } from './page-spread'
 
 function createPage(pageNumber: number, width = 600, height = 900): PdfPageInfo {

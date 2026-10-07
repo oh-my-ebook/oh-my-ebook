@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Undo2 } from 'lucide-react'
-import type { ChatModelAdapter } from '@assistant-ui/react'
-import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import type { SearchChunkSource } from '@/lib/ebook-storage/data/search'
+import type { ReaderQuoteRequest } from '@/lib/quote'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Separator } from '@/components/ui/separator'
@@ -10,10 +10,8 @@ import { ErrorAlert } from '@/components/error-alert'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
-import type { BookMetadata } from '../lib/book-metadata'
-import type { SearchChunks } from '../lib/rag/search-book-chunks'
-import type { PdfDocumentSource } from '../lib/pdf-document'
-import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
+import type { PdfDocumentSource } from '@/lib/pdf/document'
+import type { StoredOcrPageResult } from '@/lib/pdf/ocr/recognize-page'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
 import {
   FIT_HEIGHT_ZOOM,
@@ -27,24 +25,35 @@ import {
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
 import { PdfViewport, type OcrText } from './pdf-viewport'
-import { ReaderChat, type ReaderQuoteRequest } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
-interface ReaderProps {
-  analysisStatus?: BookAnalysisStatus
-  bookId?: string
-  bookMetadata?: BookMetadata
-  chatModel?: ChatModelAdapter
+interface ReaderPanelContext {
+  currentPage: number
+  currentPageText?: string
+  onCitationNavigate(source: SearchChunkSource): void
+  onQuoteRequestHandled(requestId: number): void
+  quoteRequest: ReaderQuoteRequest | null
+}
+
+export interface ReaderProps {
   url?: string
   data?: Uint8Array
   title?: string
   initialPage?: number
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   onPageChange?(pageNumber: number): void
-  searchChunks?: SearchChunks
+  renderPanel?(context: ReaderPanelContext): ReactNode
+}
+
+// ref를 사용하는 이벤트 핸들러는 props로 전달하고, 패널 렌더 함수는 별도 컴포넌트에서 호출한다.
+function ReaderPanelContent({
+  render,
+  ...context
+}: ReaderPanelContext & { render: ReaderProps['renderPanel'] }) {
+  return render?.(context)
 }
 
 interface ReaderErrorProps {
@@ -56,7 +65,7 @@ interface ReaderLoadingProps {
   label: string
 }
 
-interface EvidenceNavigation {
+interface CitationNavigation {
   returnPage: number
   source: SearchChunkSource
 }
@@ -148,15 +157,11 @@ function getArrowKeyTargetPage(
 }
 
 export function Reader({
-  analysisStatus,
-  bookMetadata,
-  bookId,
-  chatModel,
   data,
   getStoredOcrPage,
   initialPage,
   onPageChange,
-  searchChunks,
+  renderPanel,
   title,
   url,
 }: ReaderProps) {
@@ -173,7 +178,7 @@ export function Reader({
   const tocButtonRef = useRef<HTMLButtonElement>(null)
   const [ocrText, setOcrText] = useState<OcrText | null>(null)
   const [quoteRequest, setQuoteRequest] = useState<ReaderQuoteRequest | null>(null)
-  const [evidenceNavigation, setEvidenceNavigation] = useState<EvidenceNavigation | null>(null)
+  const [citationNavigation, setCitationNavigation] = useState<CitationNavigation | null>(null)
   const quoteRequestIdRef = useRef(0)
 
   const handleTextSelectionAction = useCallback(
@@ -242,11 +247,11 @@ export function Reader({
   }
 
   const handlePageChange = (pageNumber: number) => {
-    setEvidenceNavigation(null)
+    setCitationNavigation(null)
     goToPage(pageNumber)
   }
 
-  const handleEvidenceNavigate = (source: SearchChunkSource) => {
+  const handleCitationNavigate = (source: SearchChunkSource) => {
     if (
       documentState.status !== 'ready' ||
       source.pageNumber < 1 ||
@@ -254,17 +259,17 @@ export function Reader({
     ) {
       return
     }
-    setEvidenceNavigation((current) => ({
+    setCitationNavigation((current) => ({
       returnPage: current?.returnPage ?? currentPage,
       source,
     }))
     goToPage(source.pageNumber)
   }
 
-  const handleEvidenceReturn = () => {
-    if (!evidenceNavigation) return
-    const { returnPage } = evidenceNavigation
-    setEvidenceNavigation(null)
+  const handleCitationReturn = () => {
+    if (!citationNavigation) return
+    const { returnPage } = citationNavigation
+    setCitationNavigation(null)
     goToPage(returnPage)
   }
 
@@ -319,7 +324,7 @@ export function Reader({
   const readerMain = (
     <main
       aria-label="PDF 읽기 영역"
-      className="m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
+      className="relative m-3 h-[calc(100%-1.5rem)] min-h-0 min-w-0 flex-1"
       ref={containerRef}
     >
       {documentState.status === 'loading' && <ReaderLoading label="PDF 불러오는 중" />}
@@ -341,13 +346,26 @@ export function Reader({
       {isPageReady && fitHeightScale !== null && (
         <PdfViewport
           document={documentState.document}
-          evidenceSource={evidenceNavigation?.source}
+          citationSource={citationNavigation?.source}
           getStoredOcrPage={getStoredOcrPage}
           onOcrTextChange={setOcrText}
           onTextSelectionAction={handleTextSelectionAction}
           pages={pageSpread.pages}
           scale={displayScale}
         />
+      )}
+
+      {citationNavigation && (
+        <Button
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+          onClick={handleCitationReturn}
+          size="sm"
+          type="button"
+          variant="citation"
+        >
+          <Undo2 data-icon="inline-start" />
+          읽던 곳으로 · {citationNavigation.returnPage}쪽
+        </Button>
       )}
     </main>
   )
@@ -362,18 +380,13 @@ export function Reader({
       open={panelOpen}
       openButtonRef={panelButtonRef}
     >
-      <ReaderChat
-        analysisStatus={analysisStatus}
-        bookMetadata={bookMetadata}
-        bookId={bookId}
-        chatModel={chatModel}
+      <ReaderPanelContent
         currentPage={currentPage}
         currentPageText={currentPageText}
-        key={url}
-        onEvidenceNavigate={handleEvidenceNavigate}
+        onCitationNavigate={handleCitationNavigate}
         onQuoteRequestHandled={handleQuoteRequestHandled}
         quoteRequest={quoteRequest}
-        searchChunks={searchChunks}
+        render={renderPanel}
       />
     </ReaderPanel>
   )
@@ -418,12 +431,6 @@ export function Reader({
       <footer className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t bg-card px-4 py-2">
         {isPageReady && (
           <>
-            {evidenceNavigation && (
-              <Button onClick={handleEvidenceReturn} size="sm" type="button" variant="secondary">
-                <Undo2 data-icon="inline-start" />
-                이전 위치로 돌아가기
-              </Button>
-            )}
             <div className="min-w-64 flex-1">
               <PageNavigator
                 currentPage={currentPage}

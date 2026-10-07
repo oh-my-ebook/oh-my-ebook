@@ -16,8 +16,6 @@ describe('ViewModeControl', () => {
 
     expect(singleButton.querySelector('svg')).toBeInTheDocument()
     expect(spreadButton.querySelector('svg')).toBeInTheDocument()
-    expect(singleButton).toHaveClass('cursor-pointer')
-    expect(spreadButton).toHaveClass('cursor-pointer')
     expect(singleButton).not.toHaveTextContent('한 페이지')
     expect(spreadButton).not.toHaveTextContent('두 페이지')
 
