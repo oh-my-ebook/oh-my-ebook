@@ -44,7 +44,7 @@ describe('postprocessWithKiwi', () => {
     await expect(postprocessWithKiwi('OCR 문장', new AbortController().signal)).resolves.toBe(
       'OCR 문장 후처리',
     )
-    expect(String(workerUrls[0])).toContain('/workers/kiwi.worker.ts')
+    expect(String(workerUrls[0])).toContain('/lib/kiwi/kiwi.worker.ts')
   })
 
   it('검색 term 추출을 Worker에 요청하고 빈도를 반환한다', async () => {

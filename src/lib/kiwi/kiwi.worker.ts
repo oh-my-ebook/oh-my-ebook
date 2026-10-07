@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { KiwiBuilder, Match, type Kiwi } from 'kiwi-nlp'
-import { extractSearchTerms, postprocessKiwiText } from '../lib/kiwi/postprocess'
+import { extractSearchTerms, postprocessKiwiText } from './postprocess'
 
 const modelNames = ['combiningRule.txt', 'extract.mdl', 'sj.morph', 'cong.mdl', 'nounchr.mdl']
 let kiwi: Promise<Kiwi> | undefined
