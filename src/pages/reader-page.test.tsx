@@ -38,7 +38,7 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
-vi.mock('../features/chat/lib/web-llm/webllm-chat-adapter', async () => {
+vi.mock('../features/chat/lib/web-llm/chat-adapter', async () => {
   const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
@@ -48,7 +48,7 @@ vi.mock('../features/chat/lib/web-llm/webllm-chat-adapter', async () => {
 })
 
 // 다운로드 버튼을 누르는 시나리오가 추가돼도 jsdom에 없는 실제 WebGPU 경로를 타지 않게 한다.
-vi.mock('../features/chat/lib/web-llm/webllm-model', async (importOriginal) => ({
+vi.mock('../features/chat/lib/web-llm/model', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../features/chat/lib/web-llm/model')>()),
   prepareWebLlmModel: vi.fn(async () => undefined),
 }))
