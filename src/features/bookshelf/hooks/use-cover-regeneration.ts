@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { StoredBook } from '../ebook-types'
-import { EbookStoreError } from '../lib/ebook-store-client'
+import type { StoredBook } from '@/lib/ebook/storage/protocol'
+import { EbookStoreError } from '@/lib/ebook/storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf } from '../lib/pdf-import'
 

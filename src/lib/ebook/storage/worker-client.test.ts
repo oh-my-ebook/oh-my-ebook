@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EbookStoreClient, EbookStoreError } from './ebook-store-client'
+import { EbookStoreError } from './errors'
+import { EbookStoreClient } from './worker-client'
 
 function createWorker() {
   const sent: { message: unknown; transfer: Transferable[] }[] = []

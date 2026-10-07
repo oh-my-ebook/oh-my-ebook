@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 
-import { COMMAND } from '../../ebook-consts'
-import type { EbookStoreResponse } from '../../ebook-types'
-import { getErrorCode, UnsupportedCommandError } from './ebook-db.worker.error'
+import { COMMAND } from '../protocol'
+import type { EbookStoreResponse } from '../protocol'
+import { getErrorCode, UnsupportedCommandError } from './errors'
 import {
   clearOpfs,
   deletePdf,
@@ -11,7 +11,7 @@ import {
   isOpfsCommand,
   readPdf,
   writePdf,
-} from './ebook-db.worker.opfs'
+} from './pdf-files'
 import {
   addBook,
   closeDatabase,
@@ -22,7 +22,7 @@ import {
   isSqliteCommand,
   getBookId,
   listBooks,
-} from './ebook-db.worker.sqlite'
+} from './database'
 import {
   getPayload,
   isAddBookInput,
@@ -30,7 +30,7 @@ import {
   isContentHash,
   isWorkerRequest,
   type WorkerRequest,
-} from './ebook-db.worker.util'
+} from './validation'
 
 const workerScope = self as DedicatedWorkerGlobalScope
 const COMMAND_LIST: ReadonlySet<string> = new Set(Object.values(COMMAND))
@@ -134,7 +134,7 @@ async function respondToRequest(request: WorkerRequest): Promise<void> {
   } catch (error) {
     const code = getErrorCode(error)
     if (code === 'storage-failed') {
-      console.error('ebook-db.worker command failed', { command, error })
+      console.error('storage.worker command failed', { command, error })
     }
     workerScope.postMessage({ requestId, error: { code } } satisfies EbookStoreResponse)
   }

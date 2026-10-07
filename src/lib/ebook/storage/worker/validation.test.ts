@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isSearchChunkQuery, isStoreSearchIndexInput } from './ebook-db.worker.util'
+import { isSearchChunkQuery, isStoreSearchIndexInput } from './validation'
 
 describe('BM25 검색 요청 검증', () => {
   it('중복이 제거된 검색어와 최대 5개 결과를 허용한다', () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearOpfs, deletePdf, readPdf, writePdf } from './ebook-db.worker.opfs'
+import { clearOpfs, deletePdf, readPdf, writePdf } from './pdf-files'
 
 const contentHash = 'a'.repeat(64)
 
@@ -47,7 +47,7 @@ function createOpfsFixture(): OpfsFixture {
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('ebook-db.worker.opfs', () => {
+describe('pdf-files', () => {
   it('콘텐츠 해시 파일명으로 PDF 원본을 저장하고 복사본을 읽는다', async () => {
     const fixture = createOpfsFixture()
     const source = new Uint8Array([1, 2, 3]).buffer

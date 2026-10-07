@@ -7,9 +7,9 @@ import type {
   SearchChunkInput,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
-} from '../../ebook-types'
-import { InvalidPayloadError } from './ebook-db.worker.error'
-import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './ebook-db.worker.sql'
+} from '../protocol'
+import { InvalidPayloadError } from './errors'
+import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './queries'
 
 export interface UpdateCoverInput {
   id: string

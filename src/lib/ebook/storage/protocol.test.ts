@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook/search'
-import { SQLITE_COMMAND } from './ebook-consts'
+import { SQLITE_COMMAND } from './protocol'
 
 describe('BM25 검색 계약', () => {
   it('질문과 검색 결과의 페이지 출처를 표현한다', () => {

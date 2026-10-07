@@ -8,10 +8,10 @@ import {
   isOpfsCommand,
   readPdf,
   writePdf,
-} from './ebook-db.worker.opfs'
+} from './pdf-files'
 
 vi.mock('@sqlite.org/sqlite-wasm', () => ({ default: vi.fn() }))
-vi.mock('./ebook-db.worker.opfs', () => ({
+vi.mock('./pdf-files', () => ({
   clearOpfs: vi.fn(),
   executeOpfsCommand: vi.fn(),
   isOpfsCommand: vi.fn((command: string) => ['writePdf', 'readPdf', 'deletePdf'].includes(command)),
@@ -27,13 +27,13 @@ afterEach(() => {
   vi.resetModules()
 })
 
-describe('ebook-db.worker', () => {
+describe('storage.worker', () => {
   it('SQLite를 닫은 뒤 OPFS 전체 삭제 명령을 처리한다', async () => {
     const responses = vi.fn()
     const workerScope = { postMessage: responses, onmessage: null }
     vi.stubGlobal('self', workerScope)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(new MessageEvent('message', { data: { requestId: 1, command: 'clearStorage' } }))
@@ -65,7 +65,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -114,7 +114,7 @@ describe('ebook-db.worker', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     vi.stubGlobal('self', workerScope)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(new MessageEvent('message', { data: { requestId: 4, command: 'unknown' } }))
@@ -122,7 +122,7 @@ describe('ebook-db.worker', () => {
     expect(sqlite3InitModule).not.toHaveBeenCalled()
     expect(responses).toHaveBeenCalledWith({ requestId: 4, error: { code: 'storage-failed' } })
     expect(consoleError).toHaveBeenCalledWith(
-      'ebook-db.worker command failed',
+      'storage.worker command failed',
       expect.objectContaining({ command: 'unknown', error: expect.any(Error) }),
     )
   })
@@ -146,7 +146,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(new MessageEvent('message', { data: { requestId: 6, command: 'initialize' } }))
@@ -253,7 +253,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(new MessageEvent('message', { data: { requestId: 20, command: 'listBooks' } }))
@@ -307,7 +307,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: FailingDatabase },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -363,7 +363,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -424,7 +424,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -476,7 +476,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -501,7 +501,7 @@ describe('ebook-db.worker', () => {
 
     expect(responses).toHaveBeenCalledWith({ requestId: 8, error: { code: 'storage-failed' } })
     expect(consoleError).toHaveBeenCalledWith(
-      'ebook-db.worker command failed',
+      'storage.worker command failed',
       expect.objectContaining({ command: 'saveBook', error: expect.any(Error) }),
     )
     expect(consoleError.mock.calls[0][1]).toMatchObject({
@@ -509,14 +509,14 @@ describe('ebook-db.worker', () => {
     })
     expect(consoleError.mock.calls.slice(1)).toEqual([
       [
-        'ebook-db.worker command failed',
+        'storage.worker command failed',
         expect.objectContaining({
           command: 'getBook',
           error: expect.objectContaining({ message: 'Invalid payload for getBook' }),
         }),
       ],
       [
-        'ebook-db.worker command failed',
+        'storage.worker command failed',
         expect.objectContaining({
           command: 'updateCover',
           error: expect.objectContaining({ message: 'Invalid payload for updateCover' }),
@@ -545,7 +545,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
 
@@ -642,7 +642,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -690,7 +690,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -738,7 +738,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -771,7 +771,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -803,7 +803,7 @@ describe('ebook-db.worker', () => {
       oo1: { OpfsDb: Database },
     } as never)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(
@@ -820,7 +820,7 @@ describe('ebook-db.worker', () => {
     const workerScope = { postMessage: responses, onmessage: null }
     vi.stubGlobal('self', workerScope)
 
-    await import('./ebook-db.worker')
+    await import('./storage.worker')
     const handler: unknown = Reflect.get(workerScope, 'onmessage')
     if (typeof handler !== 'function') throw new Error('Worker handler missing')
     await handler(

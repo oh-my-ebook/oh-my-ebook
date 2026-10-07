@@ -1,6 +1,6 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { describe, expect, it } from 'vitest'
-import { createSearchChunksSql } from './ebook-db.worker.sql'
+import { createSearchChunksSql } from './queries'
 
 function isScoredRow(value: unknown): value is { id: string; score: number } {
   return (

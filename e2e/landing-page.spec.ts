@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test'
 test('모델을 다운로드하지 않고 체험한 뒤 책장에 진입한다', async ({ page }) => {
   const modelRequests: string[] = []
   page.on('request', (request) => {
-    if (/\.(wasm|onnx|tar)(\?|$)|ebook-db\.worker|huggingface/.test(request.url())) {
+    if (/\.(wasm|onnx|tar)(\?|$)|storage\.worker|huggingface/.test(request.url())) {
       modelRequests.push(request.url())
     }
   })

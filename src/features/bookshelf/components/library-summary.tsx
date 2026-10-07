@@ -1,5 +1,5 @@
 import { Separator } from '@/components/ui/separator'
-import type { StoredBook } from '../ebook-types'
+import type { StoredBook } from '@/lib/ebook/storage/protocol'
 import { formatBytes } from '../lib/format-bytes'
 
 interface LibrarySummaryProps {

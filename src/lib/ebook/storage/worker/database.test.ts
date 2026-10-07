@@ -1,7 +1,7 @@
 import type { Database } from '@sqlite.org/sqlite-wasm'
 import { describe, expect, it, vi } from 'vitest'
-import { SQLITE_COMMAND } from '../../ebook-consts'
-import { deleteBookById, executeSqliteCommand } from './ebook-db.worker.sqlite'
+import { SQLITE_COMMAND } from '../protocol'
+import { deleteBookById, executeSqliteCommand } from './database'
 
 function createDatabase({
   incompletePages = 1,

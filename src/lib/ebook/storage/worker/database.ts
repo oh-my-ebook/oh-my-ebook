@@ -1,7 +1,7 @@
 import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
 import type { BookAnalysisStatus } from '@/lib/ebook/book'
 import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook/search'
-import { SQLITE_COMMAND } from '../../ebook-consts'
+import { SQLITE_COMMAND } from '../protocol'
 import type {
   AddBookInput,
   ChunkSourcePage,
@@ -19,7 +19,7 @@ import type {
   SearchTermPage,
   SearchTermRecord,
   StoredOcrPage,
-} from '../../ebook-types'
+} from '../protocol'
 import {
   BEGIN_TRANSACTION_SQL,
   COMMIT_TRANSACTION_SQL,
@@ -76,14 +76,14 @@ import {
   UPDATE_BOOK_PROGRESS_SQL,
   UPDATE_BOOK_TITLE_SQL,
   UPSERT_SEARCH_TERM_SQL,
-} from './ebook-db.worker.sql'
+} from './queries'
 import {
   DeletedBookError,
   DuplicateBookError,
   NotFoundBookError,
   UnsupportedCommandError,
   UnsupportedStorageError,
-} from './ebook-db.worker.error'
+} from './errors'
 import {
   getPayload,
   isRowAffected,
@@ -98,7 +98,7 @@ import {
   isUpdateTitleInput,
   normalizeStoredProgress,
   type WorkerRequest,
-} from './ebook-db.worker.util'
+} from './validation'
 
 type SqliteCommand = (typeof SQLITE_COMMAND)[keyof typeof SQLITE_COMMAND]
 

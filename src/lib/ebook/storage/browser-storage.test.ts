@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getStorageUsage, isOpfsSupported } from './storage-manager'
+import { getStorageUsage, isOpfsSupported } from './browser-storage'
 
 function mockStorage(overrides: Partial<StorageManager> = {}) {
   const storage = {
@@ -13,7 +13,7 @@ function mockStorage(overrides: Partial<StorageManager> = {}) {
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('storage-manager', () => {
+describe('browser-storage', () => {
   it('OPFS, Worker와 격리 컨텍스트가 모두 있어야 지원한다', () => {
     mockStorage()
     vi.stubGlobal('Worker', class {})

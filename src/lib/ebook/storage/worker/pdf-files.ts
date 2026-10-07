@@ -1,11 +1,6 @@
-import { OPFS_COMMAND } from '../../ebook-consts'
-import { UnsupportedCommandError } from './ebook-db.worker.error'
-import {
-  getPayload,
-  isContentHash,
-  isPdfWriteInput,
-  type WorkerRequest,
-} from './ebook-db.worker.util'
+import { OPFS_COMMAND } from '../protocol'
+import { UnsupportedCommandError } from './errors'
+import { getPayload, isContentHash, isPdfWriteInput, type WorkerRequest } from './validation'
 
 type OpfsCommand = (typeof OPFS_COMMAND)[keyof typeof OPFS_COMMAND]
 

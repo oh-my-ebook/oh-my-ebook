@@ -1,5 +1,5 @@
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
-import type { OcrLineForChunking, SearchChunkInput } from '../../ebook-types'
+import type { OcrLineForChunking, SearchChunkInput } from '@/lib/ebook/storage/protocol'
 
 export const DEFAULT_SEARCH_CHUNK_TOKEN_TARGET = 300
 

@@ -38,7 +38,7 @@ import type {
   SearchPostingRecord,
   SearchTermPage,
   SearchTermRecord,
-} from '../ebook-types'
+} from '@/lib/ebook/storage/protocol'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 
 const BOOKS_PER_PAGE = 10

@@ -4,7 +4,7 @@ const { postprocessWithKiwi } = vi.hoisted(() => ({ postprocessWithKiwi: vi.fn()
 
 vi.mock('@/lib/kiwi/client', () => ({ postprocessWithKiwi }))
 
-import type { OcrLineForChunking } from '../../ebook-types'
+import type { OcrLineForChunking } from '@/lib/ebook/storage/protocol'
 import { createSearchChunks } from './search-chunking'
 
 describe('createSearchChunks', () => {

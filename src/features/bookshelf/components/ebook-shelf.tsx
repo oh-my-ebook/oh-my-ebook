@@ -1,4 +1,4 @@
-import type { StoredBook } from '../ebook-types'
+import type { StoredBook } from '@/lib/ebook/storage/protocol'
 import { AddBookCard } from './add-book-card'
 import { BookCard } from './book-card'
 

@@ -1,4 +1,4 @@
-import type { EbookStoreErrorCode } from '../../ebook-types'
+import type { EbookStoreErrorCode } from '../errors'
 
 export class UnsupportedStorageError extends Error {}
 export class NotFoundBookError extends Error {}

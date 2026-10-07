@@ -1,12 +1,10 @@
-import { EBOOK_STORE_ERROR_MESSAGES } from '../ebook-consts'
 import {
   type AddBookInput,
   type EbookClientCommand,
   type EbookStoreCommand,
-  type EbookStoreErrorCode,
   type EbookWorkerRequest,
-} from '../ebook-types'
-import { isEbookStoreErrorCode } from '../ebook-utils'
+} from './protocol'
+import { EbookStoreError, isEbookStoreErrorCode } from './errors'
 
 interface EbookWorker {
   onmessage: ((event: MessageEvent<unknown>) => void) | null
@@ -18,16 +16,6 @@ interface EbookWorker {
 interface PendingRequest {
   resolve(value: unknown): void
   reject(reason: unknown): void
-}
-
-export class EbookStoreError extends Error {
-  readonly code: EbookStoreErrorCode
-
-  constructor(code: EbookStoreErrorCode, cause?: unknown) {
-    super(EBOOK_STORE_ERROR_MESSAGES[code], { cause })
-    this.name = 'EbookStoreError'
-    this.code = code
-  }
 }
 
 export class EbookStoreClient {
