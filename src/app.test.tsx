@@ -9,7 +9,7 @@ import type {
   LoadedPdfDocument,
   PdfDocumentHandle,
   PdfDocumentLoader,
-} from './features/reader/lib/pdf-document'
+} from '@/lib/pdf/pdf-document'
 import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
@@ -27,13 +27,12 @@ const recognizePdfPageMock = vi.hoisted(() =>
 )
 const disconnectResizeObserver = vi.fn()
 
-vi.mock('./features/reader/lib/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('./features/reader/lib/pdf-document')>()
+vi.mock('@/lib/pdf/pdf-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('./features/reader/lib/ocr/page-recognition', async (importOriginal) => {
-  const pageRecognition =
-    await importOriginal<typeof import('./features/reader/lib/ocr/page-recognition')>()
+vi.mock('@/lib/pdf/ocr/page-recognition', async (importOriginal) => {
+  const pageRecognition = await importOriginal<typeof import('@/lib/pdf/ocr/page-recognition')>()
   return {
     ...pageRecognition,
     prepareOcr: prepareOcrMock,

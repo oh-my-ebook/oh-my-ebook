@@ -1,7 +1,7 @@
 import { GlobalWorkerOptions, OPS } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPromiseController } from '../../../test/promise-controller'
+import { createPromiseController } from '@/test/promise-controller'
 import {
   extractPdfPageImages,
   extractPdfPageText,

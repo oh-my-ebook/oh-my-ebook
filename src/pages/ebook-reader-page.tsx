@@ -3,7 +3,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { ErrorAlert } from '@/components/error-alert'
 import { ReaderPage } from './reader-page'
-import type { StoredOcrPageResult } from '@/features/reader/lib/ocr/page-recognition'
+import type { StoredOcrPageResult } from '@/lib/pdf/ocr/page-recognition'
 import type { SearchChunks } from '@/features/chat/lib/rag/search-book-chunks'
 import { BookOpen, RefreshCw } from 'lucide-react'
 import {

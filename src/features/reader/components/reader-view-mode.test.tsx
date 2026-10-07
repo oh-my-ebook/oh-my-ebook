@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { TestRouter } from '@/test/test-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
+import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/pdf-document'
 import { Reader } from './reader'
 
 const usePdfDocumentMock = vi.hoisted(() => vi.fn())

@@ -10,18 +10,18 @@ import type {
   LoadedPdfDocument,
   PdfDocumentHandle,
   PdfDocumentLoader,
-} from '../features/reader/lib/pdf-document'
+} from '@/lib/pdf/pdf-document'
 import { useWebLlmModelStore } from '../features/chat/lib/web-llm/model'
 import { ReaderPage } from './reader-page'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
 const recognizePdfPageMock = vi.hoisted(() => vi.fn())
-vi.mock('../features/reader/lib/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('../features/reader/lib/pdf-document')>()
+vi.mock('@/lib/pdf/pdf-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('@/lib/pdf/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('../features/reader/lib/ocr/page-recognition', () => ({
+vi.mock('@/lib/pdf/ocr/page-recognition', () => ({
   recognizePdfPage: recognizePdfPageMock,
 }))
 

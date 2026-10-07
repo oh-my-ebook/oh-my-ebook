@@ -7,7 +7,7 @@ import {
   type PdfDocumentLoader,
   type PdfDocumentSource,
   type PdfPageInfo,
-} from '../lib/pdf-document'
+} from '@/lib/pdf/pdf-document'
 
 interface LoadingState {
   status: 'loading'

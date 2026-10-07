@@ -9,8 +9,8 @@ const { createSearchChunks, extractSearchTermsWithKiwi, loadPdfDocument, recogni
     recognizePdfPageRaw: vi.fn(),
   }))
 
-vi.mock('@/features/reader/lib/pdf-document', () => ({ loadPdfDocument }))
-vi.mock('@/features/reader/lib/ocr/page-recognition', () => ({ recognizePdfPageRaw }))
+vi.mock('@/lib/pdf/pdf-document', () => ({ loadPdfDocument }))
+vi.mock('@/lib/pdf/ocr/page-recognition', () => ({ recognizePdfPageRaw }))
 vi.mock('./search-chunking', () => ({ createSearchChunks }))
 vi.mock('@/lib/kiwi/client', () => ({ extractSearchTermsWithKiwi }))
 

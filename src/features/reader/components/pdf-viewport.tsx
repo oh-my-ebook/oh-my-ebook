@@ -11,7 +11,7 @@ import {
   type PdfDocumentHandle,
   type PdfPageHandle,
   type PdfPageInfo,
-} from '../lib/pdf-document'
+} from '@/lib/pdf/pdf-document'
 import {
   isRenderablePdfPage,
   renderPdfPageImage,
@@ -21,8 +21,8 @@ import {
   postprocessStoredOcrPage,
   recognizePdfPage,
   type StoredOcrPageResult,
-} from '../lib/ocr/page-recognition'
-import type { BoundingBox, PageTextLayer } from '../lib/text-layer'
+} from '@/lib/pdf/ocr/page-recognition'
+import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layer'
 import {
   PdfSelectionToolbar,
   type PdfSelectionAction,

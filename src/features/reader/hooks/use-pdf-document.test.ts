@@ -8,7 +8,7 @@ import {
   type PdfDocumentLoader,
   type PdfPageHandle,
   type PdfDocumentSource,
-} from '../lib/pdf-document'
+} from '@/lib/pdf/pdf-document'
 import { usePdfDocument } from './use-pdf-document'
 
 function createPage(width: number, height: number, rotation = 0): PdfPageHandle {

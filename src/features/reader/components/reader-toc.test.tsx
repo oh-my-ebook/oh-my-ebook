@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PdfDocumentHandle, PdfPageInfo } from '../lib/pdf-document'
+import type { PdfDocumentHandle, PdfPageInfo } from '@/lib/pdf/pdf-document'
 import { ReaderToc } from './reader-toc'
 
 // jsdom에는 IntersectionObserver가 없다. 이 테스트는 목차 목록 구성·클릭·강조 표시만 확인하므로

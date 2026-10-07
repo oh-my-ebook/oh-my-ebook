@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPromiseController } from '../../../../test/promise-controller'
+import { createPromiseController } from '@/test/promise-controller'
 
 const { createPaddle, postprocessWithKiwi, predict } = vi.hoisted(() => ({
   createPaddle: vi.fn(),

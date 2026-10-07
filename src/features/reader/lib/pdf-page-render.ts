@@ -1,5 +1,5 @@
-import { PDF_CSS_SCALE, type PdfPageHandle, type PdfPageViewport } from './pdf-document'
-import type { BoundingBox } from './text-layer'
+import { PDF_CSS_SCALE, type PdfPageHandle, type PdfPageViewport } from '@/lib/pdf/pdf-document'
+import type { BoundingBox } from '@/lib/pdf/text-layer'
 
 // 복사한 이미지가 화면 배율과 무관하게 선명하도록 2배로 그린다.
 const IMAGE_COPY_SCALE = 2

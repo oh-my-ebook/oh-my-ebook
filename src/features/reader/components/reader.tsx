@@ -10,8 +10,8 @@ import { ErrorAlert } from '@/components/error-alert'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
-import type { PdfDocumentSource } from '../lib/pdf-document'
-import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
+import type { PdfDocumentSource } from '@/lib/pdf/pdf-document'
+import type { StoredOcrPageResult } from '@/lib/pdf/ocr/page-recognition'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
 import {
   FIT_HEIGHT_ZOOM,
