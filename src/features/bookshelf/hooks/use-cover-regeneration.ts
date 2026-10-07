@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
-import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf } from '../lib/pdf-import'
 
 interface UseCoverRegenerationOptions {
-  store: EbookLibraryStore
+  store: BookshelfStore
   refreshBooks(): Promise<void>
   refreshUsage(): Promise<void>
 }

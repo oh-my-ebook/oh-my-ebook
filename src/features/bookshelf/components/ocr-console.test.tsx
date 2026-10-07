@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import type { BookshelfStore } from '../lib/bookshelf-store'
 import { OcrConsole } from './ocr-console'
 
 describe('OcrConsole', () => {
@@ -62,7 +62,7 @@ describe('OcrConsole', () => {
       }
       return null
     })
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     render(<OcrConsole store={store} />)
 
@@ -125,7 +125,7 @@ describe('OcrConsole', () => {
       if (command === 'listSearchPostings') return { total: 0, postings: [] }
       return null
     })
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     render(<OcrConsole store={store} />)
 

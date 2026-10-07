@@ -2,7 +2,7 @@ import { loadPdfDocument } from '@/features/reader/lib/pdf-document'
 import { recognizePdfPageRaw } from '@/features/reader/lib/ocr/page-recognition'
 import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
 import type { NextOcrPage, OcrLineForChunking } from '../../ebook-types'
-import type { EbookLibraryStore } from '../ebook-library-store'
+import type { BookshelfStore } from '../bookshelf-store'
 import { createSearchChunks } from './search-chunking'
 
 interface StoredPdf {
@@ -73,7 +73,7 @@ function reportFailure(options: OcrAnalysisOptions, failure: OcrAnalysisFailure)
 
 export async function runOcrAnalysis(
   bookId: string,
-  store: EbookLibraryStore,
+  store: BookshelfStore,
   options: OcrAnalysisOptions = {},
 ): Promise<OcrAnalysisResult> {
   const controller = new AbortController()

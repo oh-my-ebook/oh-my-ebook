@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import type { StoredBook } from '../ebook-types'
 import { EbookStoreError } from '../lib/ebook-store-client'
-import type { EbookLibraryStore } from '../lib/ebook-library-store'
-import { getOcrAnalysisCoordinator } from '../lib/ebook-analysis/ocr-analysis-coordinator'
-import type { OcrAnalysisFailure, OcrAnalysisResult } from '../lib/ebook-analysis/ocr-analysis'
+import type { BookshelfStore } from '../lib/bookshelf-store'
+import { getOcrAnalysisCoordinator } from '../lib/analysis/ocr-analysis-coordinator'
+import type { OcrAnalysisFailure, OcrAnalysisResult } from '../lib/analysis/ocr-analysis'
 import { useCoverRegeneration } from './use-cover-regeneration'
 import { useEbookUpload } from './use-ebook-upload'
 import { useLibraryStorage } from './use-library-storage'
 
-export type { EbookLibraryStore } from '../lib/ebook-library-store'
+export type { BookshelfStore } from '../lib/bookshelf-store'
 
 type LibraryState =
   | { status: 'loading' }
@@ -45,7 +45,7 @@ function isStoredBook(value: unknown): value is StoredBook {
   )
 }
 
-export function useEbookLibrary(store: EbookLibraryStore) {
+export function useBookshelf(store: BookshelfStore) {
   const [state, setState] = useState<LibraryState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [refreshError, setRefreshError] = useState<string | null>(null)

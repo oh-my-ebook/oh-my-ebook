@@ -1,8 +1,8 @@
 import { Alert, AlertTitle } from '@/components/ui/alert'
-import { OcrConsole } from '@/features/ebook-list/components/ocr-console'
-import type { EbookLibraryStore } from '@/features/ebook-list/lib/ebook-library-store'
+import { OcrConsole } from '@/features/bookshelf/components/ocr-console'
+import type { BookshelfStore } from '@/features/bookshelf/lib/bookshelf-store'
 
-export function OcrConsolePage({ store }: { store: EbookLibraryStore | null }) {
+export function OcrConsolePage({ store }: { store: BookshelfStore | null }) {
   if (!store) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-8">

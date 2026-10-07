@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { EbookLibraryStore } from '../ebook-library-store'
+import type { BookshelfStore } from '../bookshelf-store'
 
 const { createSearchChunks, extractSearchTermsWithKiwi, loadPdfDocument, recognizePdfPageRaw } =
   vi.hoisted(() => ({
@@ -51,7 +51,7 @@ describe('runOcrAnalysis', () => {
         { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '원문' },
       ])
       .mockResolvedValueOnce(undefined)
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await runOcrAnalysis('book-id', store)
 
@@ -115,7 +115,7 @@ describe('runOcrAnalysis', () => {
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce([{ status: 'failed' }, { status: 'ready' }])
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await runOcrAnalysis('book-id', store)
 
@@ -143,7 +143,7 @@ describe('runOcrAnalysis', () => {
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce([{ status: 'failed' }])
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await runOcrAnalysis('book-id', store, { onFailure })
 
@@ -172,7 +172,7 @@ describe('runOcrAnalysis', () => {
       .mockResolvedValueOnce([{ status: 'ready' }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(undefined)
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await runOcrAnalysis('book-id', store)
 
@@ -195,7 +195,7 @@ describe('runOcrAnalysis', () => {
       if (command === 'storeSearchIndex') throw new Error('index write failed')
       return undefined
     })
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await expect(runOcrAnalysis('book-id', store)).resolves.toBe('failed')
 
@@ -228,7 +228,7 @@ describe('runOcrAnalysis', () => {
       .mockResolvedValueOnce([{ status: 'ready' }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(undefined)
-    const store = { request, saveBook: vi.fn() } as unknown as EbookLibraryStore
+    const store = { request, saveBook: vi.fn() } as unknown as BookshelfStore
 
     await runOcrAnalysis('book-id', store)
 

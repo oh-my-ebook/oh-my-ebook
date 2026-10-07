@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { Route, Routes, useParams } from 'react-router'
 import { ReaderPage } from './reader-page'
-import { ebookStore } from '../features/ebook-list/lib/ebook-store'
+import { ebookStore } from '../features/bookshelf/lib/ebook-store'
 import { prepareOcr } from '../features/reader/lib/ocr/page-recognition'
 import { prepareCachedWebLlmModel } from '../features/chat/lib/web-llm/model'
 import { EbookReaderPage } from '../pages/ebook-reader-page'
-import { EbookListPage } from '../pages/ebook-list-page'
+import { BookshelfPage } from '../pages/bookshelf-page'
 import { OcrConsolePage } from '../pages/ocr-console-page'
 import { PrivacyPolicyPage } from '../pages/privacy-policy-page'
 import { TermsOfServicePage } from '../pages/terms-of-service-page'
@@ -13,7 +13,7 @@ import { OpenSourceLicensesPage } from '../pages/open-source-licenses-page'
 
 function EbookReaderRoute() {
   const { bookId } = useParams()
-  if (!bookId || !ebookStore) return <EbookListPage />
+  if (!bookId || !ebookStore) return <BookshelfPage />
   return <EbookReaderPage key={bookId} bookId={bookId} store={ebookStore} />
 }
 
@@ -27,7 +27,7 @@ function ReadingRoutes() {
 
   return (
     <Routes>
-      <Route path="/library" element={<EbookListPage />} />
+      <Route path="/library" element={<BookshelfPage />} />
       <Route path="/books/:bookId" element={<EbookReaderRoute />} />
       <Route path="/console" element={<OcrConsolePage store={ebookStore} />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />

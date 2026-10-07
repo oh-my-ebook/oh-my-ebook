@@ -9,7 +9,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
-import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import type { BookAnalysisStatus, SearchChunkSource } from '@/features/bookshelf/ebook-types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { decodeQuoteTexts, encodeQuoteTexts, type ReaderQuoteRequest } from '@/lib/quote'
 import type { BookMetadata } from '../../../lib/book-metadata'

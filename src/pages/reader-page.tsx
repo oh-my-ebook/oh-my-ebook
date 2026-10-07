@@ -1,7 +1,7 @@
 import type { ChatModelAdapter } from '@assistant-ui/react'
 import { ReaderChat } from '@/features/chat/components/reader-chat'
 import type { SearchChunks } from '@/features/chat/lib/rag/search-book-chunks'
-import type { BookAnalysisStatus } from '@/features/ebook-list/ebook-types'
+import type { BookAnalysisStatus } from '@/features/bookshelf/ebook-types'
 import { Reader, type ReaderProps } from '@/features/reader/components/reader'
 import type { BookMetadata } from '@/lib/book-metadata'
 

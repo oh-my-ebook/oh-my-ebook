@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router'
 import { ErrorAlert } from '@/components/error-alert'
-import { EbookLibrary } from '@/features/ebook-list/components/ebook-library'
-import { ebookStore } from '@/features/ebook-list/lib/ebook-store'
+import { Bookshelf } from '@/features/bookshelf/components/bookshelf'
+import { ebookStore } from '@/features/bookshelf/lib/ebook-store'
 
-export function EbookListPage() {
+export function BookshelfPage() {
   const navigate = useNavigate()
   if (!ebookStore) {
     return (
@@ -13,5 +13,5 @@ export function EbookListPage() {
     )
   }
 
-  return <EbookLibrary store={ebookStore} onOpenBook={(bookId) => navigate(`/books/${bookId}`)} />
+  return <Bookshelf store={ebookStore} onOpenBook={(bookId) => navigate(`/books/${bookId}`)} />
 }

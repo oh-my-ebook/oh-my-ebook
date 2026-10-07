@@ -4,7 +4,7 @@ import type {
   SearchChunkQuery,
   SearchChunkResult,
   SearchChunkSource,
-} from '@/features/ebook-list/ebook-types'
+} from '@/features/bookshelf/ebook-types'
 
 const SEARCH_CHUNK_LIMIT = 5
 

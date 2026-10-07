@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SearchChunkResult } from '@/features/ebook-list/ebook-types'
+import type { SearchChunkResult } from '@/features/bookshelf/ebook-types'
 import {
   MAX_SEARCH_CONTEXT_CHUNKS,
   estimateTextTokens,

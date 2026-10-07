@@ -1,12 +1,12 @@
 import { runOcrAnalysis, type OcrAnalysisFailure, type OcrAnalysisResult } from './ocr-analysis'
-import type { EbookLibraryStore } from '../ebook-library-store'
+import type { BookshelfStore } from '../bookshelf-store'
 
 export function createOcrAnalysisCoordinator() {
   const activeRuns = new Map<string, Promise<OcrAnalysisResult>>()
 
   function startOcrAnalysis(
     bookId: string,
-    store: EbookLibraryStore,
+    store: BookshelfStore,
     onFailure?: (failure: OcrAnalysisFailure) => void,
   ): Promise<OcrAnalysisResult> {
     // 라이브러리 화면을 나갔다 돌아오는 등 다른 호출자가 이미 같은 책을 실행 중이면,
@@ -25,7 +25,7 @@ export function createOcrAnalysisCoordinator() {
 }
 
 const coordinatorsByStore = new WeakMap<
-  EbookLibraryStore,
+  BookshelfStore,
   ReturnType<typeof createOcrAnalysisCoordinator>
 >()
 
@@ -33,7 +33,7 @@ const coordinatorsByStore = new WeakMap<
  * 같은 store 인스턴스를 쓰는 화면이 여러 번 마운트돼도(예: Reader로 이동했다가 책장으로 돌아오는 경우)
  * 이미 진행 중인 OCR 분석을 store별로 재사용하는 코디네이터로 추적해 중복 실행을 막는다.
  */
-export function getOcrAnalysisCoordinator(store: EbookLibraryStore) {
+export function getOcrAnalysisCoordinator(store: BookshelfStore) {
   let coordinator = coordinatorsByStore.get(store)
   if (!coordinator) {
     coordinator = createOcrAnalysisCoordinator()

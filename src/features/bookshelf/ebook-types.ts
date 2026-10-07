@@ -20,7 +20,7 @@ export type EbookClientCommand = Exclude<
 >
 
 // Ebook 서재 페이지에서 내릴 수 있는 명령어
-export type EbookLibraryCommand = Exclude<EbookClientCommand, 'updateProgress'>
+export type BookshelfCommand = Exclude<EbookClientCommand, 'updateProgress'>
 export interface EbookWorkerRequest {
   requestId: number
   command: EbookStoreCommand

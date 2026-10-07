@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import { ErrorAlert } from '@/components/error-alert'
 import { useState } from 'react'
-import { useEbookLibrary, type EbookLibraryStore } from '../hooks/use-ebook-library'
+import { useBookshelf, type BookshelfStore } from '../hooks/use-bookshelf'
 import { clearOriginData } from '../lib/origin-data-manager'
 import { usePageFileDrop } from '../hooks/use-page-file-drop'
 import { EbookStoreError } from '../lib/ebook-store-client'
@@ -14,12 +14,12 @@ import { EbookShelfLoading } from './ebook-shelf-loading'
 import { LibrarySummary } from './library-summary'
 import { ClearOriginDataDialog } from './clear-origin-data-dialog'
 
-interface EbookLibraryProps {
-  store: EbookLibraryStore
+interface BookshelfProps {
+  store: BookshelfStore
   onOpenBook?(bookId: string): void
 }
 
-export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
+export function Bookshelf({ onOpenBook, store }: BookshelfProps) {
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const {
     state,
@@ -36,7 +36,7 @@ export function EbookLibrary({ onOpenBook, store }: EbookLibraryProps) {
     renameBook,
     deleteBook,
     retryOcrAnalysis,
-  } = useEbookLibrary(store)
+  } = useBookshelf(store)
 
   const { isDraggingFile, dropZoneProps } = usePageFileDrop({
     disabled: state.status !== 'ready' || isUploading,

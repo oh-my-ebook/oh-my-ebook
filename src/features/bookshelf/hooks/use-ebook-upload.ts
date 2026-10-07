@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { toast } from '@/components/ui/toast'
 import { EbookStoreError } from '../lib/ebook-store-client'
-import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
 
 interface UseEbookUploadOptions {
-  store: EbookLibraryStore
+  store: BookshelfStore
   isLibraryReady: boolean
   refreshBooks(): Promise<void>
   refreshUsage(): Promise<void>

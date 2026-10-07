@@ -39,7 +39,7 @@ import type {
   SearchTermPage,
   SearchTermRecord,
 } from '../ebook-types'
-import type { EbookLibraryStore } from '../lib/ebook-library-store'
+import type { BookshelfStore } from '../lib/bookshelf-store'
 
 const BOOKS_PER_PAGE = 10
 const LINES_PER_PAGE = 50
@@ -219,7 +219,7 @@ function PageControls({
   )
 }
 
-export function OcrConsole({ store }: { store: EbookLibraryStore }) {
+export function OcrConsole({ store }: { store: BookshelfStore }) {
   const [books, setBooks] = useState<ConsoleBook[]>([])
   const [bookPage, setBookPage] = useState(0)
   const [selectedBook, setSelectedBook] = useState<ConsoleBook | null>(null)
