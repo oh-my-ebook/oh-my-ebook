@@ -1,4 +1,4 @@
-import type { BookAnalysisStatus } from '../book'
+import type { BookAnalysisStatus } from '../ebook/book'
 
 export interface AddBookInput {
   pdfData: ArrayBuffer

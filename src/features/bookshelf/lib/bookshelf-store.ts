@@ -1,5 +1,5 @@
-import type { AddBookInput } from '@/lib/ebook/storage/book'
-import type { EbookClientCommand } from '@/lib/ebook/storage/commands'
+import type { AddBookInput } from '@/lib/ebook-storage/book'
+import type { EbookClientCommand } from '@/lib/ebook-storage/commands'
 
 export type BookshelfCommand = Exclude<EbookClientCommand, 'updateProgress'>
 

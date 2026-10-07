@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Routes, useParams } from 'react-router'
 import { ReaderPage } from './reader-page'
-import { ebookStore } from '@/lib/ebook/storage/connection'
+import { ebookStore } from '@/lib/ebook-storage/connection'
 import { prepareOcr } from '@/lib/pdf/ocr/recognize-page'
 import { prepareCachedWebLlmModel } from '../features/chat/lib/web-llm/model'
 import { EbookReaderPage } from '../pages/ebook-reader-page'

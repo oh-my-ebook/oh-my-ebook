@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from '@/components/ui/toast'
-import { EbookStoreError } from '@/lib/ebook/storage/errors'
+import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf, PdfImportError } from '../lib/pdf-import'
 

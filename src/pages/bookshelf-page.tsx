@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router'
 import { ErrorAlert } from '@/components/error-alert'
 import { Bookshelf } from '@/features/bookshelf/components/bookshelf'
-import { ebookStore } from '@/lib/ebook/storage/connection'
+import { ebookStore } from '@/lib/ebook-storage/connection'
 
 export function BookshelfPage() {
   const navigate = useNavigate()
