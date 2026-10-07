@@ -11,15 +11,15 @@ import { Thread, type ThreadComponents } from '@/components/assistant-ui/element
 import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
 import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-list/ebook-types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
-import type { BookMetadata } from '../lib/book-metadata'
+import { decodeQuoteTexts, encodeQuoteTexts, type ReaderQuoteRequest } from '@/lib/quote'
+import type { BookMetadata } from '../../../lib/book-metadata'
 import { BOOK_CITATIONS_DATA_NAME } from '../lib/rag/book-citations'
 import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import {
   createBookSearchWebLlmChatModelAdapter,
   webLlmChatModelAdapter,
-} from '../lib/web-llm/webllm-chat-adapter'
-import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
+} from '../lib/web-llm/chat-adapter'
+import { useWebLlmModelStore } from '../lib/web-llm/model'
 import { ModelDownloadAlert } from './model-download-alert'
 import { BookCitationNavigationProvider, BookCitations } from './book-citations'
 
@@ -39,13 +39,6 @@ function ReaderChatAnalysisPendingWelcome() {
 
 const ANALYSIS_PENDING_THREAD_COMPONENTS: ThreadComponents = {
   Welcome: ReaderChatAnalysisPendingWelcome,
-}
-
-export interface ReaderQuoteRequest {
-  action: 'attach' | 'explain'
-  id: number
-  pageNumber: number
-  text: string
 }
 
 interface ReaderChatContext {

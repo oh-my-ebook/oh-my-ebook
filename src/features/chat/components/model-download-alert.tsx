@@ -7,7 +7,7 @@ import {
   useWebLlmModelStore,
   type WebLlmModelPhase,
   type WebLlmModelStatus,
-} from '../lib/web-llm/webllm-model'
+} from '../lib/web-llm/model'
 
 const BUTTON = {
   idle: { text: '다운로드', label: '모델 다운로드' },

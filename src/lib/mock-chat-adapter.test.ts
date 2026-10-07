@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ChatModelRunOptions, ChatModelRunResult, ThreadMessage } from '@assistant-ui/react'
-import { createPromiseController } from '../../../test/promise-controller'
+import { createPromiseController } from '../test/promise-controller'
 import {
   createMockChatModelAdapter,
   mockChatModelAdapter,

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '../../../../test/promise-controller'
 import { stubGpu, stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
 import type { InitProgressReport } from '@mlc-ai/web-llm'
-import type { WebLlmEngine } from './webllm-model'
+import type { WebLlmEngine } from './model'
 
 const NETWORK_ERROR_MESSAGE =
   '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
@@ -22,7 +22,7 @@ function mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine: unknown) {
 
 // 엔진 캐시와 상태 store가 모듈 범위에 있으므로 테스트마다 새 모듈을 불러온다.
 async function importFreshModule() {
-  const module = await import('./webllm-model')
+  const module = await import('./model')
   return { ...module, getState: () => module.useWebLlmModelStore.getState() }
 }
 

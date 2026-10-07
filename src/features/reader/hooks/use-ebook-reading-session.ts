@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BookAnalysisStatus } from '@/features/ebook-list/ebook-types'
-import type { BookMetadata } from '../lib/book-metadata'
+import type { BookMetadata } from '../../../lib/book-metadata'
 
 export interface EbookReaderStore {
   request(

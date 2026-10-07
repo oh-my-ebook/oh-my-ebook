@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react'
 import { createPromiseController } from '../../../test/promise-controller'
-import { createMockChatModelAdapter, type MockResponder } from '../lib/mock-chat-adapter'
-import { useWebLlmModelStore, type WebLlmModelStatus } from '../lib/web-llm/webllm-model'
+import { createMockChatModelAdapter, type MockResponder } from '../../../lib/mock-chat-adapter'
+import { useWebLlmModelStore, type WebLlmModelStatus } from '../lib/web-llm/model'
 import { ReaderChat } from './reader-chat'
 
 const prepareWebLlmModelMock = vi.hoisted(() => vi.fn(async () => undefined))
@@ -12,14 +12,14 @@ const prepareWebLlmModelMock = vi.hoisted(() => vi.fn(async () => undefined))
 // 다운로드 버튼이 jsdom에 없는 navigator.gpu 등 실제 WebGPU 경로를 타지 않도록 준비 함수만 바꾼다.
 // 상태 store는 실제 것을 쓰고 테스트에서 setState로 원하는 상태를 만든다.
 vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
+  ...(await importOriginal<typeof import('../lib/web-llm/model')>()),
   prepareWebLlmModel: prepareWebLlmModelMock,
 }))
 
 // 실제 테스트는 전부 ReaderChat에 chatModel prop을 명시하므로 이 기본값은 쓰이지 않아야 한다.
 // 누군가 prop 지정을 깜빡하면 실제 WebGPU 경로 대신 이 오류로 바로 드러나게 한다.
 vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
-  const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
+  const { createMockChatModelAdapter } = await import('../../../lib/mock-chat-adapter')
   // oxlint-disable-next-line require-yield
   async function* unexpectedRespond(): AsyncGenerator<string, void> {
     throw new Error('이 테스트는 ReaderChat에 chatModel prop을 지정하지 않았습니다.')

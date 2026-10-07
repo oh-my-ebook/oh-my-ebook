@@ -8,10 +8,7 @@ import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import {
-  createMockChatModelAdapter,
-  type MockResponder,
-} from '@/features/reader/lib/mock-chat-adapter'
+import { createMockChatModelAdapter, type MockResponder } from '@/lib/mock-chat-adapter'
 import { decodeQuoteTexts, encodeQuoteTexts } from '@/lib/quote'
 
 const threadComponents: ThreadComponents = { Welcome: ReaderChatWelcome }

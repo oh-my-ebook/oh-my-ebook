@@ -3,21 +3,27 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assistant-ui/react'
-import { createPromiseController } from '../../../test/promise-controller'
+import { createPromiseController } from '../test/promise-controller'
 import { TestRouter } from '@/test/test-router'
 import type { BookMetadata } from '../lib/book-metadata'
-import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '../lib/pdf-document'
-import { useWebLlmModelStore } from '../lib/web-llm/webllm-model'
-import { Reader } from './reader'
+import type {
+  LoadedPdfDocument,
+  PdfDocumentHandle,
+  PdfDocumentLoader,
+} from '../features/reader/lib/pdf-document'
+import { useWebLlmModelStore } from '../features/chat/lib/web-llm/model'
+import { ReaderPage } from './reader-page'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
 const recognizePdfPageMock = vi.hoisted(() => vi.fn())
-vi.mock('../lib/pdf-document', async (importOriginal) => {
-  const pdfDocument = await importOriginal<typeof import('../lib/pdf-document')>()
+vi.mock('../features/reader/lib/pdf-document', async (importOriginal) => {
+  const pdfDocument = await importOriginal<typeof import('../features/reader/lib/pdf-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('../lib/ocr/page-recognition', () => ({ recognizePdfPage: recognizePdfPageMock }))
+vi.mock('../features/reader/lib/ocr/page-recognition', () => ({
+  recognizePdfPage: recognizePdfPageMock,
+}))
 
 // jsdom에는 Resizable이 패널 크기를 계산할 실제 레이아웃이 없어 구분선이 입력 포커스를
 // 되가져간다. 실제 primitive 동작은 ReaderPanel 테스트와 E2E에서 확인하고, 이 통합 테스트는
@@ -32,7 +38,7 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
-vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
+vi.mock('../features/chat/lib/web-llm/webllm-chat-adapter', async () => {
   const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
@@ -42,8 +48,8 @@ vi.mock('../lib/web-llm/webllm-chat-adapter', async () => {
 })
 
 // 다운로드 버튼을 누르는 시나리오가 추가돼도 jsdom에 없는 실제 WebGPU 경로를 타지 않게 한다.
-vi.mock('../lib/web-llm/webllm-model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/web-llm/webllm-model')>()),
+vi.mock('../features/chat/lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../features/chat/lib/web-llm/model')>()),
   prepareWebLlmModel: vi.fn(async () => undefined),
 }))
 
@@ -202,7 +208,7 @@ async function renderLoadedReader(
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
   const view = render(
-    <Reader bookMetadata={bookMetadata} chatModel={chatModel} url="/sample.pdf" />,
+    <ReaderPage bookMetadata={bookMetadata} chatModel={chatModel} url="/sample.pdf" />,
     {
       wrapper: TestRouter,
     },
@@ -319,7 +325,7 @@ describe('Reader 보조 패널 연결', () => {
     expect(await screen.findByText('질문')).toBeInTheDocument()
     await screen.findByRole('button', { name: '질문 보내기' }, { timeout: 3000 })
 
-    rerender(<Reader url="/other.pdf" />)
+    rerender(<ReaderPage url="/other.pdf" />)
     await screen.findByRole('img', { name: 'PDF 1페이지' })
 
     expect(screen.getByRole('region', { name: PANEL_TITLE })).toBeInTheDocument()

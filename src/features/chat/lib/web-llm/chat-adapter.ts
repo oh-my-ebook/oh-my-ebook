@@ -14,7 +14,7 @@ import {
   truncateToTokenBudget,
 } from '../rag/format-search-context'
 import { searchBookChunks, type SearchChunks } from '../rag/search-book-chunks'
-import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './webllm-model'
+import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './model'
 
 const PAGE_SUMMARY_QUESTION = '이 페이지에 대해 요약해줘'
 const EXPLAIN_SELECTION_QUESTION =

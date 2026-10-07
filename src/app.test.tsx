@@ -16,8 +16,8 @@ const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const prepareCachedModelMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
-vi.mock('./features/reader/lib/web-llm/webllm-model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./features/reader/lib/web-llm/webllm-model')>()),
+vi.mock('./features/chat/lib/web-llm/webllm-model', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./features/chat/lib/web-llm/model')>()),
   prepareCachedWebLlmModel: prepareCachedModelMock,
 }))
 

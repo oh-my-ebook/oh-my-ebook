@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Undo2 } from 'lucide-react'
-import type { ChatModelAdapter } from '@assistant-ui/react'
-import type { BookAnalysisStatus, SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import type { SearchChunkSource } from '@/features/ebook-list/ebook-types'
+import type { ReaderQuoteRequest } from '@/lib/quote'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Separator } from '@/components/ui/separator'
@@ -10,8 +10,6 @@ import { ErrorAlert } from '@/components/error-alert'
 import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
-import type { BookMetadata } from '../lib/book-metadata'
-import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import type { PdfDocumentSource } from '../lib/pdf-document'
 import type { StoredOcrPageResult } from '../lib/ocr/page-recognition'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
@@ -27,24 +25,35 @@ import {
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
 import { PdfViewport, type OcrText } from './pdf-viewport'
-import { ReaderChat, type ReaderQuoteRequest } from './reader-chat'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'
 import { ZoomControls } from './zoom-controls'
 
-interface ReaderProps {
-  analysisStatus?: BookAnalysisStatus
-  bookId?: string
-  bookMetadata?: BookMetadata
-  chatModel?: ChatModelAdapter
+interface ReaderPanelContext {
+  currentPage: number
+  currentPageText?: string
+  onCitationNavigate(source: SearchChunkSource): void
+  onQuoteRequestHandled(requestId: number): void
+  quoteRequest: ReaderQuoteRequest | null
+}
+
+export interface ReaderProps {
   url?: string
   data?: Uint8Array
   title?: string
   initialPage?: number
   getStoredOcrPage?(pageNumber: number): Promise<StoredOcrPageResult | null>
   onPageChange?(pageNumber: number): void
-  searchChunks?: SearchChunks
+  renderPanel?(context: ReaderPanelContext): ReactNode
+}
+
+// ref를 사용하는 이벤트 핸들러는 props로 전달하고, 패널 렌더 함수는 별도 컴포넌트에서 호출한다.
+function ReaderPanelContent({
+  render,
+  ...context
+}: ReaderPanelContext & { render: ReaderProps['renderPanel'] }) {
+  return render?.(context)
 }
 
 interface ReaderErrorProps {
@@ -148,15 +157,11 @@ function getArrowKeyTargetPage(
 }
 
 export function Reader({
-  analysisStatus,
-  bookMetadata,
-  bookId,
-  chatModel,
   data,
   getStoredOcrPage,
   initialPage,
   onPageChange,
-  searchChunks,
+  renderPanel,
   title,
   url,
 }: ReaderProps) {
@@ -375,18 +380,13 @@ export function Reader({
       open={panelOpen}
       openButtonRef={panelButtonRef}
     >
-      <ReaderChat
-        analysisStatus={analysisStatus}
-        bookMetadata={bookMetadata}
-        bookId={bookId}
-        chatModel={chatModel}
+      <ReaderPanelContent
         currentPage={currentPage}
         currentPageText={currentPageText}
-        key={url}
         onCitationNavigate={handleCitationNavigate}
         onQuoteRequestHandled={handleQuoteRequestHandled}
         quoteRequest={quoteRequest}
-        searchChunks={searchChunks}
+        render={renderPanel}
       />
     </ReaderPanel>
   )

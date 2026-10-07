@@ -2,9 +2,9 @@ import { useCallback } from 'react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { ErrorAlert } from '@/components/error-alert'
-import { Reader } from '@/features/reader/components/reader'
+import { ReaderPage } from './reader-page'
 import type { StoredOcrPageResult } from '@/features/reader/lib/ocr/page-recognition'
-import type { SearchChunks } from '@/features/reader/lib/rag/search-book-chunks'
+import type { SearchChunks } from '@/features/chat/lib/rag/search-book-chunks'
 import { BookOpen, RefreshCw } from 'lucide-react'
 import {
   type EbookReaderStore,
@@ -85,7 +85,7 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   }
 
   return (
-    <Reader
+    <ReaderPage
       analysisStatus={state.book.analysisStatus}
       bookMetadata={state.book.metadata}
       bookId={bookId}
