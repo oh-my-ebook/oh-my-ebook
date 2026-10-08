@@ -221,6 +221,87 @@ describe('SQLocal 저장소', () => {
     ])
   })
 
+  it('OCR 조회는 다른 책을 제외하고 페이지·줄 순서와 페이지네이션을 유지한다', async () => {
+    const { db, id, execute } = await setup()
+    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    await db.sql(
+      `INSERT INTO ocr_pages (id, book_id, page_number, width, height, status, created_at, updated_at)
+       VALUES ('page-2', ?, 2, 100, 200, 'ready', 0, 0),
+              ('other-page', ?, 1, 100, 200, 'ready', 0, 0),
+              ('page-1', ?, 1, NULL, NULL, 'pending', 0, 0)`,
+      id,
+      otherId,
+      id,
+    )
+    await db.sql(`INSERT INTO ocr_lines (ocr_page_id, line_index, raw_text, x0, y0, x1, y1)
+      VALUES ('page-2', 1, '마지막 줄', 1, 2, 3, 4),
+             ('other-page', 0, '다른 책', 1, 2, 3, 4),
+             ('page-2', 0, '중간 줄', 1, 2, 3, 4),
+             ('page-1', 0, '첫 줄', 1, 2, 3, 4)`)
+
+    expect(await execute('listOcrPages')).toEqual([
+      { page_number: 1, status: 'pending', width: null, height: null },
+      { page_number: 2, status: 'ready', width: 100, height: 200 },
+    ])
+    expect(await execute('getStoredOcrPage', { bookId: id, pageNumber: 1 })).toBeNull()
+    expect(await execute('getStoredOcrPage', { bookId: id, pageNumber: 2 })).toEqual({
+      width: 100,
+      height: 200,
+      lines: [
+        { rawText: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { rawText: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+      ],
+    })
+    expect(await execute('listOcrLines', { bookId: id, limit: 2, offset: 1 })).toEqual({
+      total: 3,
+      lines: [
+        { page_number: 2, line_index: 0, raw_text: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { page_number: 2, line_index: 1, raw_text: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+      ],
+    })
+    expect(await execute('listOcrLines', { bookId: id, limit: 2, offset: 3 })).toEqual({
+      total: 3,
+      lines: [],
+    })
+    expect(await execute('getOcrLinesForChunking')).toEqual([
+      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 줄' },
+      { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '중간 줄' },
+      { ocr_page_id: 'page-2', page_number: 2, line_index: 1, raw_text: '마지막 줄' },
+    ])
+  })
+
+  it('OCR 결과가 없으면 빈 목록과 null을 반환하고 없는 책의 분석 상태는 거부한다', async () => {
+    const { id, execute } = await setup()
+    for (const bookId of [id, 'missing']) {
+      expect(await execute('listOcrPages', bookId)).toEqual([])
+      expect(await execute('getOcrLinesForChunking', bookId)).toEqual([])
+      expect(await execute('listOcrLines', { bookId, limit: 10, offset: 0 })).toEqual({
+        total: 0,
+        lines: [],
+      })
+      expect(await execute('getStoredOcrPage', { bookId, pageNumber: 1 })).toBeNull()
+    }
+    await expect(execute('getBookAnalysisStatus', 'missing')).rejects.toBeInstanceOf(
+      NotFoundBookError,
+    )
+  })
+
+  it('손상된 분석 상태·OCR 상태·이미지 크기를 조회할 때 기존 오류를 유지한다', async () => {
+    const { db, id, execute, pages } = await preparePages()
+    await db.sql('PRAGMA ignore_check_constraints = ON')
+    await db.sql("UPDATE books SET analysis_status = 'invalid' WHERE id = ?", id)
+    await expect(execute('getBookAnalysisStatus')).rejects.toThrow('Invalid book analysis status')
+    await db.sql("UPDATE ocr_pages SET status = 'invalid' WHERE id = ?", pages[0].id)
+    await expect(execute('listOcrPages')).rejects.toThrow('Invalid OCR pages')
+    await db.sql(
+      "UPDATE ocr_pages SET status = 'ready', width = 0, height = 200 WHERE id = ?",
+      pages[0].id,
+    )
+    await expect(execute('getStoredOcrPage', { bookId: id, pageNumber: 1 })).rejects.toThrow(
+      'Invalid stored OCR page',
+    )
+  })
+
   it.each(['line', 'page'])(
     'OCR %s 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다',
     async (target) => {

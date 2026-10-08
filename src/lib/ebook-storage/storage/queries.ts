@@ -90,7 +90,6 @@ export const INITIAL_SCHEMA_SQL = `
 `
 
 export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
-export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM books WHERE id = ?'
 
 export const SELECT_CHANGES_SQL = 'SELECT changes()'
 
@@ -121,22 +120,6 @@ export const SET_BOOK_ANALYSIS_FAILED_SQL = `UPDATE books
   SET analysis_status = 'failed', updated_at = ? WHERE id = ?`
 export const RETRY_BOOK_ANALYSIS_SQL = `UPDATE books
   SET analysis_status = 'analyzing', updated_at = ? WHERE id = ? AND analysis_status = 'failed'`
-export const SELECT_OCR_LINE_COUNT_SQL = `SELECT COUNT(*) FROM ocr_lines
-  JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id WHERE ocr_pages.book_id = ?`
-export const SELECT_OCR_LINES_SQL = `SELECT ocr_pages.page_number, ocr_lines.line_index,
-  ocr_lines.raw_text, ocr_lines.x0, ocr_lines.y0, ocr_lines.x1, ocr_lines.y1
-  FROM ocr_lines JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id
-  WHERE ocr_pages.book_id = ? ORDER BY ocr_pages.page_number, ocr_lines.line_index LIMIT ? OFFSET ?`
-export const SELECT_READY_OCR_PAGE_SQL = `SELECT id, width, height FROM ocr_pages
-  WHERE book_id = ? AND page_number = ? AND status = 'ready'`
-export const SELECT_OCR_PAGE_LINES_SQL = `SELECT raw_text, x0, y0, x1, y1 FROM ocr_lines
-  WHERE ocr_page_id = ? ORDER BY line_index`
-export const SELECT_OCR_PAGES_SQL = `SELECT page_number, status, width, height FROM ocr_pages
-  WHERE book_id = ? ORDER BY page_number`
-export const SELECT_OCR_LINES_FOR_CHUNKING_SQL = `SELECT ocr_pages.id AS ocr_page_id,
-  ocr_pages.page_number, ocr_lines.line_index, ocr_lines.raw_text
-  FROM ocr_lines JOIN ocr_pages ON ocr_pages.id = ocr_lines.ocr_page_id
-  WHERE ocr_pages.book_id = ? ORDER BY ocr_pages.page_number, ocr_lines.line_index`
 export const DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL = 'DELETE FROM search_chunks WHERE book_id = ?'
 export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
   id, book_id, ordinal, text, token_count, created_at

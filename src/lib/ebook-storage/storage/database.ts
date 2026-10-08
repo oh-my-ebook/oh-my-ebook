@@ -1,7 +1,7 @@
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { and, desc, eq, gte } from 'drizzle-orm'
-import { books } from '../schema'
+import { and, asc, count, desc, eq, gte } from 'drizzle-orm'
+import { books, ocrLines, ocrPages } from '../schema'
 import { SQLITE_COMMAND } from '../commands'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
 import type { SearchChunkResult, SearchChunkSource } from '../data/search'
@@ -33,17 +33,10 @@ import {
   RETRY_BOOK_ANALYSIS_SQL,
   REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
   SELECT_BOOK_EXISTS_SQL,
-  SELECT_BOOK_ANALYSIS_STATUS_SQL,
   SELECT_BOOK_PAGE_COUNT_SQL,
   SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
   SELECT_NEXT_OCR_PAGE_SQL,
   SELECT_OCR_PAGE_BOOK_ID_SQL,
-  SELECT_OCR_LINE_COUNT_SQL,
-  SELECT_OCR_LINES_SQL,
-  SELECT_OCR_PAGE_LINES_SQL,
-  SELECT_READY_OCR_PAGE_SQL,
-  SELECT_OCR_PAGES_SQL,
-  SELECT_OCR_LINES_FOR_CHUNKING_SQL,
   SELECT_CHUNK_SOURCE_COUNT_SQL,
   SELECT_CHUNK_SOURCES_SQL,
   SELECT_SEARCH_CHUNK_COUNT_SQL,
@@ -375,9 +368,10 @@ async function getBookAnalysisStatus(
   request: StorageRequest,
 ): Promise<BookAnalysisStatus> {
   const bookId = getBookId(request)
-  const result = (
-    await database.sql<Record<string, unknown>>(SELECT_BOOK_ANALYSIS_STATUS_SQL, bookId)
-  )[0]
+  const [result] = await drizzle(database.driver)
+    .select({ analysis_status: books.analysisStatus })
+    .from(books)
+    .where(eq(books.id, bookId))
   if (result?.analysis_status === 'analyzing') return result.analysis_status
   if (result?.analysis_status === 'ready') return result.analysis_status
   if (result?.analysis_status === 'failed') return result.analysis_status
@@ -420,13 +414,17 @@ async function getStoredOcrPage(
   request: StorageRequest,
 ): Promise<StoredOcrPage | null> {
   const input = getPayload(request, request.command, isGetStoredOcrPageInput)
-  const page = (
-    await database.sql<Record<string, unknown>>(
-      SELECT_READY_OCR_PAGE_SQL,
-      input.bookId,
-      input.pageNumber,
+  const db = drizzle(database.driver)
+  const [page] = await db
+    .select({ id: ocrPages.id, width: ocrPages.width, height: ocrPages.height })
+    .from(ocrPages)
+    .where(
+      and(
+        eq(ocrPages.bookId, input.bookId),
+        eq(ocrPages.pageNumber, input.pageNumber),
+        eq(ocrPages.status, 'ready'),
+      ),
     )
-  )[0]
   if (!page) return null
   const { id, width, height } = page
   if (
@@ -440,7 +438,17 @@ async function getStoredOcrPage(
   ) {
     throw new Error('Invalid stored OCR page')
   }
-  const lines = await database.sql<Record<string, unknown>>(SELECT_OCR_PAGE_LINES_SQL, id)
+  const lines = await db
+    .select({
+      raw_text: ocrLines.rawText,
+      x0: ocrLines.x0,
+      y0: ocrLines.y0,
+      x1: ocrLines.x1,
+      y1: ocrLines.y1,
+    })
+    .from(ocrLines)
+    .where(eq(ocrLines.ocrPageId, id))
+    .orderBy(asc(ocrLines.lineIndex))
   if (!Array.isArray(lines)) throw new Error('Invalid stored OCR lines')
   const storedLines = []
   for (const line of lines) {
@@ -476,19 +484,28 @@ async function listOcrPages(
   request: StorageRequest,
 ): Promise<OcrPageRecord[]> {
   const bookId = getBookId(request)
-  const pages = await database.sql<Record<string, unknown>>(SELECT_OCR_PAGES_SQL, bookId)
+  const pages = await drizzle(database.driver)
+    .select({
+      page_number: ocrPages.pageNumber,
+      status: ocrPages.status,
+      width: ocrPages.width,
+      height: ocrPages.height,
+    })
+    .from(ocrPages)
+    .where(eq(ocrPages.bookId, bookId))
+    .orderBy(asc(ocrPages.pageNumber))
   if (!Array.isArray(pages)) throw new Error('Invalid OCR pages')
-  const ocrPages: OcrPageRecord[] = []
+  const records: OcrPageRecord[] = []
   for (const page of pages) {
     if (!isOcrPageRecord(page)) throw new Error('Invalid OCR pages')
-    ocrPages.push({
+    records.push({
       page_number: page.page_number,
       status: page.status,
       width: page.width,
       height: page.height,
     })
   }
-  return ocrPages
+  return records
 }
 
 async function listOcrLines(
@@ -496,21 +513,35 @@ async function listOcrLines(
   request: StorageRequest,
 ): Promise<OcrLinePage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = (
-    await database.sql<Record<string, unknown>>(SELECT_OCR_LINE_COUNT_SQL, input.bookId)
-  )[0]?.['COUNT(*)']
+  const db = drizzle(database.driver)
+  const [result] = await db
+    .select({ total: count() })
+    .from(ocrLines)
+    .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
+    .where(eq(ocrPages.bookId, input.bookId))
+  const total = result?.total
   if (typeof total !== 'number') throw new Error('Invalid OCR line count')
-  const lines = await database.sql<Record<string, unknown>>(
-    SELECT_OCR_LINES_SQL,
-    input.bookId,
-    input.limit,
-    input.offset,
-  )
+  const lines = await db
+    .select({
+      page_number: ocrPages.pageNumber,
+      line_index: ocrLines.lineIndex,
+      raw_text: ocrLines.rawText,
+      x0: ocrLines.x0,
+      y0: ocrLines.y0,
+      x1: ocrLines.x1,
+      y1: ocrLines.y1,
+    })
+    .from(ocrLines)
+    .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
+    .where(eq(ocrPages.bookId, input.bookId))
+    .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
+    .limit(input.limit)
+    .offset(input.offset)
   if (!Array.isArray(lines)) throw new Error('Invalid OCR lines')
-  const ocrLines: OcrLineRecord[] = []
+  const records: OcrLineRecord[] = []
   for (const line of lines) {
     if (!isOcrLineRecord(line)) throw new Error('Invalid OCR lines')
-    ocrLines.push({
+    records.push({
       page_number: line.page_number,
       line_index: line.line_index,
       raw_text: line.raw_text,
@@ -520,7 +551,7 @@ async function listOcrLines(
       y1: line.y1,
     })
   }
-  return { lines: ocrLines, total }
+  return { lines: records, total }
 }
 
 function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
@@ -542,23 +573,30 @@ async function getOcrLinesForChunking(
   request: StorageRequest,
 ): Promise<OcrLineForChunking[]> {
   const bookId = getBookId(request)
-  const lines = await database.sql<Record<string, unknown>>(
-    SELECT_OCR_LINES_FOR_CHUNKING_SQL,
-    bookId,
-  )
+  const lines = await drizzle(database.driver)
+    .select({
+      ocr_page_id: ocrPages.id,
+      page_number: ocrPages.pageNumber,
+      line_index: ocrLines.lineIndex,
+      raw_text: ocrLines.rawText,
+    })
+    .from(ocrLines)
+    .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
+    .where(eq(ocrPages.bookId, bookId))
+    .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
   if (!Array.isArray(lines)) throw new Error('Invalid OCR lines for chunking')
 
-  const ocrLines: OcrLineForChunking[] = []
+  const records: OcrLineForChunking[] = []
   for (const line of lines) {
     if (!isOcrLineForChunking(line)) throw new Error('Invalid OCR lines for chunking')
-    ocrLines.push({
+    records.push({
       ocr_page_id: line.ocr_page_id,
       page_number: line.page_number,
       line_index: line.line_index,
       raw_text: line.raw_text,
     })
   }
-  return ocrLines
+  return records
 }
 
 async function storeSearchChunk(
