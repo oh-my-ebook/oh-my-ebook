@@ -137,6 +137,35 @@ describe('SQLocal 저장소', () => {
     ])
   })
 
+  it('100개 OCR 페이지를 빠짐없이 등록하고 다시 초기화해도 기존 행을 유지한다', async () => {
+    const db = await createTestDatabase()
+    const id = await addBook(db, createBookInput({ pageCount: 100 }))
+    const request = { command: 'initializeOcrPages', payload: { bookId: id, pageCount: 100 } }
+    await executeSqliteCommand(db, request)
+    const pages = await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')
+    expect(pages.map((page) => page.page_number)).toEqual(
+      Array.from({ length: 100 }, (_, index) => index + 1),
+    )
+    await executeSqliteCommand(db, request)
+    expect(await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
+  })
+
+  it('OCR 페이지 등록 도중 실패하면 앞서 등록한 페이지도 롤백하고 재시도할 수 있다', async () => {
+    const { db, id, execute } = await setup()
+    await db.sql(`CREATE TRIGGER fail_second_page BEFORE INSERT ON ocr_pages
+      WHEN NEW.page_number = 2 BEGIN SELECT RAISE(ABORT, 'page failure'); END`)
+    await expect(execute('initializeOcrPages', { bookId: id, pageCount: 2 })).rejects.toThrow(
+      'page failure',
+    )
+    expect(await db.sql('SELECT * FROM ocr_pages')).toEqual([])
+    await db.sql('DROP TRIGGER fail_second_page')
+    await execute('initializeOcrPages', { bookId: id, pageCount: 2 })
+    expect(await db.sql('SELECT page_number FROM ocr_pages ORDER BY page_number')).toEqual([
+      { page_number: 1 },
+      { page_number: 2 },
+    ])
+  })
+
   it('실패한 OCR과 책 분석을 재시도 상태로 되돌린다', async () => {
     const { db, execute, pages } = await preparePages()
     await execute('acquireNextOcrPage')
@@ -157,7 +186,10 @@ describe('SQLocal 저장소', () => {
     const { db, id, execute, pages } = await preparePages()
     await execute('acquireNextOcrPage')
     await execute('acquireNextOcrPage')
-    const lines = [{ rawText: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 }]
+    const lines = [
+      { rawText: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+      { rawText: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
+    ]
     expect(
       await execute('storeOcrPage', { pageId: pages[0].id, width: 100, height: 200, lines }),
     ).toBe(false)
@@ -174,35 +206,56 @@ describe('SQLocal 저장소', () => {
       [1, 2].map((page_number) => ({ page_number, width: 100, height: 200, status: 'ready' })),
     )
     expect(await execute('listOcrLines', { bookId: id, limit: 10, offset: 0 })).toEqual({
-      total: 1,
-      lines: [{ page_number: 1, line_index: 0, raw_text: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
+      total: 2,
+      lines: [
+        { page_number: 1, line_index: 0, raw_text: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
+      ],
     })
     expect(await execute('getOcrLinesForChunking')).toEqual([
       { ocr_page_id: pages[0].id, page_number: 1, line_index: 0, raw_text: '첫 줄' },
+      { ocr_page_id: pages[0].id, page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?" },
     ])
     expect(await db.sql('SELECT ocr_completed_at FROM books')).toEqual([
       { ocr_completed_at: expect.any(Number) },
     ])
   })
 
-  it('OCR 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다', async () => {
-    const { db, execute, pages } = await preparePages()
-    const input = {
-      pageId: pages[0].id,
-      width: 100,
-      height: 200,
-      lines: [{ rawText: '기존 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
-    }
-    await execute('acquireNextOcrPage')
-    await execute('storeOcrPage', input)
-    await db.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
-    const before = await db.sql('SELECT * FROM ocr_lines')
-    await db.sql(
-      "CREATE TRIGGER fail_page BEFORE UPDATE ON ocr_pages BEGIN SELECT RAISE(ABORT, 'page failure'); END",
-    )
-    await expect(execute('storeOcrPage', { ...input, lines: [] })).rejects.toThrow('page failure')
-    expect(await db.sql('SELECT * FROM ocr_lines')).toEqual(before)
-  })
+  it.each(['line', 'page'])(
+    'OCR %s 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다',
+    async (target) => {
+      const { db, execute, pages } = await preparePages()
+      const input = {
+        pageId: pages[0].id,
+        width: 100,
+        height: 200,
+        lines: [{ rawText: '기존 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
+      }
+      await execute('acquireNextOcrPage')
+      await execute('storeOcrPage', input)
+      await db.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
+      const before = await db.sql('SELECT * FROM ocr_lines')
+      const pagesBefore = await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')
+      const booksBefore = await db.sql('SELECT * FROM books')
+      await db.sql(
+        target === 'line'
+          ? "CREATE TRIGGER fail_write BEFORE INSERT ON ocr_lines WHEN NEW.line_index = 1 BEGIN SELECT RAISE(ABORT, 'write failure'); END"
+          : "CREATE TRIGGER fail_write BEFORE UPDATE ON ocr_pages BEGIN SELECT RAISE(ABORT, 'write failure'); END",
+      )
+      await expect(
+        execute('storeOcrPage', {
+          ...input,
+          lines: [
+            { ...input.lines[0], rawText: '새 첫 줄' },
+            { ...input.lines[0], rawText: '새 둘째 줄' },
+          ],
+        }),
+      ).rejects.toThrow('write failure')
+      expect(await db.sql('SELECT * FROM ocr_lines')).toEqual(before)
+      expect(await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pagesBefore)
+      expect(await db.sql('SELECT * FROM books')).toEqual(booksBefore)
+    },
+  )
 
   it('검색 색인·출처·용어·빈도를 저장하고 BM25 순위와 페이지 출처를 반환한다', async () => {
     const { db, id, execute, pages } = await preparePages()

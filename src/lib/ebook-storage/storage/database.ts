@@ -274,18 +274,11 @@ async function initializeOcrPages(
   }
 
   const now = Date.now()
-  return await database.transaction(async (tx) => {
-    for (let pageNumber = 1; pageNumber <= input.pageCount; pageNumber += 1) {
-      await tx.sql<Record<string, unknown>>(
-        INSERT_OCR_PAGE_SQL,
-        crypto.randomUUID(),
-        input.bookId,
-        pageNumber,
-        now,
-        now,
-      )
-    }
-  })
+  await database.batch((sql) =>
+    Array.from({ length: input.pageCount }, (_, index) =>
+      sql(INSERT_OCR_PAGE_SQL, crypto.randomUUID(), input.bookId, index + 1, now, now),
+    ),
+  )
 }
 
 async function prepareOcrPagesForRun(
@@ -328,19 +321,21 @@ async function storeOcrPage(database: SQLocalDrizzle, request: StorageRequest): 
     const bookId = page?.book_id
     if (typeof bookId !== 'string') throw new NotFoundBookError()
 
-    await tx.sql<Record<string, unknown>>(DELETE_OCR_LINES_SQL, input.pageId)
-    for (const [lineIndex, line] of input.lines.entries()) {
-      await tx.sql<Record<string, unknown>>(
-        INSERT_OCR_LINE_SQL,
-        input.pageId,
-        lineIndex,
-        line.rawText,
-        line.x0,
-        line.y0,
-        line.x1,
-        line.y1,
-      )
-    }
+    await tx.batch((sql) => [
+      sql(DELETE_OCR_LINES_SQL, input.pageId),
+      ...input.lines.map((line, lineIndex) =>
+        sql(
+          INSERT_OCR_LINE_SQL,
+          input.pageId,
+          lineIndex,
+          line.rawText,
+          line.x0,
+          line.y0,
+          line.x1,
+          line.y1,
+        ),
+      ),
+    ])
     await tx.sql<Record<string, unknown>>(
       SET_OCR_PAGE_READY_SQL,
       input.width,
