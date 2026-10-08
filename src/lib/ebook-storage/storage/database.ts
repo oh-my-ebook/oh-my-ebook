@@ -1,4 +1,7 @@
-import sqlite3InitModule, { type Database } from '@sqlite.org/sqlite-wasm'
+import type { SQLocalDrizzle } from 'sqlocal/drizzle'
+import { drizzle } from 'drizzle-orm/sqlite-proxy'
+import { desc } from 'drizzle-orm'
+import { books } from '../schema'
 import { SQLITE_COMMAND } from '../commands'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
 import type { SearchChunkResult, SearchChunkSource } from '../data/search'
@@ -22,26 +25,19 @@ import type {
   StoredOcrPage,
 } from '../data/ocr'
 import {
-  BEGIN_TRANSACTION_SQL,
-  COMMIT_TRANSACTION_SQL,
   DELETE_BOOK_BY_ID_SQL,
   DELETE_ORPHAN_SEARCH_TERMS_SQL,
   DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
-  ENABLE_FOREIGN_KEYS_SQL,
-  GET_SCHEMA_VERSION_SQL,
-  INITIAL_SCHEMA_SQL,
   INSERT_BOOK_SQL,
   INSERT_CHUNK_SOURCE_SQL,
   INSERT_SEARCH_CHUNK_SQL,
   INSERT_SEARCH_POSTING_SQL,
-  ROLLBACK_TRANSACTION_SQL,
   RETRY_BOOK_ANALYSIS_SQL,
   REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
   SELECT_BOOK_EXISTS_SQL,
   SELECT_BOOK_ANALYSIS_STATUS_SQL,
   SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
   SELECT_BOOK_METADATA_SQL,
-  SELECT_BOOKS_SQL,
   SELECT_BOOK_PAGE_COUNT_SQL,
   SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
   SELECT_NEXT_OCR_PAGE_SQL,
@@ -83,7 +79,6 @@ import {
   DuplicateBookError,
   NotFoundBookError,
   UnsupportedCommandError,
-  UnsupportedStorageError,
 } from './errors'
 import {
   getPayload,
@@ -98,7 +93,7 @@ import {
   isUpdateProgressInput,
   isUpdateTitleInput,
   normalizeStoredProgress,
-  type WorkerRequest,
+  type StorageRequest,
 } from './validation'
 
 type SqliteCommand = (typeof SQLITE_COMMAND)[keyof typeof SQLITE_COMMAND]
@@ -109,108 +104,58 @@ export function isSqliteCommand(command: string): command is SqliteCommand {
   return SQLITE_COMMAND_LIST.has(command)
 }
 
-let databasePromise: Promise<Database> | undefined
-
-export function addBook(database: Database, input: AddBookInput): string {
-  if (database.selectValue(SELECT_BOOK_ID_BY_CONTENT_HASH_SQL, [input.contentHash])) {
+export async function addBook(database: SQLocalDrizzle, input: AddBookInput): Promise<string> {
+  if (
+    (
+      await database.sql<Record<string, unknown>>(
+        SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
+        input.contentHash,
+      )
+    )[0]?.['id']
+  ) {
     throw new DuplicateBookError()
   }
 
   const id = crypto.randomUUID()
   const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    database.exec(INSERT_BOOK_SQL, {
-      bind: [
-        id,
-        input.contentHash,
-        input.fileName,
-        input.title,
-        input.author,
-        input.pdfTitle,
-        input.pdfSubject,
-        input.pdfKeywords,
-        input.publisher,
-        input.pdfSize,
-        input.pageCount,
-        input.coverData ? new Uint8Array(input.coverData) : null,
-        input.coverMime,
-        input.coverStatus,
-        'analyzing',
-        null,
-        null,
-        now,
-        now,
-      ],
-    })
-    database.exec(COMMIT_TRANSACTION_SQL)
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
-  return id
-}
-
-export function deleteBookById(database: Database, id: string): void {
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    database.exec(DELETE_BOOK_BY_ID_SQL, { bind: [id] })
-    if (!isRowAffected(database)) throw new DeletedBookError()
-
-    database.exec(DELETE_ORPHAN_SEARCH_TERMS_SQL)
-    database.exec(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
-    database.exec(COMMIT_TRANSACTION_SQL)
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
-}
-
-async function openDatabase(): Promise<Database> {
-  const sqlite3 = await sqlite3InitModule()
-  if (!sqlite3.capi.sqlite3_vfs_find('opfs')) throw new UnsupportedStorageError()
-
-  const database = new sqlite3.oo1.OpfsDb('/ebook-library.sqlite3')
-  try {
-    database.exec(ENABLE_FOREIGN_KEYS_SQL)
-    const version = database.exec(GET_SCHEMA_VERSION_SQL, {
-      rowMode: 0,
-      returnValue: 'resultRows',
-    })[0]
-    if (version === 0) {
-      database.exec(BEGIN_TRANSACTION_SQL)
-      try {
-        database.exec(INITIAL_SCHEMA_SQL)
-        database.exec(COMMIT_TRANSACTION_SQL)
-      } catch (error) {
-        database.exec(ROLLBACK_TRANSACTION_SQL)
-        throw error
-      }
-    } else if (version !== 1) {
-      throw new Error('Unsupported schema version')
-    }
-    return database
-  } catch (error) {
-    database.close()
-    throw error
-  }
-}
-
-export function getDatabase(): Promise<Database> {
-  databasePromise ??= openDatabase().catch((error: unknown) => {
-    databasePromise = undefined
-    throw error
+  return await database.transaction(async (tx) => {
+    await tx.sql<Record<string, unknown>>(
+      INSERT_BOOK_SQL,
+      id,
+      input.contentHash,
+      input.fileName,
+      input.title,
+      input.author,
+      input.pdfTitle,
+      input.pdfSubject,
+      input.pdfKeywords,
+      input.publisher,
+      input.pdfSize,
+      input.pageCount,
+      input.coverData ? new Uint8Array(input.coverData) : null,
+      input.coverMime,
+      input.coverStatus,
+      'analyzing',
+      null,
+      null,
+      now,
+      now,
+    )
+    return id
   })
-  return databasePromise
 }
 
-export async function closeDatabase(): Promise<void> {
-  const database = await databasePromise
-  database?.close()
-  databasePromise = undefined
+export async function deleteBookById(database: SQLocalDrizzle, id: string): Promise<void> {
+  return await database.transaction(async (tx) => {
+    await tx.sql<Record<string, unknown>>(DELETE_BOOK_BY_ID_SQL, id)
+    if (!(await isRowAffected(tx))) throw new DeletedBookError()
+
+    await tx.sql<Record<string, unknown>>(DELETE_ORPHAN_SEARCH_TERMS_SQL)
+    await tx.sql<Record<string, unknown>>(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+  })
 }
 
-export function getBookId(request: WorkerRequest): string {
+export function getBookId(request: StorageRequest): string {
   return getPayload(
     request,
     request.command,
@@ -218,164 +163,224 @@ export function getBookId(request: WorkerRequest): string {
   )
 }
 
-export function listBooks(database: Database): unknown {
-  return database.exec(SELECT_BOOKS_SQL, { rowMode: 'object', returnValue: 'resultRows' })
+export async function listBooks(database: SQLocalDrizzle) {
+  return await drizzle(database.driver)
+    .select({
+      id: books.id,
+      content_hash: books.contentHash,
+      file_name: books.fileName,
+      title: books.title,
+      author: books.author,
+      pdf_title: books.pdfTitle,
+      pdf_subject: books.pdfSubject,
+      pdf_keywords: books.pdfKeywords,
+      publisher: books.publisher,
+      pdf_size: books.pdfSize,
+      page_count: books.pageCount,
+      cover_data: books.coverData,
+      cover_mime: books.coverMime,
+      cover_status: books.coverStatus,
+      last_page: books.lastPage,
+      analysis_status: books.analysisStatus,
+      ocr_completed_at: books.ocrCompletedAt,
+      indexed_at: books.indexedAt,
+      created_at: books.createdAt,
+      updated_at: books.updatedAt,
+    })
+    .from(books)
+    .orderBy(desc(books.createdAt), desc(books.id))
 }
 
-function hasBook(database: Database, request: WorkerRequest): undefined {
+async function hasBook(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const id = getBookId(request)
-  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [id])) {
+  if (!(await database.sql<Record<string, unknown>>(SELECT_BOOK_EXISTS_SQL, id))[0]?.['1']) {
     throw new DeletedBookError()
   }
   return undefined
 }
 
-export function getBookMetadata(database: Database, id: string): Record<string, unknown> {
-  const book = database.selectObject(SELECT_BOOK_METADATA_SQL, [id])
+export async function getBookMetadata(
+  database: SQLocalDrizzle,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const book = (await database.sql<Record<string, unknown>>(SELECT_BOOK_METADATA_SQL, id))[0]
   if (!book) throw new NotFoundBookError()
-  return normalizeStoredProgress(database, id, book)
+  return await normalizeStoredProgress(database, id, book)
 }
 
-function updateProgress(database: Database, request: WorkerRequest): undefined {
+async function updateProgress(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateProgressInput)
-  database.exec(UPDATE_BOOK_PROGRESS_SQL, { bind: [input.page, Date.now(), input.id, input.page] })
-  if (!isRowAffected(database)) throw new DeletedBookError()
+  await database.sql<Record<string, unknown>>(
+    UPDATE_BOOK_PROGRESS_SQL,
+    input.page,
+    Date.now(),
+    input.id,
+    input.page,
+  )
+  if (!(await isRowAffected(database))) throw new DeletedBookError()
   return undefined
 }
 
-function updateTitle(database: Database, request: WorkerRequest): undefined {
+async function updateTitle(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateTitleInput)
-  database.exec(UPDATE_BOOK_TITLE_SQL, {
-    bind: [input.title.trim(), Date.now(), input.id],
-  })
-  if (!isRowAffected(database)) throw new DeletedBookError()
+  await database.sql<Record<string, unknown>>(
+    UPDATE_BOOK_TITLE_SQL,
+    input.title.trim(),
+    Date.now(),
+    input.id,
+  )
+  if (!(await isRowAffected(database))) throw new DeletedBookError()
   return undefined
 }
 
-function updateCover(database: Database, request: WorkerRequest): undefined {
+async function updateCover(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateCoverInput)
-  database.exec(UPDATE_BOOK_COVER_SQL, {
-    bind: [new Uint8Array(input.coverData), input.coverMime, Date.now(), input.id],
-  })
-  if (!isRowAffected(database)) throw new DeletedBookError()
+  await database.sql<Record<string, unknown>>(
+    UPDATE_BOOK_COVER_SQL,
+    new Uint8Array(input.coverData),
+    input.coverMime,
+    Date.now(),
+    input.id,
+  )
+  if (!(await isRowAffected(database))) throw new DeletedBookError()
   return undefined
 }
 
 // 업로든한 PDF의 페이지 수를 보고 페이지 개수만큼 저장한다.
-function initializeOcrPages(database: Database, request: WorkerRequest): undefined {
+async function initializeOcrPages(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<void> {
   const input = getPayload(request, request.command, isInitializeOcrPagesInput)
-  if (!database.selectValue(SELECT_BOOK_PAGE_COUNT_SQL, [input.bookId])) {
+  if (
+    !(await database.sql<Record<string, unknown>>(SELECT_BOOK_PAGE_COUNT_SQL, input.bookId))[0]?.[
+      'page_count'
+    ]
+  ) {
     throw new NotFoundBookError()
   }
 
   const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
+  return await database.transaction(async (tx) => {
     for (let pageNumber = 1; pageNumber <= input.pageCount; pageNumber += 1) {
-      database.exec(INSERT_OCR_PAGE_SQL, {
-        bind: [crypto.randomUUID(), input.bookId, pageNumber, now, now],
-      })
+      await tx.sql<Record<string, unknown>>(
+        INSERT_OCR_PAGE_SQL,
+        crypto.randomUUID(),
+        input.bookId,
+        pageNumber,
+        now,
+        now,
+      )
     }
-    database.exec(COMMIT_TRANSACTION_SQL)
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
-  return undefined
+  })
 }
 
-function prepareOcrPagesForRun(database: Database, request: WorkerRequest): undefined {
+async function prepareOcrPagesForRun(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<void> {
   const bookId = getBookId(request)
-  database.exec(PREPARE_OCR_PAGES_FOR_RUN_SQL, { bind: [Date.now(), bookId] })
+  await database.sql<Record<string, unknown>>(PREPARE_OCR_PAGES_FOR_RUN_SQL, Date.now(), bookId)
   return undefined
 }
 
-function acquireNextOcrPage(database: Database, request: WorkerRequest): NextOcrPage | null {
+async function acquireNextOcrPage(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<NextOcrPage | null> {
   const bookId = getBookId(request)
   const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    const page = database.selectObject(SELECT_NEXT_OCR_PAGE_SQL, [bookId])
+  return await database.transaction(async (tx) => {
+    const page = (await tx.sql<Record<string, unknown>>(SELECT_NEXT_OCR_PAGE_SQL, bookId))[0]
     if (!page) {
-      database.exec(COMMIT_TRANSACTION_SQL)
       return null
     }
 
     const { id, page_number: pageNumber } = page
     if (typeof id !== 'string' || typeof pageNumber !== 'number')
       throw new Error('Invalid OCR page')
-    database.exec(SET_OCR_PAGE_PROCESSING_SQL, { bind: [now, id] })
-    if (!isRowAffected(database)) throw new Error('Unable to claim OCR page')
-    database.exec(COMMIT_TRANSACTION_SQL)
+    await tx.sql<Record<string, unknown>>(SET_OCR_PAGE_PROCESSING_SQL, now, id)
+    if (!(await isRowAffected(tx))) throw new Error('Unable to claim OCR page')
     return { id, pageNumber }
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
+  })
 }
 
-function storeOcrPage(database: Database, request: WorkerRequest): boolean {
+async function storeOcrPage(database: SQLocalDrizzle, request: StorageRequest): Promise<boolean> {
   const input = getPayload(request, request.command, isStoreOcrPageInput)
   const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    const page = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [input.pageId])
+  return await database.transaction(async (tx) => {
+    const page = (
+      await tx.sql<Record<string, unknown>>(SELECT_OCR_PAGE_BOOK_ID_SQL, input.pageId)
+    )[0]
     const bookId = page?.book_id
     if (typeof bookId !== 'string') throw new NotFoundBookError()
 
-    database.exec(DELETE_OCR_LINES_SQL, { bind: [input.pageId] })
-    input.lines.forEach((line, lineIndex) => {
-      database.exec(INSERT_OCR_LINE_SQL, {
-        bind: [input.pageId, lineIndex, line.rawText, line.x0, line.y0, line.x1, line.y1],
-      })
-    })
-    database.exec(SET_OCR_PAGE_READY_SQL, {
-      bind: [input.width, input.height, now, input.pageId],
-    })
-    if (!isRowAffected(database)) throw new Error('Unable to store OCR page')
+    await tx.sql<Record<string, unknown>>(DELETE_OCR_LINES_SQL, input.pageId)
+    for (const [lineIndex, line] of input.lines.entries()) {
+      await tx.sql<Record<string, unknown>>(
+        INSERT_OCR_LINE_SQL,
+        input.pageId,
+        lineIndex,
+        line.rawText,
+        line.x0,
+        line.y0,
+        line.x1,
+        line.y1,
+      )
+    }
+    await tx.sql<Record<string, unknown>>(
+      SET_OCR_PAGE_READY_SQL,
+      input.width,
+      input.height,
+      now,
+      input.pageId,
+    )
+    if (!(await isRowAffected(tx))) throw new Error('Unable to store OCR page')
 
-    const incompletePages = database.selectValue(SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL, [bookId])
+    const incompletePages = (
+      await tx.sql<Record<string, unknown>>(SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL, bookId)
+    )[0]?.['COUNT(*)']
     if (incompletePages !== 0) {
-      database.exec(COMMIT_TRANSACTION_SQL)
       return false
     }
-    database.exec(SET_OCR_COMPLETED_AT_SQL, { bind: [now, now, bookId] })
-    database.exec(COMMIT_TRANSACTION_SQL)
+    await tx.sql<Record<string, unknown>>(SET_OCR_COMPLETED_AT_SQL, now, now, bookId)
     return true
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
+  })
 }
 
-function failOcrPage(database: Database, request: WorkerRequest): undefined {
+async function failOcrPage(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const pageId = getBookId(request)
-  database.exec(SET_OCR_PAGE_FAILED_SQL, { bind: [Date.now(), pageId] })
-  if (!isRowAffected(database)) throw new NotFoundBookError()
+  await database.sql<Record<string, unknown>>(SET_OCR_PAGE_FAILED_SQL, Date.now(), pageId)
+  if (!(await isRowAffected(database))) throw new NotFoundBookError()
   return undefined
 }
 
-function failBookAnalysis(database: Database, request: WorkerRequest): undefined {
+async function failBookAnalysis(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const bookId = getBookId(request)
-  database.exec(SET_BOOK_ANALYSIS_FAILED_SQL, { bind: [Date.now(), bookId] })
-  if (!isRowAffected(database)) throw new NotFoundBookError()
+  await database.sql<Record<string, unknown>>(SET_BOOK_ANALYSIS_FAILED_SQL, Date.now(), bookId)
+  if (!(await isRowAffected(database))) throw new NotFoundBookError()
   return undefined
 }
 
-function getBookAnalysisStatus(database: Database, request: WorkerRequest): BookAnalysisStatus {
+async function getBookAnalysisStatus(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<BookAnalysisStatus> {
   const bookId = getBookId(request)
-  const result = database.selectObject(SELECT_BOOK_ANALYSIS_STATUS_SQL, [bookId])
+  const result = (
+    await database.sql<Record<string, unknown>>(SELECT_BOOK_ANALYSIS_STATUS_SQL, bookId)
+  )[0]
   if (result?.analysis_status === 'analyzing') return result.analysis_status
   if (result?.analysis_status === 'ready') return result.analysis_status
   if (result?.analysis_status === 'failed') return result.analysis_status
-  if (result === null) throw new NotFoundBookError()
+  if (!result) throw new NotFoundBookError()
   throw new Error('Invalid book analysis status')
 }
 
-function retryBookAnalysis(database: Database, request: WorkerRequest): undefined {
+async function retryBookAnalysis(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const bookId = getBookId(request)
-  database.exec(RETRY_BOOK_ANALYSIS_SQL, { bind: [Date.now(), bookId] })
-  if (!isRowAffected(database)) throw new NotFoundBookError()
+  await database.sql<Record<string, unknown>>(RETRY_BOOK_ANALYSIS_SQL, Date.now(), bookId)
+  if (!(await isRowAffected(database))) throw new NotFoundBookError()
   return undefined
 }
 
@@ -402,9 +407,18 @@ function isStoredOcrLine(value: unknown): value is {
   return true
 }
 
-function getStoredOcrPage(database: Database, request: WorkerRequest): StoredOcrPage | null {
+async function getStoredOcrPage(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<StoredOcrPage | null> {
   const input = getPayload(request, request.command, isGetStoredOcrPageInput)
-  const page = database.selectObject(SELECT_READY_OCR_PAGE_SQL, [input.bookId, input.pageNumber])
+  const page = (
+    await database.sql<Record<string, unknown>>(
+      SELECT_READY_OCR_PAGE_SQL,
+      input.bookId,
+      input.pageNumber,
+    )
+  )[0]
   if (!page) return null
   const { id, width, height } = page
   if (
@@ -418,11 +432,7 @@ function getStoredOcrPage(database: Database, request: WorkerRequest): StoredOcr
   ) {
     throw new Error('Invalid stored OCR page')
   }
-  const lines = database.exec(SELECT_OCR_PAGE_LINES_SQL, {
-    bind: [id],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const lines = await database.sql<Record<string, unknown>>(SELECT_OCR_PAGE_LINES_SQL, id)
   if (!Array.isArray(lines)) throw new Error('Invalid stored OCR lines')
   const storedLines = []
   for (const line of lines) {
@@ -453,13 +463,12 @@ function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
   return value === 'pending' || value === 'processing' || value === 'ready' || value === 'failed'
 }
 
-function listOcrPages(database: Database, request: WorkerRequest): OcrPageRecord[] {
+async function listOcrPages(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<OcrPageRecord[]> {
   const bookId = getBookId(request)
-  const pages = database.exec(SELECT_OCR_PAGES_SQL, {
-    bind: [bookId],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const pages = await database.sql<Record<string, unknown>>(SELECT_OCR_PAGES_SQL, bookId)
   if (!Array.isArray(pages)) throw new Error('Invalid OCR pages')
   const ocrPages: OcrPageRecord[] = []
   for (const page of pages) {
@@ -474,15 +483,21 @@ function listOcrPages(database: Database, request: WorkerRequest): OcrPageRecord
   return ocrPages
 }
 
-function listOcrLines(database: Database, request: WorkerRequest): OcrLinePage {
+async function listOcrLines(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<OcrLinePage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = database.selectValue(SELECT_OCR_LINE_COUNT_SQL, [input.bookId])
+  const total = (
+    await database.sql<Record<string, unknown>>(SELECT_OCR_LINE_COUNT_SQL, input.bookId)
+  )[0]?.['COUNT(*)']
   if (typeof total !== 'number') throw new Error('Invalid OCR line count')
-  const lines = database.exec(SELECT_OCR_LINES_SQL, {
-    bind: [input.bookId, input.limit, input.offset],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const lines = await database.sql<Record<string, unknown>>(
+    SELECT_OCR_LINES_SQL,
+    input.bookId,
+    input.limit,
+    input.offset,
+  )
   if (!Array.isArray(lines)) throw new Error('Invalid OCR lines')
   const ocrLines: OcrLineRecord[] = []
   for (const line of lines) {
@@ -514,13 +529,15 @@ function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
   )
 }
 
-function getOcrLinesForChunking(database: Database, request: WorkerRequest): OcrLineForChunking[] {
+async function getOcrLinesForChunking(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<OcrLineForChunking[]> {
   const bookId = getBookId(request)
-  const lines = database.exec(SELECT_OCR_LINES_FOR_CHUNKING_SQL, {
-    bind: [bookId],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const lines = await database.sql<Record<string, unknown>>(
+    SELECT_OCR_LINES_FOR_CHUNKING_SQL,
+    bookId,
+  )
   if (!Array.isArray(lines)) throw new Error('Invalid OCR lines for chunking')
 
   const ocrLines: OcrLineForChunking[] = []
@@ -536,64 +553,73 @@ function getOcrLinesForChunking(database: Database, request: WorkerRequest): Ocr
   return ocrLines
 }
 
-function storeSearchChunk(
-  database: Database,
+async function storeSearchChunk(
+  database: Pick<SQLocalDrizzle, 'sql'>,
   bookId: string,
   chunk: SearchChunkInput,
   createdAt: number,
-): void {
-  database.exec(INSERT_SEARCH_CHUNK_SQL, {
-    bind: [chunk.id, bookId, chunk.ordinal, chunk.text, chunk.tokenCount, createdAt],
-  })
+): Promise<void> {
+  await database.sql<Record<string, unknown>>(
+    INSERT_SEARCH_CHUNK_SQL,
+    chunk.id,
+    bookId,
+    chunk.ordinal,
+    chunk.text,
+    chunk.tokenCount,
+    createdAt,
+  )
   for (const source of chunk.sources) {
-    const sourcePage = database.selectObject(SELECT_OCR_PAGE_BOOK_ID_SQL, [source.ocrPageId])
+    const sourcePage = (
+      await database.sql<Record<string, unknown>>(SELECT_OCR_PAGE_BOOK_ID_SQL, source.ocrPageId)
+    )[0]
     if (sourcePage?.book_id !== bookId) {
       throw new Error('Chunk source does not belong to book')
     }
-    database.exec(INSERT_CHUNK_SOURCE_SQL, {
-      bind: [
-        chunk.id,
-        source.ocrPageId,
-        source.startLineIndex,
-        source.endLineIndex,
-        source.sourceOrder,
-      ],
-    })
+    await database.sql<Record<string, unknown>>(
+      INSERT_CHUNK_SOURCE_SQL,
+      chunk.id,
+      source.ocrPageId,
+      source.startLineIndex,
+      source.endLineIndex,
+      source.sourceOrder,
+    )
   }
 }
 
-function storeSearchIndex(database: Database, request: WorkerRequest): undefined {
+async function storeSearchIndex(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isStoreSearchIndexInput)
-  if (!database.selectValue(SELECT_BOOK_EXISTS_SQL, [input.bookId])) throw new NotFoundBookError()
+  if (
+    !(await database.sql<Record<string, unknown>>(SELECT_BOOK_EXISTS_SQL, input.bookId))[0]?.['1']
+  )
+    throw new NotFoundBookError()
 
   const now = Date.now()
-  database.exec(BEGIN_TRANSACTION_SQL)
-  try {
-    database.exec(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, { bind: [input.bookId] })
-    database.exec(DELETE_ORPHAN_SEARCH_TERMS_SQL)
-    database.exec(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+  return await database.transaction(async (tx) => {
+    await tx.sql<Record<string, unknown>>(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, input.bookId)
+    await tx.sql<Record<string, unknown>>(DELETE_ORPHAN_SEARCH_TERMS_SQL)
+    await tx.sql<Record<string, unknown>>(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
 
     for (const chunk of input.chunks) {
-      storeSearchChunk(database, input.bookId, chunk, now)
+      await storeSearchChunk(tx, input.bookId, chunk, now)
       for (const { term, termFrequency } of chunk.terms) {
-        database.exec(UPSERT_SEARCH_TERM_SQL, { bind: [term] })
-        const termId = database.selectValue(SELECT_SEARCH_TERM_ID_SQL, [term])
+        await tx.sql<Record<string, unknown>>(UPSERT_SEARCH_TERM_SQL, term)
+        const termId = (
+          await tx.sql<Record<string, unknown>>(SELECT_SEARCH_TERM_ID_SQL, term)
+        )[0]?.['id']
         if (typeof termId !== 'number' || !Number.isSafeInteger(termId) || termId <= 0) {
           throw new Error('Unable to store search term')
         }
-        database.exec(INSERT_SEARCH_POSTING_SQL, {
-          bind: [termId, chunk.id, termFrequency],
-        })
+        await tx.sql<Record<string, unknown>>(
+          INSERT_SEARCH_POSTING_SQL,
+          termId,
+          chunk.id,
+          termFrequency,
+        )
       }
     }
-    database.exec(SET_BOOK_INDEXED_SQL, { bind: [now, now, input.bookId] })
-    if (!isRowAffected(database)) throw new NotFoundBookError()
-    database.exec(COMMIT_TRANSACTION_SQL)
-  } catch (error) {
-    database.exec(ROLLBACK_TRANSACTION_SQL)
-    throw error
-  }
-  return undefined
+    await tx.sql<Record<string, unknown>>(SET_BOOK_INDEXED_SQL, now, now, input.bookId)
+    if (!(await isRowAffected(tx))) throw new NotFoundBookError()
+  })
 }
 
 function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
@@ -606,15 +632,21 @@ function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
   return true
 }
 
-function listSearchChunks(database: Database, request: WorkerRequest): SearchChunkPage {
+async function listSearchChunks(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<SearchChunkPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = database.selectValue(SELECT_SEARCH_CHUNK_COUNT_SQL, [input.bookId])
+  const total = (
+    await database.sql<Record<string, unknown>>(SELECT_SEARCH_CHUNK_COUNT_SQL, input.bookId)
+  )[0]?.['COUNT(*)']
   if (typeof total !== 'number') throw new Error('Invalid search chunk count')
-  const rows = database.exec(SELECT_SEARCH_CHUNKS_SQL, {
-    bind: [input.bookId, input.limit, input.offset],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const rows = await database.sql<Record<string, unknown>>(
+    SELECT_SEARCH_CHUNKS_SQL,
+    input.bookId,
+    input.limit,
+    input.offset,
+  )
   if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
 
   const chunks: SearchChunkRecord[] = []
@@ -667,15 +699,19 @@ function isSearchChunkSourceRow(value: unknown): value is {
   )
 }
 
-function searchChunks(database: Database, request: WorkerRequest): SearchChunkResult[] {
+async function searchChunks(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<SearchChunkResult[]> {
   const query = getPayload(request, request.command, isSearchChunkQuery)
   if (query.terms.length === 0) return []
 
-  const rows = database.exec(createSearchChunksSql(query.terms.length), {
-    bind: [...query.terms, query.bookId, query.limit],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const rows = await database.sql<Record<string, unknown>>(
+    createSearchChunksSql(query.terms.length),
+    ...query.terms,
+    query.bookId,
+    query.limit,
+  )
   if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
 
   const chunks: Omit<SearchChunkResult, 'sources'>[] = []
@@ -691,11 +727,10 @@ function searchChunks(database: Database, request: WorkerRequest): SearchChunkRe
   }
   if (chunks.length === 0) return []
 
-  const sourceRows = database.exec(createSearchChunkSourcesSql(chunks.length), {
-    bind: chunks.map(({ id }) => id),
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const sourceRows = await database.sql<Record<string, unknown>>(
+    createSearchChunkSourcesSql(chunks.length),
+    ...chunks.map(({ id }) => id),
+  )
   if (!Array.isArray(sourceRows)) throw new Error('Invalid search chunk sources')
 
   const sourcesByChunkId = new Map<string, SearchChunkSource[]>()
@@ -721,15 +756,21 @@ function isSearchTermRecord(value: unknown): value is SearchTermRecord {
   return true
 }
 
-function listSearchTerms(database: Database, request: WorkerRequest): SearchTermPage {
+async function listSearchTerms(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<SearchTermPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = database.selectValue(SELECT_SEARCH_TERM_COUNT_SQL, [input.bookId])
+  const total = (
+    await database.sql<Record<string, unknown>>(SELECT_SEARCH_TERM_COUNT_SQL, input.bookId)
+  )[0]?.['COUNT(DISTINCT search_terms.id)']
   if (typeof total !== 'number') throw new Error('Invalid search term count')
-  const rows = database.exec(SELECT_SEARCH_TERMS_SQL, {
-    bind: [input.bookId, input.limit, input.offset],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const rows = await database.sql<Record<string, unknown>>(
+    SELECT_SEARCH_TERMS_SQL,
+    input.bookId,
+    input.limit,
+    input.offset,
+  )
   if (!Array.isArray(rows)) throw new Error('Invalid search terms')
 
   const terms: SearchTermRecord[] = []
@@ -750,15 +791,21 @@ function isSearchPostingRecord(value: unknown): value is SearchPostingRecord {
   return true
 }
 
-function listSearchPostings(database: Database, request: WorkerRequest): SearchPostingPage {
+async function listSearchPostings(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<SearchPostingPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = database.selectValue(SELECT_SEARCH_POSTING_COUNT_SQL, [input.bookId])
+  const total = (
+    await database.sql<Record<string, unknown>>(SELECT_SEARCH_POSTING_COUNT_SQL, input.bookId)
+  )[0]?.['COUNT(*)']
   if (typeof total !== 'number') throw new Error('Invalid search posting count')
-  const rows = database.exec(SELECT_SEARCH_POSTINGS_SQL, {
-    bind: [input.bookId, input.limit, input.offset],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const rows = await database.sql<Record<string, unknown>>(
+    SELECT_SEARCH_POSTINGS_SQL,
+    input.bookId,
+    input.limit,
+    input.offset,
+  )
   if (!Array.isArray(rows)) throw new Error('Invalid search postings')
 
   const postings: SearchPostingRecord[] = []
@@ -782,15 +829,21 @@ function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
   return true
 }
 
-function listChunkSources(database: Database, request: WorkerRequest): ChunkSourcePage {
+async function listChunkSources(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<ChunkSourcePage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = database.selectValue(SELECT_CHUNK_SOURCE_COUNT_SQL, [input.bookId])
+  const total = (
+    await database.sql<Record<string, unknown>>(SELECT_CHUNK_SOURCE_COUNT_SQL, input.bookId)
+  )[0]?.['COUNT(*)']
   if (typeof total !== 'number') throw new Error('Invalid chunk source count')
-  const rows = database.exec(SELECT_CHUNK_SOURCES_SQL, {
-    bind: [input.bookId, input.limit, input.offset],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  })
+  const rows = await database.sql<Record<string, unknown>>(
+    SELECT_CHUNK_SOURCES_SQL,
+    input.bookId,
+    input.limit,
+    input.offset,
+  )
   if (!Array.isArray(rows)) throw new Error('Invalid chunk sources')
 
   const sources: ChunkSourceRecord[] = []
@@ -801,7 +854,10 @@ function listChunkSources(database: Database, request: WorkerRequest): ChunkSour
   return { sources, total }
 }
 
-export function executeSqliteCommand(database: Database, request: WorkerRequest): unknown {
+export async function executeSqliteCommand(
+  database: SQLocalDrizzle,
+  request: StorageRequest,
+): Promise<unknown> {
   switch (request.command) {
     case SQLITE_COMMAND.INITIALIZE:
       return undefined

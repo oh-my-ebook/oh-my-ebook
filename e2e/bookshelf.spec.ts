@@ -225,13 +225,16 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장�
     navigator.storage.persisted = async () => true
     navigator.storage.estimate = async () => ({ usage })
 
-    const original = Worker.prototype.postMessage
-    Worker.prototype.postMessage = function (message, ...transfer) {
-      if (typeof message === 'object' && message !== null && 'command' in message) {
-        if (message.command === 'saveBook') usage = 2_000
-        if (message.command === 'deleteBook') usage = 0
-      }
-      return Reflect.apply(original, this, [message, ...transfer])
+    const createWritable = FileSystemFileHandle.prototype.createWritable
+    FileSystemFileHandle.prototype.createWritable = async function (options) {
+      const stream = await createWritable.call(this, options)
+      usage = 2_000
+      return stream
+    }
+    const removeEntry = FileSystemDirectoryHandle.prototype.removeEntry
+    FileSystemDirectoryHandle.prototype.removeEntry = async function (name, options) {
+      await removeEntry.call(this, name, options)
+      usage = 0
     }
   })
   await page.goto('/library')
@@ -269,29 +272,36 @@ test('책 삭제를 취소하거나 완료하면 목록과 브라우저 저장�
   await expect(page.getByText('소장 도서 1권 (0 B)')).toBeVisible()
 })
 
+test('모든 데이터를 삭제한 뒤 빈 책장에서 다시 책을 추가한다', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => true
+  })
+  await page.goto('/library')
+  const input = page.getByLabel('PDF 파일 선택')
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await input.setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
+  const book = page.getByRole('article', { name: 'The Local Library' })
+  await expect(book).toBeVisible()
+
+  await page.getByRole('button', { name: '저장소 관리' }).click()
+  await page.getByRole('button', { name: '모든 데이터 삭제' }).click()
+
+  await expect(page.getByRole('button', { name: '책 추가' })).toBeVisible()
+  await expect(book).toHaveCount(0)
+  await input.setInputFiles(resolve('e2e/fixtures/ebook/with-metadata.pdf'))
+  await expect(book).toBeVisible()
+  await page.reload()
+  await expect(book).toBeVisible()
+})
+
 test('책 삭제 저장이 실패하면 책을 유지하고 재시도 안내를 보여 준다', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
 
-    const original = Worker.prototype.postMessage
-    Worker.prototype.postMessage = function (message, ...transfer) {
-      if (
-        typeof message === 'object' &&
-        message !== null &&
-        'command' in message &&
-        message.command === 'deleteBook' &&
-        'requestId' in message
-      ) {
-        setTimeout(() => {
-          this.dispatchEvent(
-            new MessageEvent('message', {
-              data: { requestId: message.requestId, error: { code: 'storage-failed' } },
-            }),
-          )
-        }, 0)
-        return
-      }
-      return Reflect.apply(original, this, [message, ...transfer])
+    const removeEntry = FileSystemDirectoryHandle.prototype.removeEntry
+    FileSystemDirectoryHandle.prototype.removeEntry = function (name, options) {
+      if (name.endsWith('.pdf')) throw new DOMException('Deletion failed', 'NotAllowedError')
+      return removeEntry.call(this, name, options)
     }
   })
   await page.goto('/library')
@@ -374,25 +384,8 @@ test('표지 생성 실패를 복구하고 회전된 첫 페이지를 표지로 
 test('실제 저장 요청이 실패해도 불완전한 책을 표시하지 않는다', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.storage.persisted = async () => true
-    const original = Worker.prototype.postMessage
-    Worker.prototype.postMessage = function (message, transfer) {
-      if (
-        typeof message === 'object' &&
-        message !== null &&
-        'command' in message &&
-        message.command === 'saveBook' &&
-        'requestId' in message
-      ) {
-        setTimeout(() => {
-          this.dispatchEvent(
-            new MessageEvent('message', {
-              data: { requestId: message.requestId, error: { code: 'storage-failed' } },
-            }),
-          )
-        }, 0)
-        return
-      }
-      Reflect.apply(original, this, [message, transfer])
+    FileSystemFileHandle.prototype.createWritable = async function () {
+      throw new DOMException('Write failed', 'NotAllowedError')
     }
   })
   await page.goto('/library')

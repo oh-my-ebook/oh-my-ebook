@@ -32,23 +32,12 @@ export const SQLITE_COMMAND = {
   SEARCH_CHUNKS: 'searchChunks',
 } as const
 
-export const OPFS_COMMAND = {
-  WRITE_PDF: 'writePdf',
-  READ_PDF: 'readPdf',
-  DELETE_PDF: 'deletePdf',
-} as const
-
 export type Command = (typeof COMMAND)[keyof typeof COMMAND]
 
 export type SQLITECommand = (typeof SQLITE_COMMAND)[keyof typeof SQLITE_COMMAND]
 
-export type OPFSCommand = (typeof OPFS_COMMAND)[keyof typeof OPFS_COMMAND]
-
 // 사용 가능한 전체 명령어
-export type EbookStoreCommand = Command | SQLITECommand | OPFSCommand
+export type EbookStoreCommand = Command | SQLITECommand
 
 // Client에게 요청 가능한 명령어
-export type EbookClientCommand = Exclude<
-  EbookStoreCommand,
-  'saveBook' | 'writePdf' | 'readPdf' | 'deletePdf'
->
+export type EbookClientCommand = Exclude<EbookStoreCommand, 'saveBook'>

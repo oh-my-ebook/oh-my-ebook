@@ -10,10 +10,6 @@ export const EBOOK_STORE_ERROR_MESSAGES = {
 
 export type EbookStoreErrorCode = keyof typeof EBOOK_STORE_ERROR_MESSAGES
 
-export function isEbookStoreErrorCode(value: unknown): value is EbookStoreErrorCode {
-  return typeof value === 'string' && Object.hasOwn(EBOOK_STORE_ERROR_MESSAGES, value)
-}
-
 export class EbookStoreError extends Error {
   readonly code: EbookStoreErrorCode
 

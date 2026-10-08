@@ -1,8 +1,5 @@
 export const ENABLE_FOREIGN_KEYS_SQL = 'PRAGMA foreign_keys = ON'
 export const GET_SCHEMA_VERSION_SQL = 'PRAGMA user_version'
-export const BEGIN_TRANSACTION_SQL = 'BEGIN IMMEDIATE'
-export const COMMIT_TRANSACTION_SQL = 'COMMIT'
-export const ROLLBACK_TRANSACTION_SQL = 'ROLLBACK'
 
 export const INITIAL_SCHEMA_SQL = `
   CREATE TABLE books (
@@ -101,12 +98,6 @@ export const INSERT_BOOK_SQL = `INSERT INTO books (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`
 
 export const DELETE_BOOK_BY_ID_SQL = 'DELETE FROM books WHERE id = ?'
-
-export const SELECT_BOOKS_SQL = `SELECT id, content_hash, file_name, title,
-  author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
-  page_count, cover_data, cover_mime, cover_status,
-  last_page, analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
-  FROM books ORDER BY created_at DESC, id DESC`
 
 export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
 export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM books WHERE id = ?'

@@ -1,4 +1,4 @@
-import type { Database } from '@sqlite.org/sqlite-wasm'
+import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { SearchChunkQuery } from '../data/search'
 import type { AddBookInput } from '../data/book'
 import type {
@@ -25,11 +25,6 @@ export interface UpdateProgressInput {
 export interface UpdateTitleInput {
   id: string
   title: string
-}
-
-export interface PdfWriteInput {
-  contentHash: string
-  pdfData: ArrayBuffer
 }
 
 export interface InitializeOcrPagesInput {
@@ -62,23 +57,9 @@ export interface GetStoredOcrPageInput {
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
 
-export interface WorkerRequest {
-  requestId: number
+export interface StorageRequest {
   command: string
   payload?: unknown
-}
-
-export function isWorkerRequest(value: unknown): value is WorkerRequest {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'requestId' in value &&
-    typeof value.requestId === 'number' &&
-    Number.isSafeInteger(value.requestId) &&
-    value.requestId > 0 &&
-    'command' in value &&
-    typeof value.command === 'string'
-  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -143,18 +124,6 @@ export function isAddBookInput(value: unknown): value is AddBookInput {
 
 export function isContentHash(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-}
-
-export function isPdfWriteInput(value: unknown): value is PdfWriteInput {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'contentHash' in value &&
-    isContentHash(value.contentHash) &&
-    'pdfData' in value &&
-    value.pdfData instanceof ArrayBuffer &&
-    value.pdfData.byteLength > 0
-  )
 }
 
 export function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
@@ -325,7 +294,7 @@ export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPa
 }
 
 export function getPayload<T>(
-  request: WorkerRequest,
+  request: StorageRequest,
   command: string,
   isValid: (value: unknown) => value is T,
 ): T {
@@ -333,11 +302,11 @@ export function getPayload<T>(
   return request.payload
 }
 
-export function normalizeStoredProgress(
-  database: Database,
+export async function normalizeStoredProgress(
+  database: Pick<SQLocalDrizzle, 'sql'>,
   id: string,
   book: Record<string, unknown>,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const pageCount = book.page_count
   const lastPage = book.last_page
   if (
@@ -353,12 +322,10 @@ export function normalizeStoredProgress(
     return book
   }
 
-  database.exec(RESET_INVALID_BOOK_PROGRESS_SQL, {
-    bind: [Date.now(), id],
-  })
+  await database.sql<Record<string, unknown>>(RESET_INVALID_BOOK_PROGRESS_SQL, Date.now(), id)
   return { ...book, last_page: 1 }
 }
 
-export function isRowAffected(database: Database): boolean {
-  return database.selectValue(SELECT_CHANGES_SQL) === 1
+export async function isRowAffected(database: Pick<SQLocalDrizzle, 'sql'>): Promise<boolean> {
+  return (await database.sql<Record<string, unknown>>(SELECT_CHANGES_SQL))[0]?.['changes()'] === 1
 }

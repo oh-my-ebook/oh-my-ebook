@@ -1,23 +1,11 @@
-/// <reference lib="webworker" />
-
+import { closeDatabase, getDatabase } from './database-connection'
 import { COMMAND } from '../commands'
-import type { EbookStoreResponse } from '../worker-messages'
-import { getErrorCode, UnsupportedCommandError } from './errors'
-import {
-  clearOpfs,
-  deletePdf,
-  executeOpfsCommand,
-  hasPdf,
-  isOpfsCommand,
-  readPdf,
-  writePdf,
-} from './pdf-files'
+import { UnsupportedCommandError } from './errors'
+import { clearOpfs, deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
   addBook,
-  closeDatabase,
   deleteBookById,
   executeSqliteCommand,
-  getDatabase,
   getBookMetadata,
   isSqliteCommand,
   getBookId,
@@ -28,31 +16,29 @@ import {
   isAddBookInput,
   isBook,
   isContentHash,
-  isWorkerRequest,
-  type WorkerRequest,
+  type StorageRequest,
 } from './validation'
 
-const workerScope = self as DedicatedWorkerGlobalScope
 const COMMAND_LIST: ReadonlySet<string> = new Set(Object.values(COMMAND))
 function isLibraryCommand(command: string): command is (typeof COMMAND)[keyof typeof COMMAND] {
   return COMMAND_LIST.has(command)
 }
 
 /**
- * SQLite에 메타 데이터를 먼저 저장한 후, Hash 값을 기반으로 OPFS에 PDF 파일 저장
+ * SQLite에 메타 데이터를 먼저 저장한 후, 콘텐츠 해시를 기준으로 OPFS에 PDF 파일 저장
  * 만약 OPFS 저장에 실패하면 SQLite에 저장한 메타 데이터를 삭제
  */
-async function saveBook(request: WorkerRequest): Promise<string> {
+async function saveBook(request: StorageRequest): Promise<string> {
   const input = getPayload(request, request.command, isAddBookInput)
   const database = await getDatabase()
-  const id = addBook(database, input)
+  const id = await addBook(database, input)
 
   try {
     await writePdf(input.contentHash, input.pdfData)
     return id
   } catch (error) {
     try {
-      deleteBookById(database, id)
+      await deleteBookById(database, id)
     } catch {
       console.error('Failed to delete book from SQLite', { id })
     }
@@ -60,9 +46,9 @@ async function saveBook(request: WorkerRequest): Promise<string> {
   }
 }
 
-async function getBook(request: WorkerRequest): Promise<Record<string, unknown>> {
+async function getBook(request: StorageRequest): Promise<Record<string, unknown>> {
   const id = getBookId(request)
-  const book = getBookMetadata(await getDatabase(), id)
+  const book = await getBookMetadata(await getDatabase(), id)
   const contentHash = book.content_hash
   if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
@@ -70,7 +56,7 @@ async function getBook(request: WorkerRequest): Promise<Record<string, unknown>>
 }
 
 async function listLibraryBooks(): Promise<Record<string, unknown>[]> {
-  const books = listBooks(await getDatabase())
+  const books = await listBooks(await getDatabase())
   if (!Array.isArray(books)) throw new Error('Invalid book list')
 
   return await Promise.all(
@@ -83,18 +69,18 @@ async function listLibraryBooks(): Promise<Record<string, unknown>[]> {
 }
 
 /**
- * OSPF에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 메타 데이터를 삭제
- * 만약 OSPF 삭제에 실패하면 Error를 발생
+ * OPFS에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 메타 데이터를 삭제
+ * 만약 OPFS 삭제에 실패하면 Error를 발생
  */
-async function deleteBook(request: WorkerRequest): Promise<void> {
+async function deleteBook(request: StorageRequest): Promise<void> {
   const id = getBookId(request)
   const database = await getDatabase()
-  const book = getBookMetadata(database, id)
+  const book = await getBookMetadata(database, id)
   const contentHash = book.content_hash
   if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
   await deletePdf(contentHash)
-  deleteBookById(database, id)
+  await deleteBookById(database, id)
 }
 
 async function clearStorage(): Promise<void> {
@@ -102,7 +88,7 @@ async function clearStorage(): Promise<void> {
   await clearOpfs()
 }
 
-function executeLibraryCommand(request: WorkerRequest): Promise<unknown> {
+function executeLibraryCommand(request: StorageRequest): Promise<unknown> {
   switch (request.command) {
     case COMMAND.CLEAR_STORAGE:
       return clearStorage()
@@ -119,28 +105,8 @@ function executeLibraryCommand(request: WorkerRequest): Promise<unknown> {
   }
 }
 
-async function executeCommand(request: WorkerRequest): Promise<unknown> {
+export async function executeCommand(request: StorageRequest): Promise<unknown> {
   if (isLibraryCommand(request.command)) return await executeLibraryCommand(request)
-  if (isOpfsCommand(request.command)) return await executeOpfsCommand(request)
   if (isSqliteCommand(request.command)) return executeSqliteCommand(await getDatabase(), request)
   throw new UnsupportedCommandError(request.command)
-}
-
-async function respondToRequest(request: WorkerRequest): Promise<void> {
-  const { requestId, command } = request
-  try {
-    const result = await executeCommand(request)
-    workerScope.postMessage({ requestId, result: result ?? null } satisfies EbookStoreResponse)
-  } catch (error) {
-    const code = getErrorCode(error)
-    if (code === 'storage-failed') {
-      console.error('storage.worker command failed', { command, error })
-    }
-    workerScope.postMessage({ requestId, error: { code } } satisfies EbookStoreResponse)
-  }
-}
-
-workerScope.onmessage = async (event: MessageEvent<unknown>) => {
-  if (!isWorkerRequest(event.data)) return
-  await respondToRequest(event.data)
 }

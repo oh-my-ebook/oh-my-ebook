@@ -181,9 +181,6 @@ importers:
       '@paddleocr/paddleocr-js':
         specifier: 0.4.2
         version: 0.4.2
-      '@sqlite.org/sqlite-wasm':
-        specifier: 3.53.4-build1
-        version: 3.53.4-build1
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -217,6 +214,9 @@ importers:
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
+      sqlocal:
+        specifier: 0.18.0
+        version: 0.18.0(drizzle-orm@0.45.3)(react@19.3.0)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.27.0)(jiti@2.7.0)(tsx@4.21.0))
       tw-animate-css:
         specifier: 1.4.0
         version: 1.4.0
@@ -2769,8 +2769,8 @@ packages:
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
 
-  '@sqlite.org/sqlite-wasm@3.53.4-build1':
-    resolution: {integrity: sha512-U8pvL0patYHMgieD8JxxYJTlh9m1LUX8+BDYb7MiKQzBI89f2qbdmdcG/PvnPaLm9wsBbv4VlVG453ixnxBOnA==}
+  '@sqlite.org/sqlite-wasm@3.51.2-build9':
+    resolution: {integrity: sha512-tj2Sa6X4gVZqS9SiT2xlEeChSUklSGq8Hz6zKNbHW6NRiGyrSXiFcspnrWru1wPBT76RX/VxweESKxawCxfDxg==}
     engines: {node: '>=22'}
 
   '@standard-schema/spec@1.1.0':
@@ -2988,6 +2988,9 @@ packages:
 
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
+
+  '@ungap/with-resolvers@0.1.0':
+    resolution: {integrity: sha512-g7f0IkJdPW2xhY7H4iE72DAsIyfuwEFc6JWc2tYFwKDMWWAF699vGjrM348cwQuOXgHpe1gWFe+Eiyjx/ewvvw==}
 
   '@vercel/backends@8.0.0':
     resolution: {integrity: sha512-Vp+W7m2GuxpMNf3Q7+MW+E9TzLeBjyofwuWFWfHgxKt+GfHQ6oebU5GYrZs25ldwBsJpUADCxHE2bpnDL2Ccmg==}
@@ -3530,6 +3533,9 @@ packages:
 
   code-block-writer@13.0.3:
     resolution: {integrity: sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg==}
+
+  coincident@1.2.3:
+    resolution: {integrity: sha512-Uxz3BMTWIslzeWjuQnizGWVg0j6khbvHUQ8+5BdM7WuJEm4ALXwq3wluYoB+uF68uPBz/oUOeJnYURKyfjexlA==}
 
   comma-separated-tokens@2.0.3:
     resolution: {integrity: sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg==}
@@ -4077,6 +4083,9 @@ packages:
 
   fuzzysort@3.1.0:
     resolution: {integrity: sha512-sR9BNCjBg6LNgwvxlBd0sBABvQitkLzoVY9MYYROQVX/FvfJ4Mai9LsGhDgd8qYdds0bY77VzYd5iuB+v5rwQQ==}
+
+  gc-hook@0.3.1:
+    resolution: {integrity: sha512-E5M+O/h2o7eZzGhzRZGex6hbB3k4NWqO0eA+OzLRLXxhdbYPajZnynPwAtphnh+cRHPwsj5Z80dqZlfI4eK55A==}
 
   generic-pool@3.4.2:
     resolution: {integrity: sha512-H7cUpwCQSiJmAHM4c/aFu6fUfrhWXW1ncyh8ftxEPMu6AiYkHw9K8br720TGPZJbk5eOH2bynjZD1yPvdDAmag==}
@@ -5372,6 +5381,9 @@ packages:
     resolution: {integrity: sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==}
     engines: {node: '>= 0.10'}
 
+  proxy-target@3.0.2:
+    resolution: {integrity: sha512-FFE1XNwXX/FNC3/P8HiKaJSy/Qk68RitG/QEcLy/bVnTAPlgTAWPZKh0pARLAnpfXQPKyalBhk009NRTgsk8vQ==}
+
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
 
@@ -5679,6 +5691,29 @@ packages:
 
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
+
+  sqlocal@0.18.0:
+    resolution: {integrity: sha512-AJvbSe7W52YeI3KWt3TOl6Xf4oH/72JdQ0oig78G6v6Hrk906dIVP0vT9uIx7HmJaYHU/G+AgyqCW12W2IJ1OA==}
+    peerDependencies:
+      '@angular/core': '>=17.0.0'
+      drizzle-orm: '*'
+      kysely: '*'
+      react: '>=18.0.0'
+      vite: '>=4.0.0'
+      vue: '>=3.0.0'
+    peerDependenciesMeta:
+      '@angular/core':
+        optional: true
+      drizzle-orm:
+        optional: true
+      kysely:
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+      vue:
+        optional: true
 
   srvx@0.11.16:
     resolution: {integrity: sha512-bp07zRuycfTY43IjAvvTFnmnJi8ikW0VFiHwOhhYcVW/L4xQ1XY4PAd4Nuum1rsA17C39zL7x+CDhrn5AL32Rw==}
@@ -8341,7 +8376,7 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@sqlite.org/sqlite-wasm@3.53.4-build1': {}
+  '@sqlite.org/sqlite-wasm@3.51.2-build9': {}
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -8547,6 +8582,8 @@ snapshots:
   '@types/validate-npm-package-name@4.0.2': {}
 
   '@ungap/structured-clone@1.4.0': {}
+
+  '@ungap/with-resolvers@0.1.0': {}
 
   '@vercel/backends@8.0.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@vercel/build-utils@14.10.0)':
     dependencies:
@@ -9224,6 +9261,18 @@ snapshots:
 
   code-block-writer@13.0.3: {}
 
+  coincident@1.2.3:
+    dependencies:
+      '@ungap/structured-clone': 1.4.0
+      '@ungap/with-resolvers': 0.1.0
+      gc-hook: 0.3.1
+      proxy-target: 3.0.2
+    optionalDependencies:
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   comma-separated-tokens@2.0.3: {}
 
   commander@11.1.0: {}
@@ -9740,6 +9789,8 @@ snapshots:
   function-bind@1.1.2: {}
 
   fuzzysort@3.1.0: {}
+
+  gc-hook@0.3.1: {}
 
   generic-pool@3.4.2: {}
 
@@ -11008,6 +11059,8 @@ snapshots:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
 
+  proxy-target@3.0.2: {}
+
   pump@3.0.4:
     dependencies:
       end-of-stream: 1.4.5
@@ -11472,6 +11525,18 @@ snapshots:
   source-map@0.6.1: {}
 
   space-separated-tokens@2.0.2: {}
+
+  sqlocal@0.18.0(drizzle-orm@0.45.3)(react@19.3.0)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.27.0)(jiti@2.7.0)(tsx@4.21.0)):
+    dependencies:
+      '@sqlite.org/sqlite-wasm': 3.51.2-build9
+      coincident: 1.2.3
+    optionalDependencies:
+      drizzle-orm: 0.45.3
+      react: 19.3.0
+      vite: 8.3.0(@types/node@24.13.5)(esbuild@0.27.0)(jiti@2.7.0)(tsx@4.21.0)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   srvx@0.11.16: {}
 
