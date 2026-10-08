@@ -132,7 +132,8 @@ E2E는 `playwright.config.ts`에서 관리하며 현재 Chromium에서 실행한
 랜딩 체험, 서재의 책 추가·삭제와 저장 데이터 복원, PDF 표시·탐색·확대, 독서 위치 복원과 채팅 패널 조작을 검증한다.
 
 `pnpm check`는 포맷·린트·타입 검사와 Vitest 테스트를 실행한다. E2E는 `pnpm test:e2e`로 별도 실행하며,
-GitHub CI에서는 포맷·린트·타입 검사와 `pnpm test:coverage`를 실행한 뒤 Chromium을 설치하고 E2E를 실행한다. HTML 보고서는 30일간 보관한다.
+GitHub CI에서는 포맷·린트·타입 검사, `pnpm test:coverage`, E2E를 독립된 job으로 병렬 실행한다.
+Chromium은 E2E job에서만 설치한다. E2E 테스트가 실패한 경우에만 HTML 보고서를 아티팩트로 업로드하고 7일간 보관한다.
 CI의 첫 실패 재시도에서 trace를 수집한다. 로컬에서 trace가 필요하면 `pnpm test:e2e --trace on`으로 실행한다.
 이 E2E는 개발 서버를 대상으로 한다. Vercel 배포는 `vercel.json`에 설정된 `pnpm check && pnpm build`로 검사하고 빌드한다.
 
