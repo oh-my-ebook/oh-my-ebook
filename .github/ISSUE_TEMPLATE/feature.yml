@@ -21,4 +21,4 @@ body:
     id: refs
     attributes:
       label: 참고 자료
-      description: 관련 이슈, 화면 예시나 Spec Kit 문서(spec.md·plan.md·tasks.md)가 있다면 연결해 주세요.
+      description: 관련 이슈, 화면 예시나 참고 문서가 있다면 연결해 주세요.

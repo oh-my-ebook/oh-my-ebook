@@ -1,5 +1,5 @@
 name: 📝 문서 개선
-description: README, 개발 가이드나 Spec Kit 문서에서 보완할 내용을 알려주세요.
+description: README나 개발 가이드 등 문서에서 보완할 내용을 알려주세요.
 title: '[📝 문서] '
 labels: ['documentation']
 body:
@@ -8,7 +8,7 @@ body:
     attributes:
       label: 문서 위치
       description: 파일 경로나 링크를 적어주세요.
-      placeholder: README.md, AGENTS.md, DESIGN.md, .specify/memory/constitution.md
+      placeholder: README.md, AGENTS.md, DESIGN.md
     validations:
       required: true
   - type: textarea

@@ -1,6 +1,6 @@
 ---
 name: pr-writing
-description: oh-my-ebook의 실제 브랜치 변경과 관련 명세를 근거로 한국어 PR 제목·본문을 작성하거나 다듬는다. 개요, 변경 내용, 필요한 선택 근거를 간결하게 정리하며 본문 초안만 작성할 때도 사용한다.
+description: oh-my-ebook의 실제 브랜치 변경과 관련 문서를 근거로 한국어 PR 제목·본문을 작성하거나 다듬는다. 개요, 변경 내용, 필요한 선택 근거를 간결하게 정리하며 본문 초안만 작성할 때도 사용한다.
 ---
 
 # PR 작성
@@ -9,10 +9,10 @@ description: oh-my-ebook의 실제 브랜치 변경과 관련 명세를 근거�
 
 ## 작성 근거
 
-- `AGENTS.md`, `.specify/memory/constitution.md`, `.github/pull_request_template.md`와 [korean-dev-writing](../korean-dev-writing/SKILL.md) 확인.
+- `AGENTS.md`, `.github/pull_request_template.md`와 [korean-dev-writing](../korean-dev-writing/SKILL.md) 확인.
 - 작업·병합 대상 브랜치는 사용자 지정이나 기존 PR 정보로 확인하고, 로컬 원격 기본 브랜치 참조도 참고. `main`이나 직전 커밋을 임의로 기준 삼지 않으며, 불명확하면 필요한 정보만 질문.
 - `git status --short`, `git log <base>..<head>`, `git diff <base>...<head>`로 PR 전체 변경과 관련 코드·테스트·설정 확인. 미커밋 변경은 구분하고 포함 요청이 있을 때 반영 예정 초안으로 작성.
-- 해당 기능의 `spec.md`, `plan.md`, `tasks.md`가 있으면 목표·제약 확인. 실제 구현 범위는 diff로 판단하고 명세와의 불일치·미완료도 반영. 명세가 없으면 요청·이슈·코드를 근거로 작성.
+- 사용자 요청·이슈·관련 문서에서 목표·제약 확인. 실제 구현 범위는 diff로 판단하고 요청 범위와의 불일치·미완료도 반영.
 
 ## 문체와 구성
 
