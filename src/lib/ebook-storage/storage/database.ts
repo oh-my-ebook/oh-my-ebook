@@ -1,6 +1,6 @@
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { desc } from 'drizzle-orm'
+import { and, desc, eq, gte } from 'drizzle-orm'
 import { books } from '../schema'
 import { SQLITE_COMMAND } from '../commands'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
@@ -25,10 +25,8 @@ import type {
   StoredOcrPage,
 } from '../data/ocr'
 import {
-  DELETE_BOOK_BY_ID_SQL,
   DELETE_ORPHAN_SEARCH_TERMS_SQL,
   DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
-  INSERT_BOOK_SQL,
   INSERT_CHUNK_SOURCE_SQL,
   INSERT_SEARCH_CHUNK_SQL,
   INSERT_SEARCH_POSTING_SQL,
@@ -36,8 +34,6 @@ import {
   REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
   SELECT_BOOK_EXISTS_SQL,
   SELECT_BOOK_ANALYSIS_STATUS_SQL,
-  SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
-  SELECT_BOOK_METADATA_SQL,
   SELECT_BOOK_PAGE_COUNT_SQL,
   SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
   SELECT_NEXT_OCR_PAGE_SQL,
@@ -69,9 +65,6 @@ import {
   INSERT_OCR_PAGE_SQL,
   DELETE_OCR_LINES_SQL,
   PREPARE_OCR_PAGES_FOR_RUN_SQL,
-  UPDATE_BOOK_COVER_SQL,
-  UPDATE_BOOK_PROGRESS_SQL,
-  UPDATE_BOOK_TITLE_SQL,
   UPSERT_SEARCH_TERM_SQL,
 } from './queries'
 import {
@@ -105,50 +98,55 @@ export function isSqliteCommand(command: string): command is SqliteCommand {
 }
 
 export async function addBook(database: SQLocalDrizzle, input: AddBookInput): Promise<string> {
-  if (
-    (
-      await database.sql<Record<string, unknown>>(
-        SELECT_BOOK_ID_BY_CONTENT_HASH_SQL,
-        input.contentHash,
-      )
-    )[0]?.['id']
-  ) {
-    throw new DuplicateBookError()
-  }
-
+  const db = drizzle(database.driver)
   const id = crypto.randomUUID()
   const now = Date.now()
+  // SQLocal의 tx.query로 실행해야 외부 쿼리가 트랜잭션에 끼어들지 않는다.
   return await database.transaction(async (tx) => {
-    await tx.sql<Record<string, unknown>>(
-      INSERT_BOOK_SQL,
-      id,
-      input.contentHash,
-      input.fileName,
-      input.title,
-      input.author,
-      input.pdfTitle,
-      input.pdfSubject,
-      input.pdfKeywords,
-      input.publisher,
-      input.pdfSize,
-      input.pageCount,
-      input.coverData ? new Uint8Array(input.coverData) : null,
-      input.coverMime,
-      input.coverStatus,
-      'analyzing',
-      null,
-      null,
-      now,
-      now,
+    const [existing] = await tx.query(
+      db
+        .select({ id: books.id })
+        .from(books)
+        .where(eq(books.contentHash, input.contentHash))
+        .limit(1),
+    )
+    if (existing) throw new DuplicateBookError()
+
+    await tx.query(
+      db.insert(books).values({
+        id,
+        contentHash: input.contentHash,
+        fileName: input.fileName,
+        title: input.title,
+        author: input.author,
+        pdfTitle: input.pdfTitle,
+        pdfSubject: input.pdfSubject,
+        pdfKeywords: input.pdfKeywords,
+        publisher: input.publisher,
+        pdfSize: input.pdfSize,
+        pageCount: input.pageCount,
+        coverData: input.coverData ? new Uint8Array(input.coverData) : null,
+        coverMime: input.coverMime,
+        coverStatus: input.coverStatus,
+        lastPage: null,
+        analysisStatus: 'analyzing',
+        ocrCompletedAt: null,
+        indexedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      }),
     )
     return id
   })
 }
 
 export async function deleteBookById(database: SQLocalDrizzle, id: string): Promise<void> {
+  const db = drizzle(database.driver)
   return await database.transaction(async (tx) => {
-    await tx.sql<Record<string, unknown>>(DELETE_BOOK_BY_ID_SQL, id)
-    if (!(await isRowAffected(tx))) throw new DeletedBookError()
+    const [deleted] = await tx.query(
+      db.delete(books).where(eq(books.id, id)).returning({ id: books.id }),
+    )
+    if (!deleted) throw new DeletedBookError()
 
     await tx.sql<Record<string, unknown>>(DELETE_ORPHAN_SEARCH_TERMS_SQL)
     await tx.sql<Record<string, unknown>>(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
@@ -193,57 +191,72 @@ export async function listBooks(database: SQLocalDrizzle) {
 
 async function hasBook(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const id = getBookId(request)
-  if (!(await database.sql<Record<string, unknown>>(SELECT_BOOK_EXISTS_SQL, id))[0]?.['1']) {
-    throw new DeletedBookError()
-  }
-  return undefined
+  const [book] = await drizzle(database.driver)
+    .select({ id: books.id })
+    .from(books)
+    .where(eq(books.id, id))
+  if (!book) throw new DeletedBookError()
 }
 
 export async function getBookMetadata(
   database: SQLocalDrizzle,
   id: string,
 ): Promise<Record<string, unknown>> {
-  const book = (await database.sql<Record<string, unknown>>(SELECT_BOOK_METADATA_SQL, id))[0]
+  const [book] = await drizzle(database.driver)
+    .select({
+      id: books.id,
+      content_hash: books.contentHash,
+      file_name: books.fileName,
+      title: books.title,
+      author: books.author,
+      pdf_title: books.pdfTitle,
+      pdf_subject: books.pdfSubject,
+      pdf_keywords: books.pdfKeywords,
+      publisher: books.publisher,
+      pdf_size: books.pdfSize,
+      page_count: books.pageCount,
+      last_page: books.lastPage,
+      analysis_status: books.analysisStatus,
+    })
+    .from(books)
+    .where(eq(books.id, id))
   if (!book) throw new NotFoundBookError()
   return await normalizeStoredProgress(database, id, book)
 }
 
 async function updateProgress(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateProgressInput)
-  await database.sql<Record<string, unknown>>(
-    UPDATE_BOOK_PROGRESS_SQL,
-    input.page,
-    Date.now(),
-    input.id,
-    input.page,
-  )
-  if (!(await isRowAffected(database))) throw new DeletedBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(books)
+    .set({ lastPage: input.page, updatedAt: Date.now() })
+    .where(and(eq(books.id, input.id), gte(books.pageCount, input.page)))
+    .returning({ id: books.id })
+  if (!updated) throw new DeletedBookError()
 }
 
 async function updateTitle(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateTitleInput)
-  await database.sql<Record<string, unknown>>(
-    UPDATE_BOOK_TITLE_SQL,
-    input.title.trim(),
-    Date.now(),
-    input.id,
-  )
-  if (!(await isRowAffected(database))) throw new DeletedBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(books)
+    .set({ title: input.title.trim(), updatedAt: Date.now() })
+    .where(eq(books.id, input.id))
+    .returning({ id: books.id })
+  if (!updated) throw new DeletedBookError()
 }
 
 async function updateCover(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isUpdateCoverInput)
-  await database.sql<Record<string, unknown>>(
-    UPDATE_BOOK_COVER_SQL,
-    new Uint8Array(input.coverData),
-    input.coverMime,
-    Date.now(),
-    input.id,
-  )
-  if (!(await isRowAffected(database))) throw new DeletedBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(books)
+    .set({
+      coverData: new Uint8Array(input.coverData),
+      coverMime: input.coverMime,
+      coverStatus: 'ready',
+      updatedAt: Date.now(),
+    })
+    .where(eq(books.id, input.id))
+    .returning({ id: books.id })
+  if (!updated) throw new DeletedBookError()
 }
 
 // 업로든한 PDF의 페이지 수를 보고 페이지 개수만큼 저장한다.

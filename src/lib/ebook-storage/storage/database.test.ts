@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createBookInput, createTestDatabase } from '../../../test/sqlocal'
+import { DeletedBookError, DuplicateBookError, getErrorCode, NotFoundBookError } from './errors'
 import {
   addBook,
   deleteBookById,
@@ -55,7 +56,7 @@ describe('SQLocal 저장소', () => {
       last_page: null,
       cover_data: new Uint8Array([0, 128, 255]),
     })
-    await expect(addBook(db, createBookInput())).rejects.toThrow()
+    await expect(addBook(db, createBookInput())).rejects.toBeInstanceOf(DuplicateBookError)
   })
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
@@ -71,14 +72,51 @@ describe('SQLocal 저장소', () => {
     expect(await listBooks(db)).toEqual([
       expect.objectContaining({ cover_data: new Uint8Array([4, 5]), cover_status: 'ready' }),
     ])
-    await expect(execute('updateProgress', { id, page: 3 })).rejects.toThrow()
+    await expect(execute('updateProgress', { id, page: 3 })).rejects.toBeInstanceOf(
+      DeletedBookError,
+    )
+    expect(await getBookMetadata(db, id)).toMatchObject({ last_page: 2 })
     await db.sql('PRAGMA ignore_check_constraints = ON')
     await db.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
     expect(await getBookMetadata(db, id)).toMatchObject({ last_page: 1 })
     await deleteBookById(db, id)
-    await expect(execute('hasBook')).rejects.toThrow()
-    await expect(getBookMetadata(db, id)).rejects.toThrow()
+    await expect(execute('hasBook')).rejects.toBeInstanceOf(DeletedBookError)
+    await expect(getBookMetadata(db, id)).rejects.toBeInstanceOf(NotFoundBookError)
     await expect(execute('getBookAnalysisStatus')).rejects.toThrow()
+  })
+
+  it('삭제된 책의 수정·재삭제를 거부하고 다른 책은 유지한다', async () => {
+    const { db, id, execute } = await setup()
+    const before = await listBooks(db)
+    await expect(execute('updateTitle', { id: 'missing', title: '변경' })).rejects.toBeInstanceOf(
+      DeletedBookError,
+    )
+    await expect(
+      execute('updateCover', {
+        id: 'missing',
+        coverData: new Uint8Array([1]).buffer,
+        coverMime: 'image/png',
+      }),
+    ).rejects.toBeInstanceOf(DeletedBookError)
+    await expect(execute('updateProgress', { id: 'missing', page: 1 })).rejects.toBeInstanceOf(
+      DeletedBookError,
+    )
+    await expect(deleteBookById(db, 'missing')).rejects.toBeInstanceOf(DeletedBookError)
+    expect(await listBooks(db)).toEqual(before)
+    expect(await getBookMetadata(db, id)).toMatchObject({ id })
+  })
+
+  it('동일 PDF의 동시 저장은 하나만 성공하고 실패한 트랜잭션 뒤에도 저장할 수 있다', async () => {
+    const db = await createTestDatabase()
+    const results = await Promise.allSettled([
+      addBook(db, createBookInput()),
+      addBook(db, createBookInput()),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    const failures = results.filter((result) => result.status === 'rejected')
+    expect(failures.map((result) => getErrorCode(result.reason))).toEqual(['duplicate'])
+    await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    expect(await listBooks(db)).toHaveLength(2)
   })
 
   it('OCR 페이지 초기화는 중복되지 않고 동시 선점은 서로 다른 페이지를 반환한다', async () => {

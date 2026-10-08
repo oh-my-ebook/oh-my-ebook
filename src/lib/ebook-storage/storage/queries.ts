@@ -89,34 +89,9 @@ export const INITIAL_SCHEMA_SQL = `
   PRAGMA user_version = 1;
 `
 
-export const SELECT_BOOK_ID_BY_CONTENT_HASH_SQL = 'SELECT id FROM books WHERE content_hash = ?'
-
-export const INSERT_BOOK_SQL = `INSERT INTO books (
-  id, content_hash, file_name, title, author, pdf_title, pdf_subject, pdf_keywords, publisher,
-  pdf_size, page_count, cover_data, cover_mime, cover_status, last_page,
-  analysis_status, ocr_completed_at, indexed_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`
-
-export const DELETE_BOOK_BY_ID_SQL = 'DELETE FROM books WHERE id = ?'
-
 export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
 export const SELECT_BOOK_ANALYSIS_STATUS_SQL = 'SELECT analysis_status FROM books WHERE id = ?'
 
-export const SELECT_BOOK_METADATA_SQL = `SELECT id, content_hash, file_name, title,
-  author, pdf_title, pdf_subject, pdf_keywords, publisher, pdf_size,
-  page_count, last_page, analysis_status
-  FROM books WHERE id = ?`
-
-export const UPDATE_BOOK_PROGRESS_SQL = `UPDATE books SET last_page = ?, updated_at = ?
-  WHERE id = ? AND ? <= page_count`
-
-export const UPDATE_BOOK_TITLE_SQL = 'UPDATE books SET title = ?, updated_at = ? WHERE id = ?'
-
-export const UPDATE_BOOK_COVER_SQL = `UPDATE books
-  SET cover_data = ?, cover_mime = ?, cover_status = 'ready', updated_at = ? WHERE id = ?`
-
-export const RESET_INVALID_BOOK_PROGRESS_SQL =
-  'UPDATE books SET last_page = 1, updated_at = ? WHERE id = ?'
 export const SELECT_CHANGES_SQL = 'SELECT changes()'
 
 export const SELECT_BOOK_PAGE_COUNT_SQL = 'SELECT page_count FROM books WHERE id = ?'

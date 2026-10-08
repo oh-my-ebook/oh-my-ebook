@@ -78,7 +78,9 @@ describe('책 저장 작업', () => {
     )
     await expect(
       executeCommand({ command: 'saveBook', payload: createBookInput() }),
-    ).rejects.toThrow('disk failure')
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ message: expect.stringContaining('disk failure') }),
+    })
     expect(writePdf).not.toHaveBeenCalled()
     expect(await listBooks(db)).toEqual([])
   })

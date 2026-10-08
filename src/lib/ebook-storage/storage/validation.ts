@@ -9,7 +9,10 @@ import type {
 } from '../data/search-index'
 import type { OcrLineInput } from '../data/ocr'
 import { InvalidPayloadError } from './errors'
-import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './queries'
+import { eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/sqlite-proxy'
+import { books } from '../schema'
+import { SELECT_CHANGES_SQL } from './queries'
 
 export interface UpdateCoverInput {
   id: string
@@ -303,7 +306,7 @@ export function getPayload<T>(
 }
 
 export async function normalizeStoredProgress(
-  database: Pick<SQLocalDrizzle, 'sql'>,
+  database: Pick<SQLocalDrizzle, 'driver'>,
   id: string,
   book: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -322,7 +325,10 @@ export async function normalizeStoredProgress(
     return book
   }
 
-  await database.sql<Record<string, unknown>>(RESET_INVALID_BOOK_PROGRESS_SQL, Date.now(), id)
+  await drizzle(database.driver)
+    .update(books)
+    .set({ lastPage: 1, updatedAt: Date.now() })
+    .where(eq(books.id, id))
   return { ...book, last_page: 1 }
 }
 
