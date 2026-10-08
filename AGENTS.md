@@ -88,7 +88,7 @@ Vitest와 함께 jsdom, React Testing Library, jest-dom, user-event를 사용한
 
 새 기능과 버그 수정은 TDD로 진행한다. 기대 동작을 테스트로 작성하고 의도한 이유로 실패하는지 확인한 뒤, 최소 구현으로 통과시키고 테스트를 유지하며 리팩터링한다. 동작을 바꾸지 않는 문서·포맷 변경은 관련 문서와 설정 검사로 검증한다.
 
-E2E는 Playwright Test를 사용하고 `e2e/*.spec.ts`에 둔다. 최초 실행 전 `pnpm exec playwright install chromium`으로 브라우저를 설치한다. 실제 앱의 주요 사용자 흐름을 검증하며 단위·통합 테스트의 세부 조건을 반복하지 않는다. 접근 가능한 이름 기반 locator와 자동 재시도 assertion을 사용한다. `pnpm check`와 별도로 실행하고, GitHub CI에서는 E2E 실행 후 HTML 보고서를 보관한다.
+E2E는 Playwright Test를 사용하고 `e2e/*.spec.ts`에 둔다. 최초 실행 전 `pnpm exec playwright install chromium`으로 브라우저를 설치한다. 실제 앱의 주요 사용자 흐름을 검증하며 단위·통합 테스트의 세부 조건을 반복하지 않는다. 접근 가능한 이름 기반 locator와 자동 재시도 assertion을 사용한다. `pnpm check`와 별도로 실행하고, GitHub CI에서는 E2E 테스트가 실패한 경우에만 HTML 보고서를 아티팩트로 업로드하고 7일간 보관한다.
 
 ## Git 작업
 
