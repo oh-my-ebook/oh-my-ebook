@@ -18,9 +18,3 @@ src/hooks/use-copy-to-clipboard.ts
 # Preserve installed agent skills verbatim.
 .agents/skills/
 .claude/skills/
-
-# Preserve Spec Kit generated files verbatim.
-.specify/integration.json
-.specify/presets/
-.specify/templates/
-.specify/workflows/

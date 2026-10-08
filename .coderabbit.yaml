@@ -36,8 +36,5 @@ reviews:
     - '!.agents/skills/**'
     - '!.claude/skills/**'
 
-    # Spec Kit가 설치·생성한 공통 리소스
-    - '!.specify/**'
-
     # 설치된 스킬 버전 잠금 파일
     - '!skills-lock.json'
