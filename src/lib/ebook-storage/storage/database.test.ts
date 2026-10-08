@@ -391,6 +391,113 @@ describe('SQLocal 저장소', () => {
     expect(await db.sql('SELECT * FROM ocr_pages')).toEqual([])
   })
 
+  it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
+    const { db, id, execute, pages } = await preparePages()
+    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    await execute('storeSearchIndex', {
+      bookId: id,
+      chunks: [
+        {
+          ...chunk('late', pages[0].id),
+          ordinal: 2,
+          terms: [
+            { term: 'alpha', termFrequency: 1 },
+            { term: 'beta', termFrequency: 1 },
+          ],
+        },
+        {
+          ...chunk('early', pages[0].id),
+          sources: [
+            { ocrPageId: pages[0].id, startLineIndex: 1, endLineIndex: 2, sourceOrder: 1 },
+            { ocrPageId: pages[1].id, startLineIndex: 0, endLineIndex: 0, sourceOrder: 0 },
+          ],
+          terms: [{ term: 'alpha', termFrequency: 1 }],
+        },
+      ],
+    })
+    await execute('storeSearchIndex', {
+      bookId: otherId,
+      chunks: [
+        { ...chunk('other', ''), sources: [], terms: [{ term: 'alpha', termFrequency: 1 }] },
+      ],
+    })
+    const page = { bookId: id, limit: 1, offset: 1 }
+    expect(await execute('listSearchChunks', page)).toEqual({
+      total: 2,
+      chunks: [expect.objectContaining({ id: 'late', ordinal: 2 })],
+    })
+    expect(await execute('listSearchTerms', { ...page, offset: 0, limit: 10 })).toEqual({
+      total: 2,
+      terms: [
+        { id: expect.any(Number), term: 'alpha', document_frequency: 3 },
+        { id: expect.any(Number), term: 'beta', document_frequency: 1 },
+      ],
+    })
+    expect(await execute('listSearchTerms', page)).toEqual({
+      total: 2,
+      terms: [{ id: expect.any(Number), term: 'beta', document_frequency: 1 }],
+    })
+    expect(await execute('listSearchPostings', page)).toEqual({
+      total: 3,
+      postings: [
+        {
+          term_id: expect.any(Number),
+          chunk_id: 'late',
+          term_frequency: 1,
+          term: 'alpha',
+          chunk_ordinal: 2,
+        },
+      ],
+    })
+    expect(await execute('listChunkSources', page)).toEqual({
+      total: 3,
+      sources: [
+        {
+          id: expect.any(Number),
+          chunk_id: 'early',
+          chunk_ordinal: 0,
+          ocr_page_id: pages[0].id,
+          page_number: 1,
+          start_line_index: 1,
+          end_line_index: 2,
+          source_order: 1,
+        },
+      ],
+    })
+    expect(await execute('searchChunks', { bookId: id, terms: ['alpha'], limit: 1 })).toEqual([
+      expect.objectContaining({
+        id: 'early',
+        sources: [
+          { pageNumber: 2, startLineIndex: 0, endLineIndex: 0 },
+          { pageNumber: 1, startLineIndex: 1, endLineIndex: 2 },
+        ],
+      }),
+    ])
+    for (const [command, key, total] of [
+      ['listSearchChunks', 'chunks', 2],
+      ['listSearchTerms', 'terms', 2],
+      ['listSearchPostings', 'postings', 3],
+      ['listChunkSources', 'sources', 3],
+    ] as const) {
+      expect(await execute(command, { ...page, offset: 10 })).toEqual({ total, [key]: [] })
+      expect(await execute(command, { ...page, bookId: 'missing', offset: 0 })).toEqual({
+        total: 0,
+        [key]: [],
+      })
+    }
+  })
+
+  it('식별자가 NULL인 검색 청크는 조회 결과로 반환하지 않는다', async () => {
+    const { db, id, execute } = await setup()
+    await db.sql(
+      "INSERT INTO search_chunks (book_id, ordinal, text, token_count, created_at) VALUES (?, 0, '청크', 1, 0)",
+      id,
+    )
+    await expect(execute('listSearchChunks', { bookId: id, limit: 10, offset: 0 })).rejects.toThrow(
+      'Invalid search chunks',
+    )
+  })
+
   it.each(['search_chunks', 'search_postings'])(
     '색인 교체 중 %s 저장에 실패하면 기존 색인과 분석 상태를 복원한다',
     async (table) => {

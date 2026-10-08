@@ -1,26 +1,29 @@
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { and, asc, count, desc, eq, gte } from 'drizzle-orm'
-import { books, ocrLines, ocrPages } from '../schema'
+import { and, asc, count, countDistinct, desc, eq, gte, inArray } from 'drizzle-orm'
+import {
+  books,
+  chunkSources,
+  ocrLines,
+  ocrPages,
+  searchChunks as searchChunksTable,
+  searchPostings,
+  searchTerms,
+} from '../schema'
 import { SQLITE_COMMAND } from '../commands'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
 import type { SearchChunkResult, SearchChunkSource } from '../data/search'
 import type {
   ChunkSourcePage,
-  ChunkSourceRecord,
   SearchChunkInput,
   SearchChunkPage,
-  SearchChunkRecord,
   SearchPostingPage,
-  SearchPostingRecord,
   SearchTermPage,
-  SearchTermRecord,
 } from '../data/search-index'
 import type {
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
-  OcrLineRecord,
   OcrPageRecord,
   StoredOcrPage,
 } from '../data/ocr'
@@ -37,17 +40,8 @@ import {
   SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
   SELECT_NEXT_OCR_PAGE_SQL,
   SELECT_OCR_PAGE_BOOK_ID_SQL,
-  SELECT_CHUNK_SOURCE_COUNT_SQL,
-  SELECT_CHUNK_SOURCES_SQL,
-  SELECT_SEARCH_CHUNK_COUNT_SQL,
-  SELECT_SEARCH_CHUNKS_SQL,
-  SELECT_SEARCH_POSTING_COUNT_SQL,
-  SELECT_SEARCH_POSTINGS_SQL,
   createSearchChunksSql,
-  createSearchChunkSourcesSql,
   SELECT_SEARCH_TERM_ID_SQL,
-  SELECT_SEARCH_TERM_COUNT_SQL,
-  SELECT_SEARCH_TERMS_SQL,
   SET_BOOK_INDEXED_SQL,
   SET_BOOK_ANALYSIS_FAILED_SQL,
   SET_OCR_COMPLETED_AT_SQL,
@@ -386,29 +380,6 @@ async function retryBookAnalysis(database: SQLocalDrizzle, request: StorageReque
   return undefined
 }
 
-function isOcrLineRecord(value: unknown): value is OcrLineRecord {
-  if (!isStoredOcrLine(value)) return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('line_index' in value) || typeof value.line_index !== 'number') return false
-  return true
-}
-
-function isStoredOcrLine(value: unknown): value is {
-  raw_text: string
-  x0: number
-  y0: number
-  x1: number
-  y1: number
-} {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('raw_text' in value) || typeof value.raw_text !== 'string') return false
-  if (!('x0' in value) || typeof value.x0 !== 'number') return false
-  if (!('y0' in value) || typeof value.y0 !== 'number') return false
-  if (!('x1' in value) || typeof value.x1 !== 'number') return false
-  if (!('y1' in value) || typeof value.y1 !== 'number') return false
-  return true
-}
-
 async function getStoredOcrPage(
   database: SQLocalDrizzle,
   request: StorageRequest,
@@ -428,9 +399,9 @@ async function getStoredOcrPage(
   if (!page) return null
   const { id, width, height } = page
   if (
-    typeof id !== 'string' ||
-    typeof width !== 'number' ||
-    typeof height !== 'number' ||
+    id === null ||
+    width === null ||
+    height === null ||
     !Number.isSafeInteger(width) ||
     !Number.isSafeInteger(height) ||
     width <= 0 ||
@@ -440,7 +411,7 @@ async function getStoredOcrPage(
   }
   const lines = await db
     .select({
-      raw_text: ocrLines.rawText,
+      rawText: ocrLines.rawText,
       x0: ocrLines.x0,
       y0: ocrLines.y0,
       x1: ocrLines.x1,
@@ -449,30 +420,7 @@ async function getStoredOcrPage(
     .from(ocrLines)
     .where(eq(ocrLines.ocrPageId, id))
     .orderBy(asc(ocrLines.lineIndex))
-  if (!Array.isArray(lines)) throw new Error('Invalid stored OCR lines')
-  const storedLines = []
-  for (const line of lines) {
-    if (!isStoredOcrLine(line)) throw new Error('Invalid stored OCR lines')
-    storedLines.push({
-      rawText: line.raw_text,
-      x0: line.x0,
-      y0: line.y0,
-      x1: line.x1,
-      y1: line.y1,
-    })
-  }
-  return { width, height, lines: storedLines }
-}
-
-function isOcrPageRecord(value: unknown): value is OcrPageRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('status' in value) || !isOcrPageStatus(value.status)) return false
-  if (!('width' in value) || !(value.width === null || typeof value.width === 'number'))
-    return false
-  if (!('height' in value) || !(value.height === null || typeof value.height === 'number'))
-    return false
-  return true
+  return { width, height, lines }
 }
 
 function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
@@ -494,18 +442,8 @@ async function listOcrPages(
     .from(ocrPages)
     .where(eq(ocrPages.bookId, bookId))
     .orderBy(asc(ocrPages.pageNumber))
-  if (!Array.isArray(pages)) throw new Error('Invalid OCR pages')
-  const records: OcrPageRecord[] = []
-  for (const page of pages) {
-    if (!isOcrPageRecord(page)) throw new Error('Invalid OCR pages')
-    records.push({
-      page_number: page.page_number,
-      status: page.status,
-      width: page.width,
-      height: page.height,
-    })
-  }
-  return records
+  if (pages.some((page) => !isOcrPageStatus(page.status))) throw new Error('Invalid OCR pages')
+  return pages
 }
 
 async function listOcrLines(
@@ -519,8 +457,7 @@ async function listOcrLines(
     .from(ocrLines)
     .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
     .where(eq(ocrPages.bookId, input.bookId))
-  const total = result?.total
-  if (typeof total !== 'number') throw new Error('Invalid OCR line count')
+  if (!result) throw new Error('Invalid OCR line count')
   const lines = await db
     .select({
       page_number: ocrPages.pageNumber,
@@ -537,35 +474,7 @@ async function listOcrLines(
     .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
     .limit(input.limit)
     .offset(input.offset)
-  if (!Array.isArray(lines)) throw new Error('Invalid OCR lines')
-  const records: OcrLineRecord[] = []
-  for (const line of lines) {
-    if (!isOcrLineRecord(line)) throw new Error('Invalid OCR lines')
-    records.push({
-      page_number: line.page_number,
-      line_index: line.line_index,
-      raw_text: line.raw_text,
-      x0: line.x0,
-      y0: line.y0,
-      x1: line.x1,
-      y1: line.y1,
-    })
-  }
-  return { lines: records, total }
-}
-
-function isOcrLineForChunking(value: unknown): value is OcrLineForChunking {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'ocr_page_id' in value &&
-    typeof value.ocr_page_id === 'string' &&
-    'page_number' in value &&
-    typeof value.page_number === 'number' &&
-    'line_index' in value &&
-    typeof value.line_index === 'number' &&
-    'raw_text' in value &&
-    typeof value.raw_text === 'string'
-  )
+  return { lines, total: result.total }
 }
 
 async function getOcrLinesForChunking(
@@ -584,19 +493,11 @@ async function getOcrLinesForChunking(
     .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
     .where(eq(ocrPages.bookId, bookId))
     .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
-  if (!Array.isArray(lines)) throw new Error('Invalid OCR lines for chunking')
-
-  const records: OcrLineForChunking[] = []
-  for (const line of lines) {
-    if (!isOcrLineForChunking(line)) throw new Error('Invalid OCR lines for chunking')
-    records.push({
-      ocr_page_id: line.ocr_page_id,
-      page_number: line.page_number,
-      line_index: line.line_index,
-      raw_text: line.raw_text,
-    })
-  }
-  return records
+  return lines.map((line) => {
+    const { ocr_page_id } = line
+    if (ocr_page_id === null) throw new Error('Invalid OCR lines for chunking')
+    return { ...line, ocr_page_id }
+  })
 }
 
 async function storeSearchChunk(
@@ -668,39 +569,36 @@ async function storeSearchIndex(database: SQLocalDrizzle, request: StorageReques
   })
 }
 
-function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'string') return false
-  if (!('ordinal' in value) || typeof value.ordinal !== 'number') return false
-  if (!('text' in value) || typeof value.text !== 'string') return false
-  if (!('token_count' in value) || typeof value.token_count !== 'number') return false
-  if (!('created_at' in value) || typeof value.created_at !== 'number') return false
-  return true
-}
-
 async function listSearchChunks(
   database: SQLocalDrizzle,
   request: StorageRequest,
 ): Promise<SearchChunkPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = (
-    await database.sql<Record<string, unknown>>(SELECT_SEARCH_CHUNK_COUNT_SQL, input.bookId)
-  )[0]?.['COUNT(*)']
-  if (typeof total !== 'number') throw new Error('Invalid search chunk count')
-  const rows = await database.sql<Record<string, unknown>>(
-    SELECT_SEARCH_CHUNKS_SQL,
-    input.bookId,
-    input.limit,
-    input.offset,
-  )
-  if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
-
-  const chunks: SearchChunkRecord[] = []
-  for (const row of rows) {
-    if (!isSearchChunkRecord(row)) throw new Error('Invalid search chunks')
-    chunks.push(row)
-  }
-  return { chunks, total }
+  const db = drizzle(database.driver)
+  const [result] = await db
+    .select({ total: count() })
+    .from(searchChunksTable)
+    .where(eq(searchChunksTable.bookId, input.bookId))
+  if (!result) throw new Error('Invalid search chunk count')
+  const rows = await db
+    .select({
+      id: searchChunksTable.id,
+      ordinal: searchChunksTable.ordinal,
+      text: searchChunksTable.text,
+      token_count: searchChunksTable.tokenCount,
+      created_at: searchChunksTable.createdAt,
+    })
+    .from(searchChunksTable)
+    .where(eq(searchChunksTable.bookId, input.bookId))
+    .orderBy(asc(searchChunksTable.ordinal))
+    .limit(input.limit)
+    .offset(input.offset)
+  const chunks = rows.map((row) => {
+    const { id } = row
+    if (id === null) throw new Error('Invalid search chunks')
+    return { ...row, id }
+  })
+  return { chunks, total: result.total }
 }
 
 function isSearchChunkResultRow(value: unknown): value is {
@@ -723,25 +621,6 @@ function isSearchChunkResultRow(value: unknown): value is {
     'score' in value &&
     typeof value.score === 'number' &&
     Number.isFinite(value.score)
-  )
-}
-
-function isSearchChunkSourceRow(value: unknown): value is {
-  chunk_id: string
-  page_number: number
-  start_line_index: number
-  end_line_index: number
-} {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'chunk_id' in value &&
-    typeof value.chunk_id === 'string' &&
-    'page_number' in value &&
-    typeof value.page_number === 'number' &&
-    'start_line_index' in value &&
-    typeof value.start_line_index === 'number' &&
-    'end_line_index' in value &&
-    typeof value.end_line_index === 'number'
   )
 }
 
@@ -773,15 +652,25 @@ async function searchChunks(
   }
   if (chunks.length === 0) return []
 
-  const sourceRows = await database.sql<Record<string, unknown>>(
-    createSearchChunkSourcesSql(chunks.length),
-    ...chunks.map(({ id }) => id),
-  )
-  if (!Array.isArray(sourceRows)) throw new Error('Invalid search chunk sources')
+  const sourceRows = await drizzle(database.driver)
+    .select({
+      chunk_id: chunkSources.chunkId,
+      page_number: ocrPages.pageNumber,
+      start_line_index: chunkSources.startLineIndex,
+      end_line_index: chunkSources.endLineIndex,
+    })
+    .from(chunkSources)
+    .innerJoin(ocrPages, eq(ocrPages.id, chunkSources.ocrPageId))
+    .where(
+      inArray(
+        chunkSources.chunkId,
+        chunks.map(({ id }) => id),
+      ),
+    )
+    .orderBy(asc(chunkSources.chunkId), asc(chunkSources.sourceOrder))
 
   const sourcesByChunkId = new Map<string, SearchChunkSource[]>()
   for (const row of sourceRows) {
-    if (!isSearchChunkSourceRow(row)) throw new Error('Invalid search chunk sources')
     const sources = sourcesByChunkId.get(row.chunk_id) ?? []
     sources.push({
       pageNumber: row.page_number,
@@ -794,47 +683,39 @@ async function searchChunks(
   return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
 }
 
-function isSearchTermRecord(value: unknown): value is SearchTermRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'number') return false
-  if (!('term' in value) || typeof value.term !== 'string') return false
-  if (!('document_frequency' in value) || typeof value.document_frequency !== 'number') return false
-  return true
-}
-
 async function listSearchTerms(
   database: SQLocalDrizzle,
   request: StorageRequest,
 ): Promise<SearchTermPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = (
-    await database.sql<Record<string, unknown>>(SELECT_SEARCH_TERM_COUNT_SQL, input.bookId)
-  )[0]?.['COUNT(DISTINCT search_terms.id)']
-  if (typeof total !== 'number') throw new Error('Invalid search term count')
-  const rows = await database.sql<Record<string, unknown>>(
-    SELECT_SEARCH_TERMS_SQL,
-    input.bookId,
-    input.limit,
-    input.offset,
-  )
-  if (!Array.isArray(rows)) throw new Error('Invalid search terms')
-
-  const terms: SearchTermRecord[] = []
-  for (const row of rows) {
-    if (!isSearchTermRecord(row)) throw new Error('Invalid search terms')
-    terms.push(row)
-  }
-  return { terms, total }
-}
-
-function isSearchPostingRecord(value: unknown): value is SearchPostingRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('term_id' in value) || typeof value.term_id !== 'number') return false
-  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
-  if (!('term_frequency' in value) || typeof value.term_frequency !== 'number') return false
-  if (!('term' in value) || typeof value.term !== 'string') return false
-  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
-  return true
+  const db = drizzle(database.driver)
+  const [result] = await db
+    .select({ total: countDistinct(searchTerms.id) })
+    .from(searchTerms)
+    .innerJoin(searchPostings, eq(searchPostings.termId, searchTerms.id))
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+  if (!result) throw new Error('Invalid search term count')
+  const rows = await db
+    .select({
+      id: searchTerms.id,
+      term: searchTerms.term,
+      document_frequency: searchTerms.documentFrequency,
+    })
+    .from(searchTerms)
+    .innerJoin(searchPostings, eq(searchPostings.termId, searchTerms.id))
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+    .groupBy(searchTerms.id)
+    .orderBy(asc(searchTerms.term))
+    .limit(input.limit)
+    .offset(input.offset)
+  const terms = rows.map((row) => {
+    const { id } = row
+    if (id === null) throw new Error('Invalid search terms')
+    return { ...row, id }
+  })
+  return { terms, total: result.total }
 }
 
 async function listSearchPostings(
@@ -842,37 +723,29 @@ async function listSearchPostings(
   request: StorageRequest,
 ): Promise<SearchPostingPage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = (
-    await database.sql<Record<string, unknown>>(SELECT_SEARCH_POSTING_COUNT_SQL, input.bookId)
-  )[0]?.['COUNT(*)']
-  if (typeof total !== 'number') throw new Error('Invalid search posting count')
-  const rows = await database.sql<Record<string, unknown>>(
-    SELECT_SEARCH_POSTINGS_SQL,
-    input.bookId,
-    input.limit,
-    input.offset,
-  )
-  if (!Array.isArray(rows)) throw new Error('Invalid search postings')
-
-  const postings: SearchPostingRecord[] = []
-  for (const row of rows) {
-    if (!isSearchPostingRecord(row)) throw new Error('Invalid search postings')
-    postings.push(row)
-  }
-  return { postings, total }
-}
-
-function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'number') return false
-  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
-  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
-  if (!('ocr_page_id' in value) || typeof value.ocr_page_id !== 'string') return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('start_line_index' in value) || typeof value.start_line_index !== 'number') return false
-  if (!('end_line_index' in value) || typeof value.end_line_index !== 'number') return false
-  if (!('source_order' in value) || typeof value.source_order !== 'number') return false
-  return true
+  const db = drizzle(database.driver)
+  const [result] = await db
+    .select({ total: count() })
+    .from(searchPostings)
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+  if (!result) throw new Error('Invalid search posting count')
+  const postings = await db
+    .select({
+      term_id: searchPostings.termId,
+      chunk_id: searchPostings.chunkId,
+      term_frequency: searchPostings.termFrequency,
+      term: searchTerms.term,
+      chunk_ordinal: searchChunksTable.ordinal,
+    })
+    .from(searchPostings)
+    .innerJoin(searchTerms, eq(searchTerms.id, searchPostings.termId))
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+    .orderBy(asc(searchTerms.term), asc(searchChunksTable.ordinal))
+    .limit(input.limit)
+    .offset(input.offset)
+  return { postings, total: result.total }
 }
 
 async function listChunkSources(
@@ -880,24 +753,37 @@ async function listChunkSources(
   request: StorageRequest,
 ): Promise<ChunkSourcePage> {
   const input = getPayload(request, request.command, isListOcrLinesInput)
-  const total = (
-    await database.sql<Record<string, unknown>>(SELECT_CHUNK_SOURCE_COUNT_SQL, input.bookId)
-  )[0]?.['COUNT(*)']
-  if (typeof total !== 'number') throw new Error('Invalid chunk source count')
-  const rows = await database.sql<Record<string, unknown>>(
-    SELECT_CHUNK_SOURCES_SQL,
-    input.bookId,
-    input.limit,
-    input.offset,
-  )
-  if (!Array.isArray(rows)) throw new Error('Invalid chunk sources')
-
-  const sources: ChunkSourceRecord[] = []
-  for (const row of rows) {
-    if (!isChunkSourceRecord(row)) throw new Error('Invalid chunk sources')
-    sources.push(row)
-  }
-  return { sources, total }
+  const db = drizzle(database.driver)
+  const [result] = await db
+    .select({ total: count() })
+    .from(chunkSources)
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSources.chunkId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+  if (!result) throw new Error('Invalid chunk source count')
+  const rows = await db
+    .select({
+      id: chunkSources.id,
+      chunk_id: chunkSources.chunkId,
+      chunk_ordinal: searchChunksTable.ordinal,
+      ocr_page_id: chunkSources.ocrPageId,
+      page_number: ocrPages.pageNumber,
+      start_line_index: chunkSources.startLineIndex,
+      end_line_index: chunkSources.endLineIndex,
+      source_order: chunkSources.sourceOrder,
+    })
+    .from(chunkSources)
+    .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSources.chunkId))
+    .innerJoin(ocrPages, eq(ocrPages.id, chunkSources.ocrPageId))
+    .where(eq(searchChunksTable.bookId, input.bookId))
+    .orderBy(asc(searchChunksTable.ordinal), asc(chunkSources.sourceOrder))
+    .limit(input.limit)
+    .offset(input.offset)
+  const sources = rows.map((row) => {
+    const { id } = row
+    if (id === null) throw new Error('Invalid chunk sources')
+    return { ...row, id }
+  })
+  return { sources, total: result.total }
 }
 
 export async function executeSqliteCommand(

@@ -142,44 +142,6 @@ export const INSERT_SEARCH_POSTING_SQL = `INSERT INTO search_postings (
 ) VALUES (?, ?, ?)`
 export const SET_BOOK_INDEXED_SQL = `UPDATE books
   SET analysis_status = 'ready', indexed_at = ?, updated_at = ? WHERE id = ?`
-export const SELECT_SEARCH_TERM_COUNT_SQL = `SELECT COUNT(DISTINCT search_terms.id) FROM search_terms
-  JOIN search_postings ON search_postings.term_id = search_terms.id
-  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
-  WHERE search_chunks.book_id = ?`
-export const SELECT_SEARCH_TERMS_SQL = `SELECT search_terms.id, search_terms.term,
-  search_terms.document_frequency FROM search_terms
-  JOIN search_postings ON search_postings.term_id = search_terms.id
-  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
-  WHERE search_chunks.book_id = ?
-  GROUP BY search_terms.id
-  ORDER BY search_terms.term
-  LIMIT ? OFFSET ?`
-export const SELECT_SEARCH_POSTING_COUNT_SQL = `SELECT COUNT(*) FROM search_postings
-  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
-  WHERE search_chunks.book_id = ?`
-export const SELECT_SEARCH_POSTINGS_SQL = `SELECT search_postings.term_id, search_postings.chunk_id,
-  search_postings.term_frequency, search_terms.term, search_chunks.ordinal AS chunk_ordinal
-  FROM search_postings
-  JOIN search_terms ON search_terms.id = search_postings.term_id
-  JOIN search_chunks ON search_chunks.id = search_postings.chunk_id
-  WHERE search_chunks.book_id = ?
-  ORDER BY search_terms.term, search_chunks.ordinal
-  LIMIT ? OFFSET ?`
-export const SELECT_SEARCH_CHUNK_COUNT_SQL = 'SELECT COUNT(*) FROM search_chunks WHERE book_id = ?'
-export const SELECT_SEARCH_CHUNKS_SQL = `SELECT id, ordinal, text, token_count, created_at
-  FROM search_chunks WHERE book_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`
-export const SELECT_CHUNK_SOURCE_COUNT_SQL = `SELECT COUNT(*) FROM chunk_sources
-  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
-  WHERE search_chunks.book_id = ?`
-export const SELECT_CHUNK_SOURCES_SQL = `SELECT chunk_sources.id, chunk_sources.chunk_id,
-  search_chunks.ordinal AS chunk_ordinal, chunk_sources.ocr_page_id, ocr_pages.page_number,
-  chunk_sources.start_line_index, chunk_sources.end_line_index, chunk_sources.source_order
-  FROM chunk_sources
-  JOIN search_chunks ON search_chunks.id = chunk_sources.chunk_id
-  JOIN ocr_pages ON ocr_pages.id = chunk_sources.ocr_page_id
-  WHERE search_chunks.book_id = ?
-  ORDER BY search_chunks.ordinal, chunk_sources.source_order LIMIT ? OFFSET ?`
-
 export const DEFAULT_BM25_K1 = 1.2
 export const DEFAULT_BM25_B = 0.75
 
@@ -230,18 +192,4 @@ export function createSearchChunksSql(termCount: number): string {
   GROUP BY book_chunks.id, book_chunks.ordinal, book_chunks.text, book_chunks.token_count
   ORDER BY score DESC, ordinal ASC
   LIMIT ?`
-}
-
-export function createSearchChunkSourcesSql(chunkCount: number): string {
-  if (!Number.isSafeInteger(chunkCount) || chunkCount <= 0) {
-    throw new RangeError('청크 수는 양의 정수여야 합니다.')
-  }
-
-  const chunkPlaceholders = Array.from({ length: chunkCount }, () => '?').join(', ')
-  return `SELECT chunk_sources.chunk_id, ocr_pages.page_number,
-    chunk_sources.start_line_index, chunk_sources.end_line_index
-    FROM chunk_sources
-    JOIN ocr_pages ON ocr_pages.id = chunk_sources.ocr_page_id
-    WHERE chunk_sources.chunk_id IN (${chunkPlaceholders})
-    ORDER BY chunk_sources.chunk_id, chunk_sources.source_order`
 }
