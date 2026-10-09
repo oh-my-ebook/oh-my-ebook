@@ -1,6 +1,6 @@
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { and, asc, count, countDistinct, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNull, ne } from 'drizzle-orm'
 import {
   books,
   chunkSources,
@@ -33,25 +33,12 @@ import {
   INSERT_CHUNK_SOURCE_SQL,
   INSERT_SEARCH_CHUNK_SQL,
   INSERT_SEARCH_POSTING_SQL,
-  RETRY_BOOK_ANALYSIS_SQL,
   REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
   SELECT_BOOK_EXISTS_SQL,
-  SELECT_BOOK_PAGE_COUNT_SQL,
-  SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL,
-  SELECT_NEXT_OCR_PAGE_SQL,
   SELECT_OCR_PAGE_BOOK_ID_SQL,
   createSearchChunksSql,
   SELECT_SEARCH_TERM_ID_SQL,
   SET_BOOK_INDEXED_SQL,
-  SET_BOOK_ANALYSIS_FAILED_SQL,
-  SET_OCR_COMPLETED_AT_SQL,
-  SET_OCR_PAGE_FAILED_SQL,
-  SET_OCR_PAGE_PROCESSING_SQL,
-  SET_OCR_PAGE_READY_SQL,
-  INSERT_OCR_LINE_SQL,
-  INSERT_OCR_PAGE_SQL,
-  DELETE_OCR_LINES_SQL,
-  PREPARE_OCR_PAGES_FOR_RUN_SQL,
   UPSERT_SEARCH_TERM_SQL,
 } from './queries'
 import {
@@ -252,18 +239,28 @@ async function initializeOcrPages(
   request: StorageRequest,
 ): Promise<void> {
   const input = getPayload(request, request.command, isInitializeOcrPagesInput)
-  if (
-    !(await database.sql<Record<string, unknown>>(SELECT_BOOK_PAGE_COUNT_SQL, input.bookId))[0]?.[
-      'page_count'
-    ]
-  ) {
-    throw new NotFoundBookError()
-  }
+  const db = drizzle(database.driver)
+  const [book] = await db
+    .select({ pageCount: books.pageCount })
+    .from(books)
+    .where(eq(books.id, input.bookId))
+  if (!book?.pageCount) throw new NotFoundBookError()
 
   const now = Date.now()
-  await database.batch((sql) =>
+  await database.batch(() =>
     Array.from({ length: input.pageCount }, (_, index) =>
-      sql(INSERT_OCR_PAGE_SQL, crypto.randomUUID(), input.bookId, index + 1, now, now),
+      db
+        .insert(ocrPages)
+        .values({
+          id: crypto.randomUUID(),
+          bookId: input.bookId,
+          pageNumber: index + 1,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .toSQL(),
     ),
   )
 }
@@ -273,8 +270,10 @@ async function prepareOcrPagesForRun(
   request: StorageRequest,
 ): Promise<void> {
   const bookId = getBookId(request)
-  await database.sql<Record<string, unknown>>(PREPARE_OCR_PAGES_FOR_RUN_SQL, Date.now(), bookId)
-  return undefined
+  await drizzle(database.driver)
+    .update(ocrPages)
+    .set({ status: 'pending', updatedAt: Date.now() })
+    .where(and(eq(ocrPages.bookId, bookId), inArray(ocrPages.status, ['processing', 'failed'])))
 }
 
 async function acquireNextOcrPage(
@@ -282,79 +281,109 @@ async function acquireNextOcrPage(
   request: StorageRequest,
 ): Promise<NextOcrPage | null> {
   const bookId = getBookId(request)
+  const db = drizzle(database.driver)
   const now = Date.now()
   return await database.transaction(async (tx) => {
-    const page = (await tx.sql<Record<string, unknown>>(SELECT_NEXT_OCR_PAGE_SQL, bookId))[0]
+    const [page] = await tx.query(
+      db
+        .select({ id: ocrPages.id, pageNumber: ocrPages.pageNumber })
+        .from(ocrPages)
+        .where(and(eq(ocrPages.bookId, bookId), eq(ocrPages.status, 'pending')))
+        .orderBy(asc(ocrPages.pageNumber))
+        .limit(1),
+    )
     if (!page) {
       return null
     }
 
-    const { id, page_number: pageNumber } = page
-    if (typeof id !== 'string' || typeof pageNumber !== 'number')
-      throw new Error('Invalid OCR page')
-    await tx.sql<Record<string, unknown>>(SET_OCR_PAGE_PROCESSING_SQL, now, id)
-    if (!(await isRowAffected(tx))) throw new Error('Unable to claim OCR page')
+    const { id, pageNumber } = page
+    if (id === null) throw new Error('Invalid OCR page')
+    const [updated] = await tx.query(
+      db
+        .update(ocrPages)
+        .set({ status: 'processing', updatedAt: now })
+        .where(and(eq(ocrPages.id, id), eq(ocrPages.status, 'pending')))
+        .returning({ id: ocrPages.id }),
+    )
+    if (!updated) throw new Error('Unable to claim OCR page')
     return { id, pageNumber }
   })
 }
 
 async function storeOcrPage(database: SQLocalDrizzle, request: StorageRequest): Promise<boolean> {
   const input = getPayload(request, request.command, isStoreOcrPageInput)
+  const db = drizzle(database.driver)
   const now = Date.now()
   return await database.transaction(async (tx) => {
-    const page = (
-      await tx.sql<Record<string, unknown>>(SELECT_OCR_PAGE_BOOK_ID_SQL, input.pageId)
-    )[0]
-    const bookId = page?.book_id
-    if (typeof bookId !== 'string') throw new NotFoundBookError()
+    const [page] = await tx.query(
+      db.select({ bookId: ocrPages.bookId }).from(ocrPages).where(eq(ocrPages.id, input.pageId)),
+    )
+    if (!page) throw new NotFoundBookError()
+    const { bookId } = page
 
-    await tx.batch((sql) => [
-      sql(DELETE_OCR_LINES_SQL, input.pageId),
+    await tx.batch(() => [
+      db.delete(ocrLines).where(eq(ocrLines.ocrPageId, input.pageId)).toSQL(),
       ...input.lines.map((line, lineIndex) =>
-        sql(
-          INSERT_OCR_LINE_SQL,
-          input.pageId,
-          lineIndex,
-          line.rawText,
-          line.x0,
-          line.y0,
-          line.x1,
-          line.y1,
-        ),
+        db
+          .insert(ocrLines)
+          .values({
+            ocrPageId: input.pageId,
+            lineIndex,
+            rawText: line.rawText,
+            x0: line.x0,
+            y0: line.y0,
+            x1: line.x1,
+            y1: line.y1,
+          })
+          .toSQL(),
       ),
     ])
-    await tx.sql<Record<string, unknown>>(
-      SET_OCR_PAGE_READY_SQL,
-      input.width,
-      input.height,
-      now,
-      input.pageId,
+    const [updated] = await tx.query(
+      db
+        .update(ocrPages)
+        .set({ width: input.width, height: input.height, status: 'ready', updatedAt: now })
+        .where(and(eq(ocrPages.id, input.pageId), eq(ocrPages.status, 'processing')))
+        .returning({ id: ocrPages.id }),
     )
-    if (!(await isRowAffected(tx))) throw new Error('Unable to store OCR page')
+    if (!updated) throw new Error('Unable to store OCR page')
 
-    const incompletePages = (
-      await tx.sql<Record<string, unknown>>(SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL, bookId)
-    )[0]?.['COUNT(*)']
-    if (incompletePages !== 0) {
+    const [incompletePages] = await tx.query(
+      db
+        .select({ total: count() })
+        .from(ocrPages)
+        .where(and(eq(ocrPages.bookId, bookId), ne(ocrPages.status, 'ready'))),
+    )
+    if (incompletePages?.total !== 0) {
       return false
     }
-    await tx.sql<Record<string, unknown>>(SET_OCR_COMPLETED_AT_SQL, now, now, bookId)
+    await tx.query(
+      db
+        .update(books)
+        .set({ ocrCompletedAt: now, updatedAt: now })
+        .where(and(eq(books.id, bookId), isNull(books.ocrCompletedAt))),
+    )
     return true
   })
 }
 
 async function failOcrPage(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const pageId = getBookId(request)
-  await database.sql<Record<string, unknown>>(SET_OCR_PAGE_FAILED_SQL, Date.now(), pageId)
-  if (!(await isRowAffected(database))) throw new NotFoundBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(ocrPages)
+    .set({ status: 'failed', updatedAt: Date.now() })
+    .where(and(eq(ocrPages.id, pageId), eq(ocrPages.status, 'processing')))
+    .returning({ id: ocrPages.id })
+  if (!updated) throw new NotFoundBookError()
 }
 
 async function failBookAnalysis(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const bookId = getBookId(request)
-  await database.sql<Record<string, unknown>>(SET_BOOK_ANALYSIS_FAILED_SQL, Date.now(), bookId)
-  if (!(await isRowAffected(database))) throw new NotFoundBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(books)
+    .set({ analysisStatus: 'failed', updatedAt: Date.now() })
+    .where(eq(books.id, bookId))
+    .returning({ id: books.id })
+  if (!updated) throw new NotFoundBookError()
 }
 
 async function getBookAnalysisStatus(
@@ -375,9 +404,12 @@ async function getBookAnalysisStatus(
 
 async function retryBookAnalysis(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const bookId = getBookId(request)
-  await database.sql<Record<string, unknown>>(RETRY_BOOK_ANALYSIS_SQL, Date.now(), bookId)
-  if (!(await isRowAffected(database))) throw new NotFoundBookError()
-  return undefined
+  const [updated] = await drizzle(database.driver)
+    .update(books)
+    .set({ analysisStatus: 'analyzing', updatedAt: Date.now() })
+    .where(and(eq(books.id, bookId), eq(books.analysisStatus, 'failed')))
+    .returning({ id: books.id })
+  if (!updated) throw new NotFoundBookError()
 }
 
 async function getStoredOcrPage(

@@ -93,33 +93,7 @@ export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
 
 export const SELECT_CHANGES_SQL = 'SELECT changes()'
 
-export const SELECT_BOOK_PAGE_COUNT_SQL = 'SELECT page_count FROM books WHERE id = ?'
-export const INSERT_OCR_PAGE_SQL = `INSERT OR IGNORE INTO ocr_pages (
-  id, book_id, page_number, status, created_at, updated_at
-) VALUES (?, ?, ?, 'pending', ?, ?)`
-export const PREPARE_OCR_PAGES_FOR_RUN_SQL = `UPDATE ocr_pages
-  SET status = 'pending', updated_at = ? WHERE book_id = ? AND status IN ('processing', 'failed')`
-export const SELECT_NEXT_OCR_PAGE_SQL = `SELECT id, page_number FROM ocr_pages
-  WHERE book_id = ? AND status = 'pending' ORDER BY page_number LIMIT 1`
-export const SET_OCR_PAGE_PROCESSING_SQL = `UPDATE ocr_pages
-  SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'pending'`
-export const DELETE_OCR_LINES_SQL = 'DELETE FROM ocr_lines WHERE ocr_page_id = ?'
-export const INSERT_OCR_LINE_SQL = `INSERT INTO ocr_lines (
-  ocr_page_id, line_index, raw_text, x0, y0, x1, y1
-) VALUES (?, ?, ?, ?, ?, ?, ?)`
-export const SET_OCR_PAGE_READY_SQL = `UPDATE ocr_pages
-  SET width = ?, height = ?, status = 'ready', updated_at = ? WHERE id = ? AND status = 'processing'`
 export const SELECT_OCR_PAGE_BOOK_ID_SQL = 'SELECT book_id FROM ocr_pages WHERE id = ?'
-export const SET_OCR_PAGE_FAILED_SQL = `UPDATE ocr_pages
-  SET status = 'failed', updated_at = ? WHERE id = ? AND status = 'processing'`
-export const SELECT_INCOMPLETE_OCR_PAGE_COUNT_SQL = `SELECT COUNT(*) FROM ocr_pages
-  WHERE book_id = ? AND status != 'ready'`
-export const SET_OCR_COMPLETED_AT_SQL = `UPDATE books
-  SET ocr_completed_at = ?, updated_at = ? WHERE id = ? AND ocr_completed_at IS NULL`
-export const SET_BOOK_ANALYSIS_FAILED_SQL = `UPDATE books
-  SET analysis_status = 'failed', updated_at = ? WHERE id = ?`
-export const RETRY_BOOK_ANALYSIS_SQL = `UPDATE books
-  SET analysis_status = 'analyzing', updated_at = ? WHERE id = ? AND analysis_status = 'failed'`
 export const DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL = 'DELETE FROM search_chunks WHERE book_id = ?'
 export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
   id, book_id, ordinal, text, token_count, created_at
