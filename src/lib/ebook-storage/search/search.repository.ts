@@ -193,7 +193,6 @@ export function createSearchRepository(database: DatabaseConnection) {
       query.bookId,
       query.limit,
     )
-    if (!Array.isArray(rows)) throw new Error('Invalid search chunks')
 
     const chunks: Omit<SearchChunkResult, 'sources'>[] = []
     for (const row of rows) {
