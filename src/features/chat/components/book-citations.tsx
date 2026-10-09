@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { ArrowRight } from 'lucide-react'
 import type { DataMessagePartComponent } from '@assistant-ui/react'
-import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook-storage/data/search'
+import type { SearchChunkResult, SearchChunkSource } from '@/lib/ebook-storage/types/search'
 import { Sources } from '@/components/assistant-ui/elements/sources.aui'
 import { Button } from '@/components/ui/button'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'

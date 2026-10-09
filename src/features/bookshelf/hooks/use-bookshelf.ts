@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from '@/components/ui/toast'
-import type { StoredBook } from '@/lib/ebook-storage/data/book'
+import type { StoredBook } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { getOcrAnalysisCoordinator } from '../lib/analysis/ocr-analysis-coordinator'

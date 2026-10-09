@@ -1,5 +1,5 @@
 import type { EbookStore } from '../ebook-store'
-import type { AddBookInput, StoredBook, StoredBookDetail } from '../data/book'
+import type { AddBookInput, StoredBook, StoredBookDetail } from '../types/book'
 import * as database from './database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import { createBookRepository } from './books'

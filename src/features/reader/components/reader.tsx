@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Undo2 } from 'lucide-react'
-import type { SearchChunkSource } from '@/lib/ebook-storage/data/search'
+import type { SearchChunkSource } from '@/lib/ebook-storage/types/search'
 import type { ReaderQuoteRequest } from '@/lib/quote'
 import { Button } from '@/components/ui/button'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'

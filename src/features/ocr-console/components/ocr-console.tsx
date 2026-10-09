@@ -25,13 +25,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { OcrLinePage, OcrPageRecord } from '@/lib/ebook-storage/data/ocr'
+import type { OcrLinePage, OcrPageRecord } from '@/lib/ebook-storage/types/ocr'
 import type {
   ChunkSourcePage,
   SearchChunkPage,
   SearchPostingPage,
   SearchTermPage,
-} from '@/lib/ebook-storage/data/search-index'
+} from '@/lib/ebook-storage/types/search-index'
 import { useEffect, useState } from 'react'
 import type { OcrConsoleStore } from '../lib/ocr-console-store'
 

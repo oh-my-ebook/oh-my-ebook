@@ -5,14 +5,14 @@ import type {
   InitializeOcrPagesInput,
   ListOcrLinesInput,
   StoreOcrPageInput,
-} from '../data/inputs'
+} from '../types/inputs'
 import type {
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
   OcrPageRecord,
   StoredOcrPage,
-} from '../data/ocr'
+} from '../types/ocr'
 import { books, ocrLines, ocrPages } from '../schema'
 import { NotFoundBookError } from './errors'
 

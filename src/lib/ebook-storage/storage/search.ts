@@ -2,15 +2,15 @@ import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import type { TransactionHandle } from 'sqlocal'
 import type { DatabaseConnection } from './database-connection'
-import type { ListOcrLinesInput, StoreSearchIndexInput } from '../data/inputs'
-import type { SearchChunkQuery, SearchChunkResult, SearchChunkSource } from '../data/search'
+import type { ListOcrLinesInput, StoreSearchIndexInput } from '../types/inputs'
+import type { SearchChunkQuery, SearchChunkResult, SearchChunkSource } from '../types/search'
 import type {
   ChunkSourcePage,
   SearchChunkInput,
   SearchChunkPage,
   SearchPostingPage,
   SearchTermPage,
-} from '../data/search-index'
+} from '../types/search-index'
 import {
   books,
   chunkSources,

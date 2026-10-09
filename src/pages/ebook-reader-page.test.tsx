@@ -1,10 +1,10 @@
 import { createStoreMock, createStoredBookDetail } from '@/test/ebook-store'
-import type { StoredBookDetail } from '@/lib/ebook-storage/data/book'
+import type { StoredBookDetail } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { BookMetadata } from '@/lib/ebook-storage/data/book'
+import type { BookMetadata } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '../test/promise-controller'
 import { EbookReaderPage } from './ebook-reader-page'
 

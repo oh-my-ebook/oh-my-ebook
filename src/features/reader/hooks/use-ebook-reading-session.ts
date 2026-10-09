@@ -1,8 +1,8 @@
 import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
-import type { StoredBookDetail } from '@/lib/ebook-storage/data/book'
+import type { StoredBookDetail } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { useEffect, useRef, useState } from 'react'
-import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/data/book'
+import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/types/book'
 
 export type EbookReaderStore = Pick<
   EbookStore,

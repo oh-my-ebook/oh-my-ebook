@@ -5,7 +5,7 @@ import type {
   ThreadMessage,
 } from '@assistant-ui/react'
 import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
-import type { SearchChunkResult } from '@/lib/ebook-storage/data/search'
+import type { SearchChunkResult } from '@/lib/ebook-storage/types/search'
 import { decodeQuoteTexts } from '@/lib/quote'
 import { BOOK_CITATIONS_DATA_NAME } from '../rag/book-citations'
 import {

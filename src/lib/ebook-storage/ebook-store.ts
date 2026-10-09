@@ -1,18 +1,18 @@
-import type { AddBookInput, StoredBook, StoredBookDetail, BookAnalysisStatus } from './data/book'
+import type { AddBookInput, StoredBook, StoredBookDetail, BookAnalysisStatus } from './types/book'
 import type {
   NextOcrPage,
   StoredOcrPage,
   OcrPageRecord,
   OcrLinePage,
   OcrLineForChunking,
-} from './data/ocr'
+} from './types/ocr'
 import type {
   SearchChunkPage,
   SearchTermPage,
   SearchPostingPage,
   ChunkSourcePage,
-} from './data/search-index'
-import type { SearchChunkQuery, SearchChunkResult } from './data/search'
+} from './types/search-index'
+import type { SearchChunkQuery, SearchChunkResult } from './types/search'
 import type {
   UpdateCoverInput,
   UpdateProgressInput,
@@ -22,7 +22,7 @@ import type {
   StoreSearchIndexInput,
   ListOcrLinesInput,
   GetStoredOcrPageInput,
-} from './data/inputs'
+} from './types/inputs'
 
 export interface EbookStore {
   initialize(): Promise<void>
