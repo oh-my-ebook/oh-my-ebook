@@ -1,20 +1,20 @@
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
-import type { DatabaseConnection } from './database-connection'
+import type { DatabaseConnection } from '../database-connection'
 import type {
   GetStoredOcrPageInput,
   InitializeOcrPagesInput,
   ListOcrLinesInput,
   StoreOcrPageInput,
-} from '../types/inputs'
+} from '../../types/inputs'
 import type {
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
   OcrPageRecord,
   StoredOcrPage,
-} from '../types/ocr'
-import { books, ocrLines, ocrPages } from '../schema'
-import { NotFoundBookError } from './errors'
+} from '../../types/ocr'
+import { books, ocrLines, ocrPages } from '../../schema'
+import { NotFoundBookError } from '../errors'
 
 export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database

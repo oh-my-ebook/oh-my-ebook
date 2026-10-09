@@ -1,11 +1,11 @@
 import { and, desc, eq, gte } from 'drizzle-orm'
-import type { DatabaseConnection } from './database-connection'
-import type { AddBookInput, BookAnalysisStatus } from '../types/book'
-import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
-import { books } from '../schema'
-import { DeletedBookError, DuplicateBookError, NotFoundBookError } from './errors'
-import { refreshSearchTerms } from './search'
-import { isBookAnalysisStatus, normalizeStoredProgress } from './validation'
+import type { DatabaseConnection } from '../database-connection'
+import type { AddBookInput, BookAnalysisStatus } from '../../types/book'
+import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../../types/inputs'
+import { books } from '../../schema'
+import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../errors'
+import { refreshSearchTerms } from '../search/search.repository'
+import { isBookAnalysisStatus, normalizeStoredProgress } from '../validation'
 
 export function createBookRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
