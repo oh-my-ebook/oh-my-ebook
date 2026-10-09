@@ -13,43 +13,34 @@ export function createBookRepository(database: DatabaseConnection) {
   async function addBook(input: AddBookInput): Promise<string> {
     const id = crypto.randomUUID()
     const now = Date.now()
-    // SQLocal의 tx.query로 실행해야 외부 쿼리가 트랜잭션에 끼어들지 않는다.
-    return await sqlocal.transaction(async (tx) => {
-      const [existing] = await tx.query(
-        db
-          .select({ id: books.id })
-          .from(books)
-          .where(eq(books.contentHash, input.contentHash))
-          .limit(1),
-      )
-      if (existing) throw new DuplicateBookError()
-
-      await tx.query(
-        db.insert(books).values({
-          id,
-          contentHash: input.contentHash,
-          fileName: input.fileName,
-          title: input.title,
-          author: input.author,
-          pdfTitle: input.pdfTitle,
-          pdfSubject: input.pdfSubject,
-          pdfKeywords: input.pdfKeywords,
-          publisher: input.publisher,
-          pdfSize: input.pdfSize,
-          pageCount: input.pageCount,
-          coverData: input.coverData ? new Uint8Array(input.coverData) : null,
-          coverMime: input.coverMime,
-          coverStatus: input.coverStatus,
-          lastPage: null,
-          analysisStatus: 'analyzing',
-          ocrCompletedAt: null,
-          indexedAt: null,
-          createdAt: now,
-          updatedAt: now,
-        }),
-      )
-      return id
-    })
+    const [inserted] = await db
+      .insert(books)
+      .values({
+        id,
+        contentHash: input.contentHash,
+        fileName: input.fileName,
+        title: input.title,
+        author: input.author,
+        pdfTitle: input.pdfTitle,
+        pdfSubject: input.pdfSubject,
+        pdfKeywords: input.pdfKeywords,
+        publisher: input.publisher,
+        pdfSize: input.pdfSize,
+        pageCount: input.pageCount,
+        coverData: input.coverData ? new Uint8Array(input.coverData) : null,
+        coverMime: input.coverMime,
+        coverStatus: input.coverStatus,
+        lastPage: null,
+        analysisStatus: 'analyzing',
+        ocrCompletedAt: null,
+        indexedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: books.contentHash })
+      .returning({ id: books.id })
+    if (!inserted) throw new DuplicateBookError()
+    return id
   }
 
   async function deleteBookById(id: string): Promise<void> {

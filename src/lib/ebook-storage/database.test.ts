@@ -74,7 +74,34 @@ describe('SQLocal 저장소', () => {
       last_page: null,
       cover_data: new Uint8Array([0, 128, 255]),
     })
-    await expect(store.addBook(createBookInput())).rejects.toBeInstanceOf(DuplicateBookError)
+  })
+
+  it('동일 PDF를 다시 등록하면 기존 책을 변경하지 않고 중복 오류를 반환한다', async () => {
+    const { store } = await setup()
+    const before = await store.listBooks()
+
+    await expect(
+      store.addBook(createBookInput({ title: '중복 등록한 제목' })),
+    ).rejects.toBeInstanceOf(DuplicateBookError)
+
+    expect(await store.listBooks()).toEqual(before)
+  })
+
+  it('책 ID 충돌은 PDF 중복 오류로 처리하지 않는다', async () => {
+    const db = await createTestConnection()
+    const store = createBookRepository(db)
+    const randomUUID = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('00000000-0000-4000-8000-000000000001')
+    onTestFinished(() => randomUUID.mockRestore())
+    await store.addBook(createBookInput())
+    const before = await store.listBooks()
+
+    await expect(
+      store.addBook(createBookInput({ contentHash: 'b'.repeat(64) })),
+    ).rejects.toBeInstanceOf(DrizzleQueryError)
+
+    expect(await store.listBooks()).toEqual(before)
   })
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
@@ -122,7 +149,7 @@ describe('SQLocal 저장소', () => {
     expect(await store.getBookMetadata(id)).toMatchObject({ id })
   })
 
-  it('동일 PDF의 동시 저장은 하나만 성공하고 실패한 트랜잭션 뒤에도 저장할 수 있다', async () => {
+  it('동일 PDF의 동시 저장은 하나만 성공하고 중복 오류 뒤에도 저장할 수 있다', async () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
     const results = await Promise.allSettled([
