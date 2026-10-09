@@ -66,9 +66,11 @@ export async function deletePdf(contentHash: string): Promise<void> {
   }
 }
 
-export async function clearOpfs(): Promise<void> {
+export async function clearPdfFiles(): Promise<void> {
   const root = await navigator.storage.getDirectory()
-  for await (const [name] of root.entries()) {
-    await root.removeEntry(name, { recursive: true })
+  try {
+    await root.removeEntry(PDF_DIRECTORY_NAME, { recursive: true })
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error
   }
 }

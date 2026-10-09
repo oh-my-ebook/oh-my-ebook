@@ -74,7 +74,6 @@ export function useBookshelf(store: BookshelfStore) {
 
     async function load() {
       try {
-        await store.initialize()
         const result = await store.listBooks()
         await refreshUsage()
         if (active) {

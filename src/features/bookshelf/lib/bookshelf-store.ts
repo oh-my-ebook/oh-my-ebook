@@ -2,7 +2,6 @@ import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
 
 export type BookshelfStore = Pick<
   EbookStore,
-  | 'initialize'
   | 'listBooks'
   | 'saveBook'
   | 'getBook'

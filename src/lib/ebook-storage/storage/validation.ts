@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import type { SQLocalDrizzle } from 'sqlocal/drizzle'
+import type { DatabaseConnection } from './database-connection'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
 import type { OcrLineInput } from '../data/ocr'
 import type { SearchChunkQuery } from '../data/search'
@@ -262,7 +261,7 @@ export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatu
 
 export async function normalizeStoredProgress<
   T extends { page_count: number; last_page: number | null },
->(database: Pick<SQLocalDrizzle, 'driver'>, id: string, book: T): Promise<T> {
+>(database: Pick<DatabaseConnection, 'db'>, id: string, book: T): Promise<T> {
   const pageCount = book.page_count
   const lastPage = book.last_page
   if (
@@ -278,7 +277,7 @@ export async function normalizeStoredProgress<
     return book
   }
 
-  await drizzle(database.driver)
+  await database.db
     .update(books)
     .set({ lastPage: 1, updatedAt: Date.now() })
     .where(eq(books.id, id))

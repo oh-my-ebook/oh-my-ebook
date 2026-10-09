@@ -1,3 +1,5 @@
+import { drizzle } from 'drizzle-orm/sqlite-proxy'
+import type { DatabaseConnection } from '../lib/ebook-storage/storage/database-connection'
 import { onTestFinished, vi } from 'vitest'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { AddBookInput } from '../lib/ebook-storage/data/book'
@@ -46,4 +48,12 @@ export function createBookInput(overrides: Partial<AddBookInput> = {}): AddBookI
     coverStatus: 'fallback',
     ...overrides,
   }
+}
+
+export async function createTestConnection(
+  schema = INITIAL_SCHEMA_SQL,
+): Promise<DatabaseConnection> {
+  const sqlocal = await createTestDatabase(schema)
+  const db = drizzle(sqlocal.driver, sqlocal.batchDriver)
+  return { sqlocal, db }
 }

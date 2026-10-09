@@ -90,10 +90,10 @@ describe('Bookshelf', () => {
     expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
   })
 
-  it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
-    const initialization = createPromiseController<void>()
+  it('목록 조회 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const store = createStore()
-    store.initialize.mockImplementationOnce(() => initialization.promise)
+    const bookList = createPromiseController<Awaited<ReturnType<typeof store.listBooks>>>()
+    store.listBooks.mockImplementationOnce(() => bookList.promise)
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
@@ -103,23 +103,23 @@ describe('Bookshelf', () => {
     expect(screen.queryByRole('button', { name: '책 추가' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
-    initialization.resolve(undefined)
+    bookList.resolve([])
     expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(store.listBooks).toHaveBeenCalledWith()
   })
 
-  it('DB 초기화가 실패하면 오류를 보여 주고 재시도한다', async () => {
+  it('책 목록 조회가 실패하면 오류를 보여 주고 재시도한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.initialize.mockRejectedValueOnce(new Error('failed'))
+    store.listBooks.mockRejectedValueOnce(new Error('failed'))
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
     expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
-    expect(store.initialize).toHaveBeenCalledTimes(2)
+    expect(store.listBooks).toHaveBeenCalledTimes(2)
   })
 
   it('자동 재개 중 OCR 분석이 실패하면 같은 세션에서 분석 재시도 버튼을 표시한다', async () => {

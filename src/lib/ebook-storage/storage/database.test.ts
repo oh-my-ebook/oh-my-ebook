@@ -1,59 +1,26 @@
-import type { EbookStore } from '../ebook-store'
-import * as bookDb from './books'
-import * as ocrDb from './ocr'
-import * as searchDb from './search'
+import { createBookRepository } from './books'
+import { createOcrRepository } from './ocr'
+import { createSearchRepository } from './search'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { DrizzleQueryError } from 'drizzle-orm'
-import { createBookInput, createTestDatabase } from '../../../test/sqlocal'
+import { createBookInput, createTestConnection } from '../../../test/sqlocal'
 import { DeletedBookError, DuplicateBookError, getErrorCode, NotFoundBookError } from './errors'
-import { addBook, deleteBookById, getBookMetadata, listBooks } from './books'
 
 async function setup() {
-  const db = await createTestDatabase()
-  const id = await addBook(db, createBookInput())
+  const db = await createTestConnection()
   const store = {
-    listBooks: () => bookDb.listBooks(db),
-    hasBook: (bookId = id) => bookDb.hasBook(db, bookId),
-    updateProgress: (input: Parameters<EbookStore['updateProgress']>[0]) =>
-      bookDb.updateProgress(db, input),
-    updateTitle: (input: Parameters<EbookStore['updateTitle']>[0]) => bookDb.updateTitle(db, input),
-    updateCover: (input: Parameters<EbookStore['updateCover']>[0]) => bookDb.updateCover(db, input),
-    initializeOcrPages: (input: Parameters<EbookStore['initializeOcrPages']>[0]) =>
-      ocrDb.initializeOcrPages(db, input),
-    prepareOcrPagesForRun: (bookId = id) => ocrDb.prepareOcrPagesForRun(db, bookId),
-    acquireNextOcrPage: (bookId = id) => ocrDb.acquireNextOcrPage(db, bookId),
-    storeOcrPage: (input: Parameters<EbookStore['storeOcrPage']>[0]) =>
-      ocrDb.storeOcrPage(db, input),
-    failOcrPage: (pageId = id) => ocrDb.failOcrPage(db, pageId),
-    failBookAnalysis: (bookId = id) => bookDb.failBookAnalysis(db, bookId),
-    getBookAnalysisStatus: (bookId = id) => bookDb.getBookAnalysisStatus(db, bookId),
-    retryBookAnalysis: (bookId = id) => bookDb.retryBookAnalysis(db, bookId),
-    getStoredOcrPage: (input: Parameters<EbookStore['getStoredOcrPage']>[0]) =>
-      ocrDb.getStoredOcrPage(db, input),
-    listOcrPages: (bookId = id) => ocrDb.listOcrPages(db, bookId),
-    listOcrLines: (input: Parameters<EbookStore['listOcrLines']>[0]) =>
-      ocrDb.listOcrLines(db, input),
-    getOcrLinesForChunking: (bookId = id) => ocrDb.getOcrLinesForChunking(db, bookId),
-    storeSearchIndex: (input: Parameters<EbookStore['storeSearchIndex']>[0]) =>
-      searchDb.storeSearchIndex(db, input),
-    listSearchChunks: (input: Parameters<EbookStore['listSearchChunks']>[0]) =>
-      searchDb.listSearchChunks(db, input),
-    searchChunks: (query: Parameters<EbookStore['searchChunks']>[0]) =>
-      searchDb.searchChunks(db, query),
-    listSearchTerms: (input: Parameters<EbookStore['listSearchTerms']>[0]) =>
-      searchDb.listSearchTerms(db, input),
-    listSearchPostings: (input: Parameters<EbookStore['listSearchPostings']>[0]) =>
-      searchDb.listSearchPostings(db, input),
-    listChunkSources: (input: Parameters<EbookStore['listChunkSources']>[0]) =>
-      searchDb.listChunkSources(db, input),
+    ...createBookRepository(db),
+    ...createOcrRepository(db),
+    ...createSearchRepository(db),
   }
+  const id = await store.addBook(createBookInput())
   return { db, id, store }
 }
 
 async function preparePages() {
   const context = await setup()
   await context.store.initializeOcrPages({ bookId: context.id, pageCount: 2 })
-  const pages = await context.db.sql<{ id: string }>(
+  const pages = await context.db.sqlocal.sql<{ id: string }>(
     'SELECT id FROM ocr_pages ORDER BY page_number',
   )
   return { ...context, pages }
@@ -71,25 +38,38 @@ function chunk(id: string, pageId: string) {
 }
 
 describe('SQLocal 저장소', () => {
+  it('각 저장소는 생성할 때 전달받은 연결의 데이터만 읽고 쓴다', async () => {
+    const first = createBookRepository(await createTestConnection())
+    const second = createBookRepository(await createTestConnection())
+    await first.addBook(createBookInput({ title: '첫 번째 DB의 책' }))
+    expect(await second.listBooks()).toEqual([])
+
+    await second.addBook(createBookInput({ title: '두 번째 DB의 책' }))
+    expect(await first.listBooks()).toEqual([expect.objectContaining({ title: '첫 번째 DB의 책' })])
+    expect(await second.listBooks()).toEqual([
+      expect.objectContaining({ title: '두 번째 DB의 책' }),
+    ])
+  })
+
   it('빈 목록, 매개변수, BLOB, NULL과 등록 시각·id 내림차순을 유지한다', async () => {
-    const db = await createTestDatabase()
-    expect(await listBooks(db)).toEqual([])
+    const db = await createTestConnection()
+    const store = { ...createBookRepository(db), ...createOcrRepository(db) }
+    expect(await store.listBooks()).toEqual([])
     const title = "따옴표 ' 와 ? 제목"
-    const id = await addBook(
-      db,
+    const id = await store.addBook(
       createBookInput({ title, coverData: new Uint8Array([0, 128, 255]).buffer }),
     )
-    await addBook(db, createBookInput({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
-    await db.sql('UPDATE books SET created_at = 100')
-    const expected = await db.sql('SELECT * FROM books ORDER BY created_at DESC, id DESC')
-    expect(await listBooks(db)).toEqual(expected)
+    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
+    await db.sqlocal.sql('UPDATE books SET created_at = 100')
+    const expected = await db.sqlocal.sql('SELECT * FROM books ORDER BY created_at DESC, id DESC')
+    expect(await store.listBooks()).toEqual(expected)
     expect(expected.find((book) => book.id === id)).toMatchObject({
       title,
       author: null,
       last_page: null,
       cover_data: new Uint8Array([0, 128, 255]),
     })
-    await expect(addBook(db, createBookInput())).rejects.toBeInstanceOf(DuplicateBookError)
+    await expect(store.addBook(createBookInput())).rejects.toBeInstanceOf(DuplicateBookError)
   })
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
@@ -101,24 +81,24 @@ describe('SQLocal 저장소', () => {
       coverMime: 'image/png',
     })
     await store.updateProgress({ id, page: 2 })
-    expect(await getBookMetadata(db, id)).toMatchObject({ title: '새 제목', last_page: 2 })
-    expect(await listBooks(db)).toEqual([
+    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', last_page: 2 })
+    expect(await store.listBooks()).toEqual([
       expect.objectContaining({ cover_data: new Uint8Array([4, 5]), cover_status: 'ready' }),
     ])
     await expect(store.updateProgress({ id, page: 3 })).rejects.toBeInstanceOf(DeletedBookError)
-    expect(await getBookMetadata(db, id)).toMatchObject({ last_page: 2 })
-    await db.sql('PRAGMA ignore_check_constraints = ON')
-    await db.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
-    expect(await getBookMetadata(db, id)).toMatchObject({ last_page: 1 })
-    await deleteBookById(db, id)
-    await expect(store.hasBook()).rejects.toBeInstanceOf(DeletedBookError)
-    await expect(getBookMetadata(db, id)).rejects.toBeInstanceOf(NotFoundBookError)
-    await expect(store.getBookAnalysisStatus()).rejects.toThrow()
+    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 2 })
+    await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
+    await db.sqlocal.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
+    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 1 })
+    await store.deleteBookById(id)
+    await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
+    await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)
+    await expect(store.getBookAnalysisStatus(id)).rejects.toThrow()
   })
 
   it('삭제된 책의 수정·재삭제를 거부하고 다른 책은 유지한다', async () => {
-    const { db, id, store } = await setup()
-    const before = await listBooks(db)
+    const { id, store } = await setup()
+    const before = await store.listBooks()
     await expect(store.updateTitle({ id: 'missing', title: '변경' })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
@@ -132,82 +112,84 @@ describe('SQLocal 저장소', () => {
     await expect(store.updateProgress({ id: 'missing', page: 1 })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
-    await expect(deleteBookById(db, 'missing')).rejects.toBeInstanceOf(DeletedBookError)
-    expect(await listBooks(db)).toEqual(before)
-    expect(await getBookMetadata(db, id)).toMatchObject({ id })
+    await expect(store.deleteBookById('missing')).rejects.toBeInstanceOf(DeletedBookError)
+    expect(await store.listBooks()).toEqual(before)
+    expect(await store.getBookMetadata(id)).toMatchObject({ id })
   })
 
   it('동일 PDF의 동시 저장은 하나만 성공하고 실패한 트랜잭션 뒤에도 저장할 수 있다', async () => {
-    const db = await createTestDatabase()
+    const db = await createTestConnection()
+    const store = { ...createBookRepository(db), ...createOcrRepository(db) }
     const results = await Promise.allSettled([
-      addBook(db, createBookInput()),
-      addBook(db, createBookInput()),
+      store.addBook(createBookInput()),
+      store.addBook(createBookInput()),
     ])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const failures = results.filter((result) => result.status === 'rejected')
     expect(failures.map((result) => getErrorCode(result.reason))).toEqual(['duplicate'])
-    await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
-    expect(await listBooks(db)).toHaveLength(2)
+    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    expect(await store.listBooks()).toHaveLength(2)
   })
 
   it('OCR 페이지 초기화는 중복되지 않고 동시 선점은 서로 다른 페이지를 반환한다', async () => {
     const { db, id, store } = await preparePages()
     await store.initializeOcrPages({ bookId: id, pageCount: 2 })
-    const claimed = await Promise.all([store.acquireNextOcrPage(), store.acquireNextOcrPage()])
+    const claimed = await Promise.all([store.acquireNextOcrPage(id), store.acquireNextOcrPage(id)])
     expect(claimed).toEqual([
       expect.objectContaining({ pageNumber: 1 }),
       expect.objectContaining({ pageNumber: 2 }),
     ])
-    expect(await store.acquireNextOcrPage()).toBeNull()
-    expect(await db.sql('SELECT status FROM ocr_pages')).toEqual([
+    expect(await store.acquireNextOcrPage(id)).toBeNull()
+    expect(await db.sqlocal.sql('SELECT status FROM ocr_pages')).toEqual([
       { status: 'processing' },
       { status: 'processing' },
     ])
   })
 
   it('100개 OCR 페이지를 빠짐없이 등록하고 다시 초기화해도 기존 행을 유지한다', async () => {
-    const db = await createTestDatabase()
-    const id = await addBook(db, createBookInput({ pageCount: 100 }))
-    const batchSpy = vi.spyOn(db, 'batch')
+    const db = await createTestConnection()
+    const store = { ...createBookRepository(db), ...createOcrRepository(db) }
+    const id = await store.addBook(createBookInput({ pageCount: 100 }))
+    const batchSpy = vi.spyOn(db.sqlocal, 'batch')
     onTestFinished(() => batchSpy.mockRestore())
     const input = { bookId: id, pageCount: 100 }
-    await ocrDb.initializeOcrPages(db, input)
-    const pages = await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')
+    await store.initializeOcrPages(input)
+    const pages = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
     expect(pages.map((page) => page.page_number)).toEqual(
       Array.from({ length: 100 }, (_, index) => index + 1),
     )
-    await ocrDb.initializeOcrPages(db, input)
-    expect(await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
+    await store.initializeOcrPages(input)
+    expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
     expect(batchSpy).toHaveBeenCalledTimes(2)
   })
 
   it('OCR 페이지 등록 도중 실패하면 앞서 등록한 페이지도 롤백하고 재시도할 수 있다', async () => {
     const { db, id, store } = await setup()
-    await db.sql(`CREATE TRIGGER fail_second_page BEFORE INSERT ON ocr_pages
+    await db.sqlocal.sql(`CREATE TRIGGER fail_second_page BEFORE INSERT ON ocr_pages
       WHEN NEW.page_number = 2 BEGIN SELECT RAISE(ABORT, 'page failure'); END`)
     await expect(store.initializeOcrPages({ bookId: id, pageCount: 2 })).rejects.toThrow(
       'page failure',
     )
-    expect(await db.sql('SELECT * FROM ocr_pages')).toEqual([])
-    await db.sql('DROP TRIGGER fail_second_page')
+    expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
+    await db.sqlocal.sql('DROP TRIGGER fail_second_page')
     await store.initializeOcrPages({ bookId: id, pageCount: 2 })
-    expect(await db.sql('SELECT page_number FROM ocr_pages ORDER BY page_number')).toEqual([
+    expect(await db.sqlocal.sql('SELECT page_number FROM ocr_pages ORDER BY page_number')).toEqual([
       { page_number: 1 },
       { page_number: 2 },
     ])
   })
 
   it('실패한 OCR과 책 분석을 재시도 상태로 되돌린다', async () => {
-    const { db, store, pages } = await preparePages()
-    await store.acquireNextOcrPage()
+    const { db, id, store, pages } = await preparePages()
+    await store.acquireNextOcrPage(id)
     await store.failOcrPage(pages[0].id)
-    await store.acquireNextOcrPage()
-    await store.failBookAnalysis()
-    expect(await store.getBookAnalysisStatus()).toBe('failed')
-    await store.prepareOcrPagesForRun()
-    await store.retryBookAnalysis()
-    expect(await store.getBookAnalysisStatus()).toBe('analyzing')
-    expect(await db.sql('SELECT status FROM ocr_pages')).toEqual([
+    await store.acquireNextOcrPage(id)
+    await store.failBookAnalysis(id)
+    expect(await store.getBookAnalysisStatus(id)).toBe('failed')
+    await store.prepareOcrPagesForRun(id)
+    await store.retryBookAnalysis(id)
+    expect(await store.getBookAnalysisStatus(id)).toBe('analyzing')
+    expect(await db.sqlocal.sql('SELECT status FROM ocr_pages')).toEqual([
       { status: 'pending' },
       { status: 'pending' },
     ])
@@ -215,8 +197,8 @@ describe('SQLocal 저장소', () => {
 
   it('페이지 원문·좌표와 순서를 보존하고 마지막 페이지에서 OCR 완료를 기록한다', async () => {
     const { db, id, store, pages } = await preparePages()
-    await store.acquireNextOcrPage()
-    await store.acquireNextOcrPage()
+    await store.acquireNextOcrPage(id)
+    await store.acquireNextOcrPage(id)
     const lines = [
       { rawText: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
       { rawText: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
@@ -233,7 +215,7 @@ describe('SQLocal 저장소', () => {
     expect(
       await store.storeOcrPage({ pageId: pages[1].id, width: 100, height: 200, lines: [] }),
     ).toBe(true)
-    expect(await store.listOcrPages()).toEqual(
+    expect(await store.listOcrPages(id)).toEqual(
       [1, 2].map((page_number) => ({ page_number, width: 100, height: 200, status: 'ready' })),
     )
     expect(await store.listOcrLines({ bookId: id, limit: 10, offset: 0 })).toEqual({
@@ -243,11 +225,11 @@ describe('SQLocal 저장소', () => {
         { page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
       ],
     })
-    expect(await store.getOcrLinesForChunking()).toEqual([
+    expect(await store.getOcrLinesForChunking(id)).toEqual([
       { ocr_page_id: pages[0].id, page_number: 1, line_index: 0, raw_text: '첫 줄' },
       { ocr_page_id: pages[0].id, page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?" },
     ])
-    expect(await db.sql('SELECT ocr_completed_at FROM books')).toEqual([
+    expect(await db.sqlocal.sql('SELECT ocr_completed_at FROM books')).toEqual([
       { ocr_completed_at: expect.any(Number) },
     ])
   })
@@ -256,14 +238,14 @@ describe('SQLocal 저장소', () => {
     '%s 페이지는 OCR 저장·실패 처리를 거부하고 기존 데이터를 유지한다',
     async (status) => {
       const { db, store, pages } = await preparePages()
-      await db.sql('UPDATE ocr_pages SET status = ? WHERE id = ?', status, pages[0].id)
-      await db.sql(
+      await db.sqlocal.sql('UPDATE ocr_pages SET status = ? WHERE id = ?', status, pages[0].id)
+      await db.sqlocal.sql(
         `INSERT INTO ocr_lines (ocr_page_id, line_index, raw_text, x0, y0, x1, y1)
         VALUES (?, 0, '기존 줄', 0, 0, 1, 1)`,
         pages[0].id,
       )
-      const before = await db.sql('SELECT * FROM ocr_lines')
-      const pagesBefore = await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')
+      const before = await db.sqlocal.sql('SELECT * FROM ocr_lines')
+      const pagesBefore = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
       await expect(
         store.storeOcrPage({
           pageId: pages[0].id,
@@ -273,28 +255,30 @@ describe('SQLocal 저장소', () => {
         }),
       ).rejects.toThrow('Unable to store OCR page')
       await expect(store.failOcrPage(pages[0].id)).rejects.toBeInstanceOf(NotFoundBookError)
-      expect(await db.sql('SELECT * FROM ocr_lines')).toEqual(before)
-      expect(await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pagesBefore)
+      expect(await db.sqlocal.sql('SELECT * FROM ocr_lines')).toEqual(before)
+      expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(
+        pagesBefore,
+      )
     },
   )
 
   it('OCR 재개는 완료 페이지와 다른 책을 유지하고 최초 완료 시각을 덮어쓰지 않는다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await store.initializeOcrPages({ bookId: otherId, pageCount: 1 })
     await store.acquireNextOcrPage(otherId)
-    await db.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)
-    await db.sql("UPDATE ocr_pages SET status = 'failed' WHERE id = ?", pages[1].id)
-    await db.sql('UPDATE books SET ocr_completed_at = 123 WHERE id = ?', id)
-    await store.prepareOcrPagesForRun()
-    expect(await store.listOcrPages()).toEqual([
+    await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)
+    await db.sqlocal.sql("UPDATE ocr_pages SET status = 'failed' WHERE id = ?", pages[1].id)
+    await db.sqlocal.sql('UPDATE books SET ocr_completed_at = 123 WHERE id = ?', id)
+    await store.prepareOcrPagesForRun(id)
+    expect(await store.listOcrPages(id)).toEqual([
       { page_number: 1, status: 'ready', width: null, height: null },
       { page_number: 2, status: 'pending', width: null, height: null },
     ])
     expect(await store.listOcrPages(otherId)).toEqual([
       { page_number: 1, status: 'processing', width: null, height: null },
     ])
-    await store.acquireNextOcrPage()
+    await store.acquireNextOcrPage(id)
     expect(
       await store.storeOcrPage({
         pageId: pages[1].id,
@@ -303,7 +287,7 @@ describe('SQLocal 저장소', () => {
         lines: [],
       }),
     ).toBe(true)
-    expect(await db.sql('SELECT ocr_completed_at FROM books WHERE id = ?', id)).toEqual([
+    expect(await db.sqlocal.sql('SELECT ocr_completed_at FROM books WHERE id = ?', id)).toEqual([
       { ocr_completed_at: 123 },
     ])
   })
@@ -311,9 +295,9 @@ describe('SQLocal 저장소', () => {
   it('실패하지 않은 책의 재시도와 없는 책·페이지의 상태 변경을 거부한다', async () => {
     const { db, id, store } = await setup()
     for (const status of ['analyzing', 'ready']) {
-      await db.sql('UPDATE books SET analysis_status = ? WHERE id = ?', status, id)
-      await expect(store.retryBookAnalysis()).rejects.toBeInstanceOf(NotFoundBookError)
-      expect(await store.getBookAnalysisStatus()).toBe(status)
+      await db.sqlocal.sql('UPDATE books SET analysis_status = ? WHERE id = ?', status, id)
+      await expect(store.retryBookAnalysis(id)).rejects.toBeInstanceOf(NotFoundBookError)
+      expect(await store.getBookAnalysisStatus(id)).toBe(status)
     }
     for (const command of ['retryBookAnalysis', 'failBookAnalysis', 'failOcrPage'] as const) {
       await expect(store[command]('missing')).rejects.toBeInstanceOf(NotFoundBookError)
@@ -335,20 +319,22 @@ describe('SQLocal 저장소', () => {
     '%i개 OCR 줄을 한 번의 batch로 저장하고 빈 결과로 교체한다',
     async (lineCount) => {
       const { db, id, store, pages } = await preparePages()
-      await store.acquireNextOcrPage()
-      const transaction = db.transaction
+      await store.acquireNextOcrPage(id)
+      const transaction = db.sqlocal.transaction
       const batches: number[] = []
-      const transactionSpy = vi.spyOn(db, 'transaction').mockImplementation(async (callback) =>
-        transaction(async (tx) => {
-          const batchSpy = vi.spyOn(tx, 'batch')
-          try {
-            return await callback(tx)
-          } finally {
-            batches.push(batchSpy.mock.calls.length)
-            batchSpy.mockRestore()
-          }
-        }),
-      )
+      const transactionSpy = vi
+        .spyOn(db.sqlocal, 'transaction')
+        .mockImplementation(async (callback) =>
+          transaction(async (tx) => {
+            const batchSpy = vi.spyOn(tx, 'batch')
+            try {
+              return await callback(tx)
+            } finally {
+              batches.push(batchSpy.mock.calls.length)
+              batchSpy.mockRestore()
+            }
+          }),
+        )
       onTestFinished(() => transactionSpy.mockRestore())
       const lines = Array.from({ length: lineCount }, (_, index) => ({
         rawText: `줄 ${index}`,
@@ -364,7 +350,7 @@ describe('SQLocal 저장소', () => {
         height: 2000,
         lines,
       })
-      await db.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
+      await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
       await store.storeOcrPage({ ...input, lines: [] })
       expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toEqual({
         width: 100,
@@ -377,8 +363,8 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 조회는 다른 책을 제외하고 페이지·줄 순서와 페이지네이션을 유지한다', async () => {
     const { db, id, store } = await setup()
-    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
-    await db.sql(
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    await db.sqlocal.sql(
       `INSERT INTO ocr_pages (id, book_id, page_number, width, height, status, created_at, updated_at)
        VALUES ('page-2', ?, 2, 100, 200, 'ready', 0, 0),
               ('other-page', ?, 1, 100, 200, 'ready', 0, 0),
@@ -387,13 +373,13 @@ describe('SQLocal 저장소', () => {
       otherId,
       id,
     )
-    await db.sql(`INSERT INTO ocr_lines (ocr_page_id, line_index, raw_text, x0, y0, x1, y1)
+    await db.sqlocal.sql(`INSERT INTO ocr_lines (ocr_page_id, line_index, raw_text, x0, y0, x1, y1)
       VALUES ('page-2', 1, '마지막 줄', 1, 2, 3, 4),
              ('other-page', 0, '다른 책', 1, 2, 3, 4),
              ('page-2', 0, '중간 줄', 1, 2, 3, 4),
              ('page-1', 0, '첫 줄', 1, 2, 3, 4)`)
 
-    expect(await store.listOcrPages()).toEqual([
+    expect(await store.listOcrPages(id)).toEqual([
       { page_number: 1, status: 'pending', width: null, height: null },
       { page_number: 2, status: 'ready', width: 100, height: 200 },
     ])
@@ -417,7 +403,7 @@ describe('SQLocal 저장소', () => {
       total: 3,
       lines: [],
     })
-    expect(await store.getOcrLinesForChunking()).toEqual([
+    expect(await store.getOcrLinesForChunking(id)).toEqual([
       { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 줄' },
       { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '중간 줄' },
       { ocr_page_id: 'page-2', page_number: 2, line_index: 1, raw_text: '마지막 줄' },
@@ -440,12 +426,12 @@ describe('SQLocal 저장소', () => {
 
   it('손상된 분석 상태·OCR 상태·이미지 크기를 조회할 때 기존 오류를 유지한다', async () => {
     const { db, id, store, pages } = await preparePages()
-    await db.sql('PRAGMA ignore_check_constraints = ON')
-    await db.sql("UPDATE books SET analysis_status = 'invalid' WHERE id = ?", id)
-    await expect(store.getBookAnalysisStatus()).rejects.toThrow('Invalid book analysis status')
-    await db.sql("UPDATE ocr_pages SET status = 'invalid' WHERE id = ?", pages[0].id)
-    await expect(store.listOcrPages()).rejects.toThrow('Invalid OCR pages')
-    await db.sql(
+    await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
+    await db.sqlocal.sql("UPDATE books SET analysis_status = 'invalid' WHERE id = ?", id)
+    await expect(store.getBookAnalysisStatus(id)).rejects.toThrow('Invalid book analysis status')
+    await db.sqlocal.sql("UPDATE ocr_pages SET status = 'invalid' WHERE id = ?", pages[0].id)
+    await expect(store.listOcrPages(id)).rejects.toThrow('Invalid OCR pages')
+    await db.sqlocal.sql(
       "UPDATE ocr_pages SET status = 'ready', width = 0, height = 200 WHERE id = ?",
       pages[0].id,
     )
@@ -457,21 +443,21 @@ describe('SQLocal 저장소', () => {
   it.each(['line', 'page', 'book'])(
     'OCR %s 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다',
     async (target) => {
-      const { db, store, pages } = await preparePages()
+      const { db, id, store, pages } = await preparePages()
       const input = {
         pageId: pages[0].id,
         width: 100,
         height: 200,
         lines: [{ rawText: '기존 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
       }
-      await store.acquireNextOcrPage()
+      await store.acquireNextOcrPage(id)
       await store.storeOcrPage(input)
-      await db.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
-      await db.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[1].id)
-      const before = await db.sql('SELECT * FROM ocr_lines')
-      const pagesBefore = await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')
-      const booksBefore = await db.sql('SELECT * FROM books')
-      await db.sql(
+      await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
+      await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[1].id)
+      const before = await db.sqlocal.sql('SELECT * FROM ocr_lines')
+      const pagesBefore = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
+      const booksBefore = await db.sqlocal.sql('SELECT * FROM books')
+      await db.sqlocal.sql(
         target === 'line'
           ? "CREATE TRIGGER fail_write BEFORE INSERT ON ocr_lines WHEN NEW.line_index = 1 BEGIN SELECT RAISE(ABORT, 'write failure'); END"
           : target === 'page'
@@ -493,9 +479,11 @@ describe('SQLocal 저장소', () => {
               cause: expect.objectContaining({ message: expect.stringContaining('write failure') }),
             },
       )
-      expect(await db.sql('SELECT * FROM ocr_lines')).toEqual(before)
-      expect(await db.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pagesBefore)
-      expect(await db.sql('SELECT * FROM books')).toEqual(booksBefore)
+      expect(await db.sqlocal.sql('SELECT * FROM ocr_lines')).toEqual(before)
+      expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(
+        pagesBefore,
+      )
+      expect(await db.sqlocal.sql('SELECT * FROM books')).toEqual(booksBefore)
     },
   )
 
@@ -508,7 +496,7 @@ describe('SQLocal 저장소', () => {
         { ...chunk('chunk-2', pages[1].id), ordinal: 1, tokenCount: 5 },
       ],
     })
-    expect(await store.getBookAnalysisStatus()).toBe('ready')
+    expect(await store.getBookAnalysisStatus(id)).toBe('ready')
     expect(await store.searchChunks({ bookId: id, terms: ['검색'], limit: 5 })).toEqual([
       {
         id: 'chunk-1',
@@ -546,15 +534,15 @@ describe('SQLocal 저장소', () => {
       total: 2,
       sources: [expect.objectContaining({ chunk_id: 'chunk-1', page_number: 1 })],
     })
-    await deleteBookById(db, id)
-    expect(await db.sql('SELECT * FROM search_terms')).toEqual([])
-    expect(await db.sql('SELECT * FROM search_postings')).toEqual([])
-    expect(await db.sql('SELECT * FROM ocr_pages')).toEqual([])
+    await store.deleteBookById(id)
+    expect(await db.sqlocal.sql('SELECT * FROM search_terms')).toEqual([])
+    expect(await db.sqlocal.sql('SELECT * FROM search_postings')).toEqual([])
+    expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
   })
 
   it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
-    const { db, id, store, pages } = await preparePages()
-    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    const { id, store, pages } = await preparePages()
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -650,7 +638,7 @@ describe('SQLocal 저장소', () => {
 
   it('식별자가 NULL인 검색 청크는 조회 결과로 반환하지 않는다', async () => {
     const { db, id, store } = await setup()
-    await db.sql(
+    await db.sqlocal.sql(
       "INSERT INTO search_chunks (book_id, ordinal, text, token_count, created_at) VALUES (?, 0, '청크', 1, 0)",
       id,
     )
@@ -661,7 +649,7 @@ describe('SQLocal 저장소', () => {
 
   it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -692,7 +680,8 @@ describe('SQLocal 저장소', () => {
         },
       ],
     })
-    const terms = () => db.sql('SELECT term, document_frequency FROM search_terms ORDER BY term')
+    const terms = () =>
+      db.sqlocal.sql('SELECT term, document_frequency FROM search_terms ORDER BY term')
     expect(await terms()).toEqual([
       { term: 'old', document_frequency: 1 },
       { term: 'other-only', document_frequency: 1 },
@@ -725,7 +714,7 @@ describe('SQLocal 저장소', () => {
     expect(await store.searchChunks({ bookId: otherId, terms: ['shared'], limit: 5 })).toEqual(
       otherSearch,
     )
-    await deleteBookById(db, id)
+    await store.deleteBookById(id)
     expect(await terms()).toEqual([
       { term: 'other-only', document_frequency: 1 },
       { term: 'shared', document_frequency: 1 },
@@ -735,7 +724,7 @@ describe('SQLocal 저장소', () => {
     )
     await store.storeSearchIndex({ bookId: otherId, chunks: [] })
     expect(await terms()).toEqual([])
-    expect(await db.sql('SELECT * FROM search_postings')).toEqual([])
+    expect(await db.sqlocal.sql('SELECT * FROM search_postings')).toEqual([])
     expect(await store.getBookAnalysisStatus(otherId)).toBe('ready')
   })
 
@@ -755,11 +744,11 @@ describe('SQLocal 저장소', () => {
       const readState = () =>
         Promise.all(
           ['books', 'search_chunks', 'chunk_sources', 'search_terms', 'search_postings'].map(
-            (name) => db.sql(`SELECT * FROM ${name} ORDER BY rowid`),
+            (name) => db.sqlocal.sql(`SELECT * FROM ${name} ORDER BY rowid`),
           ),
         )
       const before = await readState()
-      await db.sql(
+      await db.sqlocal.sql(
         `CREATE TRIGGER fail_write BEFORE ${table === 'books' ? 'UPDATE' : 'INSERT'} ON ${table} BEGIN SELECT RAISE(ABORT, 'index failure'); END`,
       )
       await expect(
@@ -780,35 +769,35 @@ describe('SQLocal 저장소', () => {
     '%s OCR 페이지를 출처로 사용하면 거부하고 기존 색인을 보존한다',
     async (source) => {
       const { db, store, pages } = await preparePages()
-      const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+      const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
       await store.storeSearchIndex({
         bookId: otherId,
         chunks: [{ ...chunk('existing', ''), sources: [] }],
       })
       const query = { bookId: otherId, terms: ['검색'], limit: 5 }
       const before = await store.searchChunks(query)
-      const booksBefore = await db.sql('SELECT * FROM books ORDER BY id')
+      const booksBefore = await db.sqlocal.sql('SELECT * FROM books ORDER BY id')
       const pageId = source === '다른 책의' ? pages[0].id : 'missing'
       await expect(
         store.storeSearchIndex({ bookId: otherId, chunks: [chunk('invalid', pageId)] }),
       ).rejects.toThrow('Chunk source does not belong to book')
       expect(await store.searchChunks(query)).toEqual(before)
-      expect(await db.sql('SELECT * FROM books ORDER BY id')).toEqual(booksBefore)
+      expect(await db.sqlocal.sql('SELECT * FROM books ORDER BY id')).toEqual(booksBefore)
     },
   )
 
   it('책 삭제 중 더 이상 쓰이지 않는 검색 단어를 삭제하지 못하면 책과 색인을 함께 복원한다', async () => {
     const { db, id, store, pages } = await preparePages()
     await store.storeSearchIndex({ bookId: id, chunks: [chunk('chunk-1', pages[0].id)] })
-    await db.sql(
+    await db.sqlocal.sql(
       "CREATE TRIGGER fail_cleanup BEFORE DELETE ON search_terms BEGIN SELECT RAISE(ABORT, 'cleanup failure'); END",
     )
     await expect(
-      deleteBookById(db, id).catch((error: unknown) => {
+      store.deleteBookById(id).catch((error: unknown) => {
         throw error instanceof DrizzleQueryError ? error.cause : error
       }),
     ).rejects.toThrow('cleanup failure')
-    expect(await listBooks(db)).toHaveLength(1)
-    expect(await db.sql('SELECT * FROM search_postings')).toHaveLength(1)
+    expect(await store.listBooks()).toHaveLength(1)
+    expect(await db.sqlocal.sql('SELECT * FROM search_postings')).toHaveLength(1)
   })
 })
