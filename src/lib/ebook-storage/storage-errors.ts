@@ -1,5 +1,5 @@
 import { DrizzleQueryError } from 'drizzle-orm'
-import type { EbookStoreErrorCode } from '../errors'
+import type { EbookStoreErrorCode } from './errors'
 
 export class UnsupportedStorageError extends Error {}
 export class NotFoundBookError extends Error {}

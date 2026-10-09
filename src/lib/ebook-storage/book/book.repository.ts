@@ -1,9 +1,9 @@
 import { and, desc, eq, gte } from 'drizzle-orm'
 import type { DatabaseConnection } from '../database-connection'
-import type { AddBookInput, BookAnalysisStatus } from '../../types/book'
-import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../../types/inputs'
-import { books } from '../../schema'
-import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../errors'
+import type { AddBookInput, BookAnalysisStatus } from '../types/book'
+import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
+import { books } from '../schema'
+import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
 import { refreshSearchTerms } from '../search/search.repository'
 import { isBookAnalysisStatus, normalizeStoredProgress } from '../validation'
 

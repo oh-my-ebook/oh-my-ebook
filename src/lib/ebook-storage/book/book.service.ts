@@ -1,11 +1,6 @@
-import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../../types/inputs'
+import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
 import type { createBookRepository } from './book.repository'
-import type {
-  AddBookInput,
-  StoredBook,
-  StoredBookDetail,
-  BookAnalysisStatus,
-} from '../../types/book'
+import type { AddBookInput, StoredBook, StoredBookDetail, BookAnalysisStatus } from '../types/book'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
   isAddBookInput,

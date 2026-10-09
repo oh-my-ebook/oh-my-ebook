@@ -1,9 +1,9 @@
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import type { DatabaseConnection } from '../lib/ebook-storage/storage/database-connection'
+import type { DatabaseConnection } from '../lib/ebook-storage/database-connection'
 import { onTestFinished, vi } from 'vitest'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { AddBookInput } from '../lib/ebook-storage/types/book'
-import { INITIAL_SCHEMA_SQL } from '../lib/ebook-storage/storage/schema-sql'
+import { INITIAL_SCHEMA_SQL } from '../lib/ebook-storage/schema-sql'
 
 export async function createTestDatabase(schema = INITIAL_SCHEMA_SQL) {
   const { SQLocalDrizzle } =

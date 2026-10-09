@@ -1,4 +1,4 @@
-import type { EbookStore } from '../ebook-store'
+import type { EbookStore } from './ebook-store'
 import * as database from './database-connection'
 import { createBookRepository } from './book/book.repository'
 import { createBookService } from './book/book.service'

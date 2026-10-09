@@ -1,6 +1,6 @@
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
-import { UnsupportedStorageError } from './errors'
+import { UnsupportedStorageError } from './storage-errors'
 import { ENABLE_FOREIGN_KEYS_SQL, GET_SCHEMA_VERSION_SQL, INITIAL_SCHEMA_SQL } from './schema-sql'
 
 export interface DatabaseConnection {

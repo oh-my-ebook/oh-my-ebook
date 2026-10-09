@@ -4,7 +4,7 @@ import baselineSql from '../../../drizzle/0000_initial-schema.sql?raw'
 import baselineSnapshot from '../../../drizzle/meta/0000_snapshot.json'
 import { createTestDatabase } from '../../test/sqlocal'
 import * as schema from './schema'
-import { INITIAL_SCHEMA_SQL } from './storage/schema-sql'
+import { INITIAL_SCHEMA_SQL } from './schema-sql'
 
 type Database = Awaited<ReturnType<typeof createTestDatabase>>
 

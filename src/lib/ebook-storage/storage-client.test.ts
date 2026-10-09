@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookInput } from '../../test/sqlocal'
 import { EbookStoreClient } from './storage-client'
-import { storageService } from './storage/storage.service'
-import { DuplicateBookError } from './storage/errors'
+import { storageService } from './storage.service'
+import { DuplicateBookError } from './storage-errors'
 
-vi.mock('./storage/storage.service', () => ({
+vi.mock('./storage.service', () => ({
   storageService: {
     saveBook: vi.fn(),
     clearStorage: vi.fn(),

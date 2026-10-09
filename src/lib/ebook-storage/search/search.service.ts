@@ -3,9 +3,9 @@ import type {
   SearchTermPage,
   SearchPostingPage,
   ChunkSourcePage,
-} from '../../types/search-index'
-import type { SearchChunkQuery, SearchChunkResult } from '../../types/search'
-import type { StoreSearchIndexInput, ListOcrLinesInput } from '../../types/inputs'
+} from '../types/search-index'
+import type { SearchChunkQuery, SearchChunkResult } from '../types/search'
+import type { StoreSearchIndexInput, ListOcrLinesInput } from '../types/inputs'
 import type { createSearchRepository } from './search.repository'
 import {
   isListOcrLinesInput,

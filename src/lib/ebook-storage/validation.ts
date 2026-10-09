@@ -1,16 +1,16 @@
 import { eq } from 'drizzle-orm'
 import type { DatabaseConnection } from './database-connection'
-import type { AddBookInput, BookAnalysisStatus } from '../types/book'
-import type { OcrLineInput } from '../types/ocr'
-import type { SearchChunkQuery } from '../types/search'
+import type { AddBookInput, BookAnalysisStatus } from './types/book'
+import type { OcrLineInput } from './types/ocr'
+import type { SearchChunkQuery } from './types/search'
 import type {
   ChunkSourceInput,
   SearchChunkInput,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
-} from '../types/search-index'
-import { books } from '../schema'
-import { InvalidInputError } from './errors'
+} from './types/search-index'
+import { books } from './schema'
+import { InvalidInputError } from './storage-errors'
 
 import type {
   GetStoredOcrPageInput,
@@ -21,7 +21,7 @@ import type {
   UpdateCoverInput,
   UpdateProgressInput,
   UpdateTitleInput,
-} from '../types/inputs'
+} from './types/inputs'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
 

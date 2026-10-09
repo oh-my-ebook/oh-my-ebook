@@ -1,6 +1,6 @@
 import type { EbookStore } from './ebook-store'
 import { EbookStoreError } from './errors'
-import { getErrorCode } from './storage/errors'
+import { getErrorCode } from './storage-errors'
 
 export class EbookStoreClient implements EbookStore {
   private pending: Promise<void> | undefined
@@ -185,7 +185,7 @@ export class EbookStoreClient implements EbookStore {
     for (let attempt = 1; ; attempt += 1) {
       try {
         // 지원 여부 확인 후 실제 요청이 들어올 때만 DB Worker를 만든다.
-        const { storageService } = await import('./storage/storage.service')
+        const { storageService } = await import('./storage.service')
         return await task(storageService)
       } catch (error) {
         const code = getErrorCode(error)

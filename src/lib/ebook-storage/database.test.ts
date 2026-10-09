@@ -3,8 +3,13 @@ import { createOcrRepository } from './ocr/ocr.repository'
 import { createSearchRepository } from './search/search.repository'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { DrizzleQueryError } from 'drizzle-orm'
-import { createBookInput, createTestConnection } from '../../../test/sqlocal'
-import { DeletedBookError, DuplicateBookError, getErrorCode, NotFoundBookError } from './errors'
+import { createBookInput, createTestConnection } from '../../test/sqlocal'
+import {
+  DeletedBookError,
+  DuplicateBookError,
+  getErrorCode,
+  NotFoundBookError,
+} from './storage-errors'
 
 async function setup() {
   const db = await createTestConnection()

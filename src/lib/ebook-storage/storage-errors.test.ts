@@ -1,6 +1,6 @@
 import { DrizzleQueryError } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
-import { getErrorCode } from './errors'
+import { getErrorCode } from './storage-errors'
 
 describe('저장소 오류 분류', () => {
   it.each([

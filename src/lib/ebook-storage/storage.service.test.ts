@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBookInput, createTestConnection } from '../../../test/sqlocal'
+import { createBookInput, createTestConnection } from '../../test/sqlocal'
 import { createBookRepository } from './book/book.repository'
 import * as connection from './database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './book/pdf-files'

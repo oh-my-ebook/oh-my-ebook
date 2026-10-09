@@ -5,16 +5,16 @@ import type {
   InitializeOcrPagesInput,
   ListOcrLinesInput,
   StoreOcrPageInput,
-} from '../../types/inputs'
+} from '../types/inputs'
 import type {
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
   OcrPageRecord,
   StoredOcrPage,
-} from '../../types/ocr'
-import { books, ocrLines, ocrPages } from '../../schema'
-import { NotFoundBookError } from '../errors'
+} from '../types/ocr'
+import { books, ocrLines, ocrPages } from '../schema'
+import { NotFoundBookError } from '../storage-errors'
 
 export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database

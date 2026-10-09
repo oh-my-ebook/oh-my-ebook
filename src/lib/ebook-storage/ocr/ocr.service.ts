@@ -4,13 +4,13 @@ import type {
   OcrPageRecord,
   OcrLinePage,
   OcrLineForChunking,
-} from '../../types/ocr'
+} from '../types/ocr'
 import type {
   InitializeOcrPagesInput,
   StoreOcrPageInput,
   ListOcrLinesInput,
   GetStoredOcrPageInput,
-} from '../../types/inputs'
+} from '../types/inputs'
 import type { createOcrRepository } from './ocr.repository'
 import {
   isGetStoredOcrPageInput,

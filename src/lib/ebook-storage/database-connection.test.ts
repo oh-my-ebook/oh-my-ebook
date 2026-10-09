@@ -1,8 +1,8 @@
 import { locks } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
-import { createTestDatabase } from '../../../test/sqlocal'
-import { searchTerms } from '../schema'
+import { createTestDatabase } from '../../test/sqlocal'
+import { searchTerms } from './schema'
 
 vi.mock('sqlocal/drizzle', () => ({ SQLocalDrizzle: vi.fn() }))
 afterEach(() => {
@@ -69,7 +69,7 @@ describe('SQLocal 연결', () => {
     const database = await useDatabase()
     const { initializeDatabase } = await import('./database-connection')
     await expect(initializeDatabase()).rejects.toBeInstanceOf(
-      (await import('./errors')).UnsupportedStorageError,
+      (await import('./storage-errors')).UnsupportedStorageError,
     )
     expect(database.destroy).not.toHaveBeenCalled()
   })
