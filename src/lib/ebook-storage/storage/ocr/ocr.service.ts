@@ -1,4 +1,16 @@
-import type { EbookStore } from '../../ebook-store'
+import type {
+  NextOcrPage,
+  StoredOcrPage,
+  OcrPageRecord,
+  OcrLinePage,
+  OcrLineForChunking,
+} from '../../types/ocr'
+import type {
+  InitializeOcrPagesInput,
+  StoreOcrPageInput,
+  ListOcrLinesInput,
+  GetStoredOcrPageInput,
+} from '../../types/inputs'
 import type { createOcrRepository } from './ocr.repository'
 import {
   isGetStoredOcrPageInput,
@@ -9,18 +21,17 @@ import {
   runValidated,
 } from '../validation'
 
-type OcrService = Pick<
-  EbookStore,
-  | 'initializeOcrPages'
-  | 'prepareOcrPagesForRun'
-  | 'acquireNextOcrPage'
-  | 'storeOcrPage'
-  | 'failOcrPage'
-  | 'getStoredOcrPage'
-  | 'listOcrPages'
-  | 'listOcrLines'
-  | 'getOcrLinesForChunking'
->
+export interface OcrService {
+  initializeOcrPages(input: InitializeOcrPagesInput): Promise<void>
+  prepareOcrPagesForRun(bookId: string): Promise<void>
+  acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null>
+  storeOcrPage(input: StoreOcrPageInput): Promise<boolean>
+  failOcrPage(pageId: string): Promise<void>
+  getStoredOcrPage(input: GetStoredOcrPageInput): Promise<StoredOcrPage | null>
+  listOcrPages(bookId: string): Promise<OcrPageRecord[]>
+  listOcrLines(input: ListOcrLinesInput): Promise<OcrLinePage>
+  getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]>
+}
 
 export function createOcrService(
   ocrRepository: ReturnType<typeof createOcrRepository>,

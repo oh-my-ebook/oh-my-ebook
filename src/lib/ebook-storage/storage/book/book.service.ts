@@ -1,6 +1,11 @@
-import type { EbookStore } from '../../ebook-store'
+import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../../types/inputs'
 import type { createBookRepository } from './book.repository'
-import type { AddBookInput, StoredBook, StoredBookDetail } from '../../types/book'
+import type {
+  AddBookInput,
+  StoredBook,
+  StoredBookDetail,
+  BookAnalysisStatus,
+} from '../../types/book'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
   isAddBookInput,
@@ -13,20 +18,19 @@ import {
   validateInput,
 } from '../validation'
 
-type BookService = Pick<
-  EbookStore,
-  | 'saveBook'
-  | 'getBook'
-  | 'deleteBook'
-  | 'listBooks'
-  | 'hasBook'
-  | 'updateProgress'
-  | 'updateTitle'
-  | 'updateCover'
-  | 'failBookAnalysis'
-  | 'getBookAnalysisStatus'
-  | 'retryBookAnalysis'
->
+export interface BookService {
+  saveBook(input: AddBookInput): Promise<string>
+  getBook(id: string): Promise<StoredBookDetail>
+  deleteBook(id: string): Promise<void>
+  listBooks(): Promise<StoredBook[]>
+  hasBook(id: string): Promise<void>
+  updateProgress(input: UpdateProgressInput): Promise<void>
+  updateTitle(input: UpdateTitleInput): Promise<void>
+  updateCover(input: UpdateCoverInput): Promise<void>
+  failBookAnalysis(bookId: string): Promise<void>
+  getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus>
+  retryBookAnalysis(bookId: string): Promise<void>
+}
 
 export function createBookService(
   bookRepository: ReturnType<typeof createBookRepository>,

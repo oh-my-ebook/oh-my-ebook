@@ -1,4 +1,3 @@
-import type { EbookStore } from '../ebook-store'
 import { eq } from 'drizzle-orm'
 import type { DatabaseConnection } from './database-connection'
 import type { AddBookInput, BookAnalysisStatus } from '../types/book'
@@ -286,7 +285,7 @@ export async function normalizeStoredProgress<
 }
 
 export async function runValidated<Input, Result>(
-  name: keyof EbookStore,
+  name: string,
   operation: (input: Input) => Promise<Result>,
   input: Input,
   isValid: (value: unknown) => value is Input,

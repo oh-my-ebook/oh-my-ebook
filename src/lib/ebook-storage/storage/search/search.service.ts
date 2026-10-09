@@ -1,4 +1,11 @@
-import type { EbookStore } from '../../ebook-store'
+import type {
+  SearchChunkPage,
+  SearchTermPage,
+  SearchPostingPage,
+  ChunkSourcePage,
+} from '../../types/search-index'
+import type { SearchChunkQuery, SearchChunkResult } from '../../types/search'
+import type { StoreSearchIndexInput, ListOcrLinesInput } from '../../types/inputs'
 import type { createSearchRepository } from './search.repository'
 import {
   isListOcrLinesInput,
@@ -7,15 +14,14 @@ import {
   runValidated,
 } from '../validation'
 
-type SearchService = Pick<
-  EbookStore,
-  | 'storeSearchIndex'
-  | 'listSearchChunks'
-  | 'searchChunks'
-  | 'listSearchTerms'
-  | 'listSearchPostings'
-  | 'listChunkSources'
->
+export interface SearchService {
+  storeSearchIndex(input: StoreSearchIndexInput): Promise<void>
+  listSearchChunks(input: ListOcrLinesInput): Promise<SearchChunkPage>
+  searchChunks(query: SearchChunkQuery): Promise<SearchChunkResult[]>
+  listSearchTerms(input: ListOcrLinesInput): Promise<SearchTermPage>
+  listSearchPostings(input: ListOcrLinesInput): Promise<SearchPostingPage>
+  listChunkSources(input: ListOcrLinesInput): Promise<ChunkSourcePage>
+}
 
 export function createSearchService(
   searchRepository: ReturnType<typeof createSearchRepository>,
