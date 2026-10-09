@@ -1,4 +1,5 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { DrizzleQueryError } from 'drizzle-orm'
 import { createBookInput, createTestDatabase } from '../../../test/sqlocal'
 import { DeletedBookError, DuplicateBookError, getErrorCode, NotFoundBookError } from './errors'
 import {
@@ -633,41 +634,153 @@ describe('SQLocal 저장소', () => {
     )
   })
 
-  it.each(['search_chunks', 'search_postings'])(
+  it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {
+    const { db, id, execute, pages } = await preparePages()
+    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+    await execute('storeSearchIndex', {
+      bookId: id,
+      chunks: [
+        {
+          ...chunk('first', pages[0].id),
+          terms: [
+            { term: 'shared', termFrequency: 2 },
+            { term: 'old', termFrequency: 1 },
+          ],
+        },
+        {
+          ...chunk('second', pages[1].id),
+          ordinal: 1,
+          terms: [{ term: 'shared', termFrequency: 1 }],
+        },
+      ],
+    })
+    await execute('storeSearchIndex', {
+      bookId: otherId,
+      chunks: [
+        {
+          ...chunk('other', ''),
+          sources: [],
+          terms: [
+            { term: 'shared', termFrequency: 3 },
+            { term: 'other-only', termFrequency: 1 },
+          ],
+        },
+      ],
+    })
+    const terms = () => db.sql('SELECT term, document_frequency FROM search_terms ORDER BY term')
+    expect(await terms()).toEqual([
+      { term: 'old', document_frequency: 1 },
+      { term: 'other-only', document_frequency: 1 },
+      { term: 'shared', document_frequency: 3 },
+    ])
+    const otherSearch = await execute('searchChunks', {
+      bookId: otherId,
+      terms: ['shared'],
+      limit: 5,
+    })
+    const replacement = {
+      bookId: id,
+      chunks: [
+        {
+          ...chunk('replacement', pages[0].id),
+          terms: [
+            { term: 'shared', termFrequency: 4 },
+            { term: 'new', termFrequency: 1 },
+          ],
+        },
+      ],
+    }
+    await execute('storeSearchIndex', replacement)
+    await execute('storeSearchIndex', replacement)
+    expect(await terms()).toEqual([
+      { term: 'new', document_frequency: 1 },
+      { term: 'other-only', document_frequency: 1 },
+      { term: 'shared', document_frequency: 2 },
+    ])
+    expect(await execute('searchChunks', { bookId: otherId, terms: ['shared'], limit: 5 })).toEqual(
+      otherSearch,
+    )
+    await deleteBookById(db, id)
+    expect(await terms()).toEqual([
+      { term: 'other-only', document_frequency: 1 },
+      { term: 'shared', document_frequency: 1 },
+    ])
+    expect(await execute('searchChunks', { bookId: otherId, terms: ['shared'], limit: 5 })).toEqual(
+      otherSearch,
+    )
+    await execute('storeSearchIndex', { bookId: otherId, chunks: [] })
+    expect(await terms()).toEqual([])
+    expect(await db.sql('SELECT * FROM search_postings')).toEqual([])
+    expect(await execute('getBookAnalysisStatus', otherId)).toBe('ready')
+  })
+
+  it('없는 책에는 빈 색인도 저장하지 않는다', async () => {
+    const { execute } = await setup()
+    await expect(
+      execute('storeSearchIndex', { bookId: 'missing', chunks: [] }),
+    ).rejects.toBeInstanceOf(NotFoundBookError)
+  })
+
+  it.each(['search_chunks', 'chunk_sources', 'search_terms', 'search_postings', 'books'])(
     '색인 교체 중 %s 저장에 실패하면 기존 색인과 분석 상태를 복원한다',
     async (table) => {
       const { db, id, execute, pages } = await preparePages()
       const input = { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] }
       await execute('storeSearchIndex', input)
-      const before = await db.sql('SELECT * FROM search_chunks')
+      const readState = () =>
+        Promise.all(
+          ['books', 'search_chunks', 'chunk_sources', 'search_terms', 'search_postings'].map(
+            (name) => db.sql(`SELECT * FROM ${name} ORDER BY rowid`),
+          ),
+        )
+      const before = await readState()
       await db.sql(
-        `CREATE TRIGGER fail_write BEFORE INSERT ON ${table} BEGIN SELECT RAISE(ABORT, 'index failure'); END`,
+        `CREATE TRIGGER fail_write BEFORE ${table === 'books' ? 'UPDATE' : 'INSERT'} ON ${table} BEGIN SELECT RAISE(ABORT, 'index failure'); END`,
       )
       await expect(
-        execute('storeSearchIndex', { bookId: id, chunks: [chunk('replacement', pages[1].id)] }),
+        execute('storeSearchIndex', {
+          bookId: id,
+          chunks: [chunk('replacement', pages[1].id)],
+        }).catch((error: unknown) => {
+          throw error instanceof DrizzleQueryError ? error.cause : error
+        }),
       ).rejects.toThrow('index failure')
-      expect(await db.sql('SELECT * FROM search_chunks')).toEqual(before)
-      expect(await execute('getBookAnalysisStatus')).toBe('ready')
+      expect(await readState()).toEqual(before)
     },
   )
 
-  it('다른 책의 OCR 페이지를 색인 출처로 저장하지 않는다', async () => {
-    const { db, id, execute, pages } = await preparePages()
-    const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
-    await expect(
-      execute('storeSearchIndex', { bookId: otherId, chunks: [chunk('invalid', pages[0].id)] }),
-    ).rejects.toThrow('Chunk source does not belong to book')
-    expect(await db.sql('SELECT * FROM search_chunks')).toEqual([])
-    expect(await getBookMetadata(db, id)).toBeDefined()
-  })
+  it.each(['다른 책의', '존재하지 않는'])(
+    '%s OCR 페이지를 출처로 사용하면 거부하고 기존 색인을 보존한다',
+    async (source) => {
+      const { db, execute, pages } = await preparePages()
+      const otherId = await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
+      await execute('storeSearchIndex', {
+        bookId: otherId,
+        chunks: [{ ...chunk('existing', ''), sources: [] }],
+      })
+      const query = { bookId: otherId, terms: ['검색'], limit: 5 }
+      const before = await execute('searchChunks', query)
+      const booksBefore = await db.sql('SELECT * FROM books ORDER BY id')
+      const pageId = source === '다른 책의' ? pages[0].id : 'missing'
+      await expect(
+        execute('storeSearchIndex', { bookId: otherId, chunks: [chunk('invalid', pageId)] }),
+      ).rejects.toThrow('Chunk source does not belong to book')
+      expect(await execute('searchChunks', query)).toEqual(before)
+      expect(await db.sql('SELECT * FROM books ORDER BY id')).toEqual(booksBefore)
+    },
+  )
 
-  it('책 삭제 중 용어 정리가 실패하면 책과 색인을 함께 복원한다', async () => {
+  it('책 삭제 중 더 이상 쓰이지 않는 검색 단어를 삭제하지 못하면 책과 색인을 함께 복원한다', async () => {
     const { db, id, execute, pages } = await preparePages()
     await execute('storeSearchIndex', { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] })
     await db.sql(
       "CREATE TRIGGER fail_cleanup BEFORE DELETE ON search_terms BEGIN SELECT RAISE(ABORT, 'cleanup failure'); END",
     )
-    await expect(deleteBookById(db, id)).rejects.toThrow('cleanup failure')
+    await expect(
+      deleteBookById(db, id).catch((error: unknown) => {
+        throw error instanceof DrizzleQueryError ? error.cause : error
+      }),
+    ).rejects.toThrow('cleanup failure')
     expect(await listBooks(db)).toHaveLength(1)
     expect(await db.sql('SELECT * FROM search_postings')).toHaveLength(1)
   })

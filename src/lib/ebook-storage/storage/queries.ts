@@ -89,33 +89,6 @@ export const INITIAL_SCHEMA_SQL = `
   PRAGMA user_version = 1;
 `
 
-export const SELECT_BOOK_EXISTS_SQL = 'SELECT 1 FROM books WHERE id = ?'
-
-export const SELECT_CHANGES_SQL = 'SELECT changes()'
-
-export const SELECT_OCR_PAGE_BOOK_ID_SQL = 'SELECT book_id FROM ocr_pages WHERE id = ?'
-export const DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL = 'DELETE FROM search_chunks WHERE book_id = ?'
-export const INSERT_SEARCH_CHUNK_SQL = `INSERT INTO search_chunks (
-  id, book_id, ordinal, text, token_count, created_at
-) VALUES (?, ?, ?, ?, ?, ?)`
-export const INSERT_CHUNK_SOURCE_SQL = `INSERT INTO chunk_sources (
-  chunk_id, ocr_page_id, start_line_index, end_line_index, source_order
-) VALUES (?, ?, ?, ?, ?)`
-export const DELETE_ORPHAN_SEARCH_TERMS_SQL = `DELETE FROM search_terms
-  WHERE NOT EXISTS (SELECT 1 FROM search_postings WHERE search_postings.term_id = search_terms.id)`
-export const REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL = `UPDATE search_terms
-  SET document_frequency = (
-    SELECT COUNT(*) FROM search_postings WHERE search_postings.term_id = search_terms.id
-  )`
-export const UPSERT_SEARCH_TERM_SQL = `INSERT INTO search_terms (term, document_frequency)
-  VALUES (?, 1)
-  ON CONFLICT(term) DO UPDATE SET document_frequency = document_frequency + 1`
-export const SELECT_SEARCH_TERM_ID_SQL = 'SELECT id FROM search_terms WHERE term = ?'
-export const INSERT_SEARCH_POSTING_SQL = `INSERT INTO search_postings (
-  term_id, chunk_id, term_frequency
-) VALUES (?, ?, ?)`
-export const SET_BOOK_INDEXED_SQL = `UPDATE books
-  SET analysis_status = 'ready', indexed_at = ?, updated_at = ? WHERE id = ?`
 export const DEFAULT_BM25_K1 = 1.2
 export const DEFAULT_BM25_B = 0.75
 

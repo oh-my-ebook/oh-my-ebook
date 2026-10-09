@@ -1,6 +1,20 @@
+import type { TransactionHandle } from 'sqlocal'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNull, ne } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  ne,
+  notExists,
+  sql,
+} from 'drizzle-orm'
 import {
   books,
   chunkSources,
@@ -27,20 +41,7 @@ import type {
   OcrPageRecord,
   StoredOcrPage,
 } from '../data/ocr'
-import {
-  DELETE_ORPHAN_SEARCH_TERMS_SQL,
-  DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL,
-  INSERT_CHUNK_SOURCE_SQL,
-  INSERT_SEARCH_CHUNK_SQL,
-  INSERT_SEARCH_POSTING_SQL,
-  REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL,
-  SELECT_BOOK_EXISTS_SQL,
-  SELECT_OCR_PAGE_BOOK_ID_SQL,
-  createSearchChunksSql,
-  SELECT_SEARCH_TERM_ID_SQL,
-  SET_BOOK_INDEXED_SQL,
-  UPSERT_SEARCH_TERM_SQL,
-} from './queries'
+import { createSearchChunksSql } from './queries'
 import {
   DeletedBookError,
   DuplicateBookError,
@@ -49,7 +50,6 @@ import {
 } from './errors'
 import {
   getPayload,
-  isRowAffected,
   isSearchChunkQuery,
   isInitializeOcrPagesInput,
   isGetStoredOcrPageInput,
@@ -122,8 +122,7 @@ export async function deleteBookById(database: SQLocalDrizzle, id: string): Prom
     )
     if (!deleted) throw new DeletedBookError()
 
-    await tx.sql<Record<string, unknown>>(DELETE_ORPHAN_SEARCH_TERMS_SQL)
-    await tx.sql<Record<string, unknown>>(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+    await refreshSearchTerms(db, tx)
   })
 }
 
@@ -532,72 +531,114 @@ async function getOcrLinesForChunking(
   })
 }
 
+async function refreshSearchTerms(
+  db: ReturnType<typeof drizzle>,
+  tx: TransactionHandle,
+): Promise<void> {
+  await tx.query(
+    db
+      .delete(searchTerms)
+      .where(
+        notExists(
+          db
+            .select({ termId: searchPostings.termId })
+            .from(searchPostings)
+            .where(eq(searchPostings.termId, searchTerms.id)),
+        ),
+      ),
+  )
+  const postingCount = db
+    .select({ total: count() })
+    .from(searchPostings)
+    .where(eq(searchPostings.termId, searchTerms.id))
+  await tx.query(db.update(searchTerms).set({ documentFrequency: sql`(${postingCount})` }))
+}
+
 async function storeSearchChunk(
-  database: Pick<SQLocalDrizzle, 'sql'>,
+  db: ReturnType<typeof drizzle>,
+  tx: TransactionHandle,
   bookId: string,
   chunk: SearchChunkInput,
   createdAt: number,
 ): Promise<void> {
-  await database.sql<Record<string, unknown>>(
-    INSERT_SEARCH_CHUNK_SQL,
-    chunk.id,
-    bookId,
-    chunk.ordinal,
-    chunk.text,
-    chunk.tokenCount,
-    createdAt,
+  await tx.query(
+    db.insert(searchChunksTable).values({
+      id: chunk.id,
+      bookId,
+      ordinal: chunk.ordinal,
+      text: chunk.text,
+      tokenCount: chunk.tokenCount,
+      createdAt,
+    }),
   )
   for (const source of chunk.sources) {
-    const sourcePage = (
-      await database.sql<Record<string, unknown>>(SELECT_OCR_PAGE_BOOK_ID_SQL, source.ocrPageId)
-    )[0]
-    if (sourcePage?.book_id !== bookId) {
+    const [sourcePage] = await tx.query(
+      db
+        .select({ bookId: ocrPages.bookId })
+        .from(ocrPages)
+        .where(eq(ocrPages.id, source.ocrPageId)),
+    )
+    if (sourcePage?.bookId !== bookId) {
       throw new Error('Chunk source does not belong to book')
     }
-    await database.sql<Record<string, unknown>>(
-      INSERT_CHUNK_SOURCE_SQL,
-      chunk.id,
-      source.ocrPageId,
-      source.startLineIndex,
-      source.endLineIndex,
-      source.sourceOrder,
+    await tx.query(
+      db.insert(chunkSources).values({
+        chunkId: chunk.id,
+        ocrPageId: source.ocrPageId,
+        startLineIndex: source.startLineIndex,
+        endLineIndex: source.endLineIndex,
+        sourceOrder: source.sourceOrder,
+      }),
     )
   }
 }
 
 async function storeSearchIndex(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
   const input = getPayload(request, request.command, isStoreSearchIndexInput)
-  if (
-    !(await database.sql<Record<string, unknown>>(SELECT_BOOK_EXISTS_SQL, input.bookId))[0]?.['1']
-  )
-    throw new NotFoundBookError()
+  const db = drizzle(database.driver)
+  const [book] = await db.select({ id: books.id }).from(books).where(eq(books.id, input.bookId))
+  if (!book) throw new NotFoundBookError()
 
   const now = Date.now()
   return await database.transaction(async (tx) => {
-    await tx.sql<Record<string, unknown>>(DELETE_SEARCH_CHUNKS_BY_BOOK_ID_SQL, input.bookId)
-    await tx.sql<Record<string, unknown>>(DELETE_ORPHAN_SEARCH_TERMS_SQL)
-    await tx.sql<Record<string, unknown>>(REFRESH_SEARCH_TERM_DOCUMENT_FREQUENCY_SQL)
+    await tx.query(db.delete(searchChunksTable).where(eq(searchChunksTable.bookId, input.bookId)))
+    await refreshSearchTerms(db, tx)
 
     for (const chunk of input.chunks) {
-      await storeSearchChunk(tx, input.bookId, chunk, now)
+      await storeSearchChunk(db, tx, input.bookId, chunk, now)
       for (const { term, termFrequency } of chunk.terms) {
-        await tx.sql<Record<string, unknown>>(UPSERT_SEARCH_TERM_SQL, term)
-        const termId = (
-          await tx.sql<Record<string, unknown>>(SELECT_SEARCH_TERM_ID_SQL, term)
-        )[0]?.['id']
-        if (typeof termId !== 'number' || !Number.isSafeInteger(termId) || termId <= 0) {
+        const [storedTerm] = await tx.query(
+          db
+            .insert(searchTerms)
+            .values({ term, documentFrequency: 1 })
+            .onConflictDoUpdate({
+              target: searchTerms.term,
+              set: { documentFrequency: sql`${searchTerms.documentFrequency} + 1` },
+            })
+            .returning({ id: searchTerms.id }),
+        )
+        const termId = storedTerm?.id
+        if (
+          termId === undefined ||
+          termId === null ||
+          !Number.isSafeInteger(termId) ||
+          termId <= 0
+        ) {
           throw new Error('Unable to store search term')
         }
-        await tx.sql<Record<string, unknown>>(
-          INSERT_SEARCH_POSTING_SQL,
-          termId,
-          chunk.id,
-          termFrequency,
+        await tx.query(
+          db.insert(searchPostings).values({ termId, chunkId: chunk.id, termFrequency }),
         )
       }
     }
-    await tx.sql<Record<string, unknown>>(SET_BOOK_INDEXED_SQL, now, now, input.bookId)
-    if (!(await isRowAffected(tx))) throw new NotFoundBookError()
+    const [updated] = await tx.query(
+      db
+        .update(books)
+        .set({ analysisStatus: 'ready', indexedAt: now, updatedAt: now })
+        .where(eq(books.id, input.bookId))
+        .returning({ id: books.id }),
+    )
+    if (!updated) throw new NotFoundBookError()
   })
 }
 

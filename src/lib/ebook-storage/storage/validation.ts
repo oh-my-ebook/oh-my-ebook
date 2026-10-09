@@ -12,7 +12,6 @@ import { InvalidPayloadError } from './errors'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { books } from '../schema'
-import { SELECT_CHANGES_SQL } from './queries'
 
 export interface UpdateCoverInput {
   id: string
@@ -330,8 +329,4 @@ export async function normalizeStoredProgress(
     .set({ lastPage: 1, updatedAt: Date.now() })
     .where(eq(books.id, id))
   return { ...book, last_page: 1 }
-}
-
-export async function isRowAffected(database: Pick<SQLocalDrizzle, 'sql'>): Promise<boolean> {
-  return (await database.sql<Record<string, unknown>>(SELECT_CHANGES_SQL))[0]?.['changes()'] === 1
 }
