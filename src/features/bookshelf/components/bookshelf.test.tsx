@@ -1,3 +1,4 @@
+import { createStoreMock } from '@/test/ebook-store'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TestRouter } from '@/test/test-router'
@@ -11,12 +12,9 @@ import { toast, Toaster } from '@/components/ui/toast'
 import { Bookshelf } from './bookshelf'
 
 function createStore() {
-  return {
-    request: vi.fn(async (command: string): Promise<unknown> =>
-      command === 'listBooks' ? [] : null,
-    ),
-    saveBook: vi.fn(async () => 'saved-id'),
-  }
+  const store = createStoreMock()
+  store.getBook.mockRejectedValue(new Error('read failed'))
+  return store
 }
 
 function createStoredBook(title: string) {
@@ -92,10 +90,10 @@ describe('Bookshelf', () => {
     expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
   })
 
-  it('초기화 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
-    const initialization = createPromiseController<unknown>()
+  it('목록 조회 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
     const store = createStore()
-    store.request.mockImplementationOnce(() => initialization.promise)
+    const bookList = createPromiseController<Awaited<ReturnType<typeof store.listBooks>>>()
+    store.listBooks.mockImplementationOnce(() => bookList.promise)
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(screen.getByRole('status', { name: '책장 불러오는 중' })).toBeInTheDocument()
@@ -105,32 +103,33 @@ describe('Bookshelf', () => {
     expect(screen.queryByRole('button', { name: '책 추가' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
 
-    initialization.resolve(null)
+    bookList.resolve([])
     expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
     expect(screen.getAllByRole('article')).toHaveLength(1)
-    expect(store.request).toHaveBeenCalledWith('listBooks')
+    expect(store.listBooks).toHaveBeenCalledWith()
   })
 
-  it('DB 초기화가 실패하면 오류를 보여 주고 재시도한다', async () => {
+  it('책 목록 조회가 실패하면 오류를 보여 주고 재시도한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockRejectedValueOnce(new Error('failed'))
+    store.listBooks.mockRejectedValueOnce(new Error('failed'))
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('로컬 저장소에 접근하지 못했습니다.')
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
     expect(await screen.findByRole('button', { name: '책 추가' })).toBeEnabled()
-    expect(store.request).toHaveBeenCalledTimes(3)
+    expect(store.listBooks).toHaveBeenCalledTimes(2)
   })
 
   it('자동 재개 중 OCR 분석이 실패하면 같은 세션에서 분석 재시도 버튼을 표시한다', async () => {
     const failedBook = createStoredBook('자동 재개 실패 책')
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [failedBook]
-      if (command === 'getBook') return null
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [failedBook]
+    })
+    store.getBook.mockImplementation(async () => {
+      throw new Error('read failed')
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const addToast = vi.spyOn(toast, 'add')
@@ -138,7 +137,7 @@ describe('Bookshelf', () => {
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
-    expect(store.request).toHaveBeenCalledWith('failBookAnalysis', failedBook.id)
+    expect(store.failBookAnalysis).toHaveBeenCalledWith(failedBook.id)
     expect(addToast).toHaveBeenCalledWith(
       expect.objectContaining({ id: `ocr-analysis-failure-${failedBook.id}` }),
     )
@@ -147,25 +146,25 @@ describe('Bookshelf', () => {
   it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {
     const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocr_completed_at: 1 }
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [interruptedBook]
-      if (command === 'getBook') return null
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [interruptedBook]
+    })
+    store.getBook.mockImplementation(async () => {
+      throw new Error('read failed')
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
     expect(await screen.findByRole('button', { name: '분석 다시 시도' })).toBeVisible()
-    expect(store.request).toHaveBeenCalledWith('getBook', interruptedBook.id)
+    expect(store.getBook).toHaveBeenCalledWith(interruptedBook.id)
   })
 
   it('책장 화면을 다시 마운트해도 이미 진행 중인 OCR 분석을 중복 실행하지 않는다', async () => {
     const analyzingBook = createStoredBook('분석 중인 책')
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [analyzingBook]
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [analyzingBook]
     })
     const analysis = createPromiseController<'completed' | 'failed'>()
     const runOcrAnalysisSpy = vi
@@ -190,9 +189,8 @@ describe('Bookshelf', () => {
   it('다시 마운트된 화면도 진행 중이던 OCR 분석의 실제 결과(실패)를 반영한다', async () => {
     const analyzingBook = createStoredBook('분석 중인 책')
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [analyzingBook]
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [analyzingBook]
     })
     const analysis = createPromiseController<'completed' | 'failed'>()
     vi.spyOn(ocrAnalysis, 'runOcrAnalysis').mockReturnValue(analysis.promise)
@@ -385,11 +383,8 @@ describe('Bookshelf', () => {
   it('수동 새로고침이 목록과 용량을 함께 교체한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command !== 'listBooks') return null
-      return store.request.mock.calls.filter(
-        ([requestedCommand]) => requestedCommand === 'listBooks',
-      ).length === 1
+    store.listBooks.mockImplementation(async () => {
+      return store.listBooks.mock.calls.length === 1
         ? [createStoredBook('기존 책')]
         : [createStoredBook('새 책')]
     })
@@ -411,11 +406,8 @@ describe('Bookshelf', () => {
   it('수동 새로고침 실패 시 기존 목록을 유지하고 재시도한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command !== 'listBooks') return null
-      const listRequestCount = store.request.mock.calls.filter(
-        ([requestedCommand]) => requestedCommand === 'listBooks',
-      ).length
+    store.listBooks.mockImplementation(async () => {
+      const listRequestCount = store.listBooks.mock.calls.length
       if (listRequestCount === 1) return [createStoredBook('기존 책')]
       if (listRequestCount === 2) throw new Error('failed')
       return [createStoredBook('새 책')]
@@ -435,9 +427,8 @@ describe('Bookshelf', () => {
   it('책 제목 수정과 삭제 후 목록과 용량을 새로고침한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [createStoredBook('기존 책')]
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [createStoredBook('기존 책')]
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -447,7 +438,7 @@ describe('Bookshelf', () => {
     await user.clear(screen.getByLabelText('책 제목'))
     await user.type(screen.getByLabelText('책 제목'), '새 제목')
     await user.click(screen.getByRole('button', { name: '저장' }))
-    expect(store.request).toHaveBeenCalledWith('updateTitle', {
+    expect(store.updateTitle).toHaveBeenCalledWith({
       id: '기존 책-id',
       title: '새 제목',
     })
@@ -455,7 +446,7 @@ describe('Bookshelf', () => {
     await user.click(screen.getByRole('button', { name: '기존 책 메뉴' }))
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '삭제' }))
-    expect(store.request).toHaveBeenCalledWith('deleteBook', '기존 책-id')
+    expect(store.deleteBook).toHaveBeenCalledWith('기존 책-id')
   })
 
   it('삭제를 취소하면 책을 유지하고 성공하면 다른 책과 용량을 갱신한다', async () => {
@@ -464,12 +455,13 @@ describe('Bookshelf', () => {
     const secondBook = createStoredBook('두 번째 책')
     let books = [firstBook, secondBook]
     const store = createStore()
-    store.request.mockImplementation(async (command: string, payload?: unknown) => {
-      if (command === 'listBooks') return books
-      if (command === 'deleteBook' && payload === firstBook.id) {
+    store.listBooks.mockImplementation(async () => {
+      return books
+    })
+    store.deleteBook.mockImplementation(async (payload) => {
+      if (payload === firstBook.id) {
         books = [secondBook]
       }
-      return null
     })
     vi.spyOn(storage, 'getStorageUsage').mockResolvedValueOnce(10).mockResolvedValueOnce(2)
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
@@ -478,7 +470,7 @@ describe('Bookshelf', () => {
     await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
     await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
     await user.click(screen.getByRole('button', { name: '취소' }))
-    expect(store.request).not.toHaveBeenCalledWith('deleteBook', firstBook.id)
+    expect(store.deleteBook).not.toHaveBeenCalledWith(firstBook.id)
     expect(screen.getByText('첫 번째 책')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '첫 번째 책 메뉴' }))
@@ -497,13 +489,14 @@ describe('Bookshelf', () => {
     let books: ReturnType<typeof createStoredBook>[] = []
     let usage = 0
     const store = createStore()
-    store.request.mockImplementation(async (command: string, payload?: unknown) => {
-      if (command === 'listBooks') return books
-      if (command === 'deleteBook' && payload === savedBook.id) {
+    store.listBooks.mockImplementation(async () => {
+      return books
+    })
+    store.deleteBook.mockImplementation(async (payload) => {
+      if (payload === savedBook.id) {
         books = []
         usage = 0
       }
-      return null
     })
     store.saveBook.mockImplementation(async () => {
       books = [savedBook]
@@ -561,10 +554,11 @@ describe('Bookshelf', () => {
   it('책 제목 수정 실패는 토스트로 알린다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [createStoredBook('기존 책')]
-      if (command === 'updateTitle') throw new Error('failed')
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [createStoredBook('기존 책')]
+    })
+    store.updateTitle.mockImplementation(async () => {
+      throw new Error('failed')
     })
     render(
       <TestRouter>
@@ -586,13 +580,10 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     let listRequestCount = 0
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') {
-        listRequestCount += 1
-        if (listRequestCount === 1) return [createStoredBook('기존 책')]
-        throw new Error('failed')
-      }
-      return null
+    store.listBooks.mockImplementation(async () => {
+      listRequestCount += 1
+      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      throw new Error('failed')
     })
     render(
       <TestRouter>
@@ -615,13 +606,10 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     let listRequestCount = 0
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') {
-        listRequestCount += 1
-        if (listRequestCount === 1) return [createStoredBook('기존 책')]
-        throw new Error('failed')
-      }
-      return null
+    store.listBooks.mockImplementation(async () => {
+      listRequestCount += 1
+      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      throw new Error('failed')
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -638,10 +626,11 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const onOpenBook = vi.fn()
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'listBooks') return [createStoredBook('기존 책')]
-      if (command === 'hasBook') throw new EbookStoreError('deleted')
-      return null
+    store.listBooks.mockImplementation(async () => {
+      return [createStoredBook('기존 책')]
+    })
+    store.hasBook.mockImplementation(async () => {
+      throw new EbookStoreError('deleted')
     })
     render(
       <TestRouter>

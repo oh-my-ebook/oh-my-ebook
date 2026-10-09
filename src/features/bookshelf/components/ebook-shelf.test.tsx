@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { StoredBook } from '@/lib/ebook-storage/data/book'
+import type { StoredBook } from '@/lib/ebook-storage/types/book'
 import { EbookShelf } from './ebook-shelf'
 
 function createBook(id: string, title: string): StoredBook {

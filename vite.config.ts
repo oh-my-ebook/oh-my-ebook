@@ -3,10 +3,12 @@ import tailwindcss from '@tailwindcss/vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { defineConfig } from 'vite'
+import sqlocal from 'sqlocal/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    sqlocal({ coi: false }),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
@@ -24,9 +26,6 @@ export default defineConfig({
       },
     },
   ],
-  optimizeDeps: {
-    exclude: ['@sqlite.org/sqlite-wasm'],
-  },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',

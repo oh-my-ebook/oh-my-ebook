@@ -1,0 +1,675 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "83f2768b-64d4-4ee1-b6ca-53e43fd21254",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "books": {
+      "name": "books",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "author": {
+          "name": "author",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pdf_title": {
+          "name": "pdf_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pdf_subject": {
+          "name": "pdf_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pdf_keywords": {
+          "name": "pdf_keywords",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pdf_size": {
+          "name": "pdf_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "page_count": {
+          "name": "page_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cover_data": {
+          "name": "cover_data",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cover_mime": {
+          "name": "cover_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cover_status": {
+          "name": "cover_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_page": {
+          "name": "last_page",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "analysis_status": {
+          "name": "analysis_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ocr_completed_at": {
+          "name": "ocr_completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "indexed_at": {
+          "name": "indexed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "books_content_hash_unique": {
+          "name": "books_content_hash_unique",
+          "columns": ["content_hash"],
+          "isUnique": true
+        },
+        "books_created_at_idx": {
+          "name": "books_created_at_idx",
+          "columns": ["\"created_at\" DESC", "\"id\" DESC"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "books_pdf_size_check": {
+          "name": "books_pdf_size_check",
+          "value": "\"books\".\"pdf_size\" >= 0"
+        },
+        "books_page_count_check": {
+          "name": "books_page_count_check",
+          "value": "\"books\".\"page_count\" > 0"
+        },
+        "books_cover_status_check": {
+          "name": "books_cover_status_check",
+          "value": "\"books\".\"cover_status\" IN ('ready', 'fallback')"
+        },
+        "books_last_page_check": {
+          "name": "books_last_page_check",
+          "value": "\"books\".\"last_page\" IS NULL OR (\"books\".\"last_page\" >= 1 AND \"books\".\"last_page\" <= \"books\".\"page_count\")"
+        },
+        "books_analysis_status_check": {
+          "name": "books_analysis_status_check",
+          "value": "\"books\".\"analysis_status\" IN ('analyzing', 'ready', 'failed')"
+        }
+      }
+    },
+    "chunk_sources": {
+      "name": "chunk_sources",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "chunk_id": {
+          "name": "chunk_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ocr_page_id": {
+          "name": "ocr_page_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_line_index": {
+          "name": "start_line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_line_index": {
+          "name": "end_line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_order": {
+          "name": "source_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "chunk_sources_chunk_order_idx": {
+          "name": "chunk_sources_chunk_order_idx",
+          "columns": ["chunk_id", "source_order"],
+          "isUnique": true
+        },
+        "chunk_sources_page_line_idx": {
+          "name": "chunk_sources_page_line_idx",
+          "columns": ["ocr_page_id", "start_line_index"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "chunk_sources_chunk_id_search_chunks_id_fk": {
+          "name": "chunk_sources_chunk_id_search_chunks_id_fk",
+          "tableFrom": "chunk_sources",
+          "tableTo": "search_chunks",
+          "columnsFrom": ["chunk_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "chunk_sources_ocr_page_id_ocr_pages_id_fk": {
+          "name": "chunk_sources_ocr_page_id_ocr_pages_id_fk",
+          "tableFrom": "chunk_sources",
+          "tableTo": "ocr_pages",
+          "columnsFrom": ["ocr_page_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chunk_sources_line_range_check": {
+          "name": "chunk_sources_line_range_check",
+          "value": "\"chunk_sources\".\"end_line_index\" >= \"chunk_sources\".\"start_line_index\""
+        }
+      }
+    },
+    "ocr_lines": {
+      "name": "ocr_lines",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ocr_page_id": {
+          "name": "ocr_page_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "line_index": {
+          "name": "line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_text": {
+          "name": "raw_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "x0": {
+          "name": "x0",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "y0": {
+          "name": "y0",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "x1": {
+          "name": "x1",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "y1": {
+          "name": "y1",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ocr_lines_page_order_idx": {
+          "name": "ocr_lines_page_order_idx",
+          "columns": ["ocr_page_id", "line_index"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "ocr_lines_ocr_page_id_ocr_pages_id_fk": {
+          "name": "ocr_lines_ocr_page_id_ocr_pages_id_fk",
+          "tableFrom": "ocr_lines",
+          "tableTo": "ocr_pages",
+          "columnsFrom": ["ocr_page_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ocr_lines_x1_check": {
+          "name": "ocr_lines_x1_check",
+          "value": "\"ocr_lines\".\"x1\" > \"ocr_lines\".\"x0\""
+        },
+        "ocr_lines_y1_check": {
+          "name": "ocr_lines_y1_check",
+          "value": "\"ocr_lines\".\"y1\" > \"ocr_lines\".\"y0\""
+        }
+      }
+    },
+    "ocr_pages": {
+      "name": "ocr_pages",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "book_id": {
+          "name": "book_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "page_number": {
+          "name": "page_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ocr_pages_book_page_idx": {
+          "name": "ocr_pages_book_page_idx",
+          "columns": ["book_id", "page_number"],
+          "isUnique": true
+        },
+        "ocr_pages_resume_idx": {
+          "name": "ocr_pages_resume_idx",
+          "columns": ["book_id", "status", "page_number"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "ocr_pages_book_id_books_id_fk": {
+          "name": "ocr_pages_book_id_books_id_fk",
+          "tableFrom": "ocr_pages",
+          "tableTo": "books",
+          "columnsFrom": ["book_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ocr_pages_page_number_check": {
+          "name": "ocr_pages_page_number_check",
+          "value": "\"ocr_pages\".\"page_number\" > 0"
+        },
+        "ocr_pages_width_check": {
+          "name": "ocr_pages_width_check",
+          "value": "\"ocr_pages\".\"width\" IS NULL OR \"ocr_pages\".\"width\" > 0"
+        },
+        "ocr_pages_height_check": {
+          "name": "ocr_pages_height_check",
+          "value": "\"ocr_pages\".\"height\" IS NULL OR \"ocr_pages\".\"height\" > 0"
+        },
+        "ocr_pages_status_check": {
+          "name": "ocr_pages_status_check",
+          "value": "\"ocr_pages\".\"status\" IN ('pending', 'processing', 'ready', 'failed')"
+        }
+      }
+    },
+    "search_chunks": {
+      "name": "search_chunks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "book_id": {
+          "name": "book_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_count": {
+          "name": "token_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "search_chunks_book_order_idx": {
+          "name": "search_chunks_book_order_idx",
+          "columns": ["book_id", "ordinal"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "search_chunks_book_id_books_id_fk": {
+          "name": "search_chunks_book_id_books_id_fk",
+          "tableFrom": "search_chunks",
+          "tableTo": "books",
+          "columnsFrom": ["book_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "search_chunks_token_count_check": {
+          "name": "search_chunks_token_count_check",
+          "value": "\"search_chunks\".\"token_count\" > 0"
+        }
+      }
+    },
+    "search_postings": {
+      "name": "search_postings",
+      "columns": {
+        "term_id": {
+          "name": "term_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chunk_id": {
+          "name": "chunk_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "term_frequency": {
+          "name": "term_frequency",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "search_postings_chunk_idx": {
+          "name": "search_postings_chunk_idx",
+          "columns": ["chunk_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "search_postings_term_id_search_terms_id_fk": {
+          "name": "search_postings_term_id_search_terms_id_fk",
+          "tableFrom": "search_postings",
+          "tableTo": "search_terms",
+          "columnsFrom": ["term_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "search_postings_chunk_id_search_chunks_id_fk": {
+          "name": "search_postings_chunk_id_search_chunks_id_fk",
+          "tableFrom": "search_postings",
+          "tableTo": "search_chunks",
+          "columnsFrom": ["chunk_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "search_postings_term_id_chunk_id_pk": {
+          "columns": ["term_id", "chunk_id"],
+          "name": "search_postings_term_id_chunk_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "search_postings_term_frequency_check": {
+          "name": "search_postings_term_frequency_check",
+          "value": "\"search_postings\".\"term_frequency\" > 0"
+        }
+      }
+    },
+    "search_terms": {
+      "name": "search_terms",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "term": {
+          "name": "term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_frequency": {
+          "name": "document_frequency",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "search_terms_term_unique": {
+          "name": "search_terms_term_unique",
+          "columns": ["term"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "search_terms_document_frequency_check": {
+          "name": "search_terms_document_frequency_check",
+          "value": "\"search_terms\".\"document_frequency\" > 0"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "books_created_at_idx": {
+        "columns": {
+          "\"created_at\" DESC": {
+            "isExpression": true
+          },
+          "\"id\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,19 +1,3 @@
-import { OPFS_COMMAND } from '../commands'
-import { UnsupportedCommandError } from './errors'
-import { getPayload, isContentHash, isPdfWriteInput, type WorkerRequest } from './validation'
-
-type OpfsCommand = (typeof OPFS_COMMAND)[keyof typeof OPFS_COMMAND]
-
-const OPFS_COMMAND_LIST: ReadonlySet<string> = new Set(Object.values(OPFS_COMMAND))
-
-export function isOpfsCommand(command: string): command is OpfsCommand {
-  return OPFS_COMMAND_LIST.has(command)
-}
-
-function getContentHash(request: WorkerRequest): string {
-  return getPayload(request, request.command, isContentHash)
-}
-
 const PDF_DIRECTORY_NAME = 'pdfs'
 const CONTENT_HASH_PATTERN = /^[a-f0-9]{64}$/
 
@@ -82,26 +66,11 @@ export async function deletePdf(contentHash: string): Promise<void> {
   }
 }
 
-export async function clearOpfs(): Promise<void> {
+export async function clearPdfFiles(): Promise<void> {
   const root = await navigator.storage.getDirectory()
-  for await (const [name] of root.entries()) {
-    await root.removeEntry(name, { recursive: true })
-  }
-}
-
-export async function executeOpfsCommand(request: WorkerRequest): Promise<unknown> {
-  switch (request.command) {
-    case OPFS_COMMAND.WRITE_PDF: {
-      const input = getPayload(request, request.command, isPdfWriteInput)
-      await writePdf(input.contentHash, input.pdfData)
-      return undefined
-    }
-    case OPFS_COMMAND.READ_PDF:
-      return await readPdf(getContentHash(request))
-    case OPFS_COMMAND.DELETE_PDF:
-      await deletePdf(getContentHash(request))
-      return undefined
-    default:
-      throw new UnsupportedCommandError(request.command)
+  try {
+    await root.removeEntry(PDF_DIRECTORY_NAME, { recursive: true })
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error
   }
 }

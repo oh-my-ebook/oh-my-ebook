@@ -1,85 +1,29 @@
-import type { Database } from '@sqlite.org/sqlite-wasm'
-import type { SearchChunkQuery } from '../data/search'
-import type { AddBookInput } from '../data/book'
+import { eq } from 'drizzle-orm'
+import type { DatabaseConnection } from './database-connection'
+import type { AddBookInput, BookAnalysisStatus } from './types/book'
+import type { OcrLineInput } from './types/ocr'
+import type { SearchChunkQuery } from './types/search'
 import type {
   ChunkSourceInput,
   SearchChunkInput,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
-} from '../data/search-index'
-import type { OcrLineInput } from '../data/ocr'
-import { InvalidPayloadError } from './errors'
-import { RESET_INVALID_BOOK_PROGRESS_SQL, SELECT_CHANGES_SQL } from './queries'
+} from './types/search-index'
+import { books } from './schema'
+import { InvalidInputError } from './storage-errors'
 
-export interface UpdateCoverInput {
-  id: string
-  coverData: ArrayBuffer
-  coverMime: 'image/webp' | 'image/png'
-}
-
-export interface UpdateProgressInput {
-  id: string
-  page: number
-}
-
-export interface UpdateTitleInput {
-  id: string
-  title: string
-}
-
-export interface PdfWriteInput {
-  contentHash: string
-  pdfData: ArrayBuffer
-}
-
-export interface InitializeOcrPagesInput {
-  bookId: string
-  pageCount: number
-}
-
-export interface StoreOcrPageInput {
-  pageId: string
-  width: number
-  height: number
-  lines: readonly OcrLineInput[]
-}
-
-export interface StoreSearchIndexInput {
-  bookId: string
-  chunks: readonly SearchIndexChunkInput[]
-}
-
-export interface ListOcrLinesInput {
-  bookId: string
-  limit: number
-  offset: number
-}
-
-export interface GetStoredOcrPageInput {
-  bookId: string
-  pageNumber: number
-}
+import type {
+  GetStoredOcrPageInput,
+  InitializeOcrPagesInput,
+  ListOcrLinesInput,
+  StoreOcrPageInput,
+  StoreSearchIndexInput,
+  UpdateCoverInput,
+  UpdateProgressInput,
+  UpdateTitleInput,
+} from './types/inputs'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
-
-export interface WorkerRequest {
-  requestId: number
-  command: string
-  payload?: unknown
-}
-
-export function isWorkerRequest(value: unknown): value is WorkerRequest {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'requestId' in value &&
-    typeof value.requestId === 'number' &&
-    Number.isSafeInteger(value.requestId) &&
-    value.requestId > 0 &&
-    'command' in value &&
-    typeof value.command === 'string'
-  )
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -87,15 +31,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
-}
-
-export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
-  return (
-    typeof book === 'object' &&
-    book !== null &&
-    'content_hash' in book &&
-    isContentHash(book.content_hash)
-  )
 }
 
 export function isAddBookInput(value: unknown): value is AddBookInput {
@@ -145,18 +80,6 @@ export function isContentHash(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 }
 
-export function isPdfWriteInput(value: unknown): value is PdfWriteInput {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'contentHash' in value &&
-    isContentHash(value.contentHash) &&
-    'pdfData' in value &&
-    value.pdfData instanceof ArrayBuffer &&
-    value.pdfData.byteLength > 0
-  )
-}
-
 export function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
   return (
     typeof value === 'object' &&
@@ -198,7 +121,7 @@ export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
   )
 }
 
-function isIdentifier(value: unknown): value is string {
+export function isIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
@@ -324,20 +247,21 @@ export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPa
   return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
-export function getPayload<T>(
-  request: WorkerRequest,
-  command: string,
+export function validateInput<T>(
+  input: T,
+  operation: string,
   isValid: (value: unknown) => value is T,
-): T {
-  if (!isValid(request.payload)) throw new InvalidPayloadError(command)
-  return request.payload
+): void {
+  if (!isValid(input)) throw new InvalidInputError(operation)
 }
 
-export function normalizeStoredProgress(
-  database: Database,
-  id: string,
-  book: Record<string, unknown>,
-): Record<string, unknown> {
+export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
+}
+
+export async function normalizeStoredProgress<
+  T extends { page_count: number; last_page: number | null },
+>(database: Pick<DatabaseConnection, 'db'>, id: string, book: T): Promise<T> {
   const pageCount = book.page_count
   const lastPage = book.last_page
   if (
@@ -353,12 +277,19 @@ export function normalizeStoredProgress(
     return book
   }
 
-  database.exec(RESET_INVALID_BOOK_PROGRESS_SQL, {
-    bind: [Date.now(), id],
-  })
+  await database.db
+    .update(books)
+    .set({ lastPage: 1, updatedAt: Date.now() })
+    .where(eq(books.id, id))
   return { ...book, last_page: 1 }
 }
 
-export function isRowAffected(database: Database): boolean {
-  return database.selectValue(SELECT_CHANGES_SQL) === 1
+export async function runValidated<Input, Result>(
+  name: string,
+  operation: (input: Input) => Promise<Result>,
+  input: Input,
+  isValid: (value: unknown) => value is Input,
+): Promise<Result> {
+  validateInput(input, name, isValid)
+  return await operation(input)
 }

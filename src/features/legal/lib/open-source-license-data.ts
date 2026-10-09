@@ -677,7 +677,7 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
   },
   {
     name: '@sqlite.org/sqlite-wasm',
-    version: '3.53.4-build1',
+    version: '3.51.2-build9',
     license: 'Apache-2.0',
     homepage: 'https://github.com/sqlite/sqlite-wasm#readme',
     copyright: null,
@@ -778,6 +778,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     homepage: 'https://github.com/ungap/structured-clone#readme',
     copyright: 'Copyright (c) 2021, Andrea Giammarchi, @WebReflection',
     note: null,
+  },
+  {
+    name: '@ungap/with-resolvers',
+    version: '0.1.0',
+    license: 'ISC',
+    homepage: 'https://github.com/ungap/with-resolvers#readme',
+    copyright: null,
+    note: 'LICENSE 파일이 배포되지 않았습니다. package.json 저자: Andrea Giammarchi',
   },
   {
     name: 'argparse',
@@ -900,6 +908,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     note: null,
   },
   {
+    name: 'coincident',
+    version: '1.2.3',
+    license: 'ISC',
+    homepage: null,
+    copyright: 'Copyright (c) 2023, Andrea Giammarchi, @WebReflection',
+    note: null,
+  },
+  {
     name: 'comma-separated-tokens',
     version: '2.0.3',
     license: 'MIT',
@@ -966,6 +982,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     note: null,
   },
   {
+    name: 'drizzle-orm',
+    version: '0.45.3',
+    license: 'Apache-2.0',
+    homepage: 'https://orm.drizzle.team',
+    copyright: null,
+    note: 'LICENSE 파일이 배포되지 않았습니다. package.json 저자: Drizzle Team',
+  },
+  {
     name: 'escape-string-regexp',
     version: '5.0.0',
     license: 'MIT',
@@ -996,6 +1020,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     homepage: 'https://google.github.io/flatbuffers/',
     copyright: 'Copyright 2014 Google Inc.',
     note: '소스 코드 헤더 기준(LICENSE 파일은 템플릿 원문)',
+  },
+  {
+    name: 'gc-hook',
+    version: '0.3.1',
+    license: 'ISC',
+    homepage: 'https://github.com/WebReflection/gc-hook#readme',
+    copyright: null,
+    note: 'LICENSE 파일이 배포되지 않았습니다. package.json 저자: Andrea Giammarchi',
   },
   {
     name: 'get-nonce',
@@ -1561,6 +1593,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     note: null,
   },
   {
+    name: 'proxy-target',
+    version: '3.0.2',
+    license: 'MIT',
+    homepage: null,
+    copyright: 'Copyright © 2023, Andrea Giammarchi, @WebReflection',
+    note: null,
+  },
+  {
     name: 'radix-ui',
     version: '1.6.7',
     license: 'MIT',
@@ -1712,6 +1752,14 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
     license: 'MIT',
     homepage: 'https://github.com/wooorm/space-separated-tokens#readme',
     copyright: 'Copyright (c) 2016 Titus Wormer <tituswormer@gmail.com>',
+    note: null,
+  },
+  {
+    name: 'sqlocal',
+    version: '0.18.0',
+    license: 'MIT',
+    homepage: 'https://sqlocal.dev',
+    copyright: 'Copyright (c) 2023 Dallas Hoffman',
     note: null,
   },
   {

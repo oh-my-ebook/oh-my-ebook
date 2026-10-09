@@ -1,6 +1,6 @@
-import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { describe, expect, it } from 'vitest'
-import { createSearchChunksSql } from './queries'
+import { createTestDatabase } from '../../../test/sqlocal'
+import { createSearchChunksSql } from './search-sql'
 
 function isScoredRow(value: unknown): value is { id: string; score: number } {
   return (
@@ -41,9 +41,7 @@ describe('현재 책 BM25 검색 SQL', () => {
   })
 
   it('실제 SQLite에서 현재 책만 검색하고 여러 검색어 점수를 합산해 정렬한다', async () => {
-    const sqlite3 = await sqlite3InitModule()
-    const database = new sqlite3.oo1.DB(':memory:', 'c')
-    database.exec(`
+    const database = await createTestDatabase(`
       CREATE TABLE search_chunks (
         id TEXT PRIMARY KEY,
         book_id TEXT NOT NULL,
@@ -68,28 +66,16 @@ describe('현재 책 BM25 검색 SQL', () => {
         (1, 'b-1', 100);
     `)
 
-    try {
-      const alphaRows = readScoredRows(
-        database.exec(createSearchChunksSql(1), {
-          bind: ['alpha', 'book-a', 5],
-          rowMode: 'object',
-          returnValue: 'resultRows',
-        }),
-      )
-      const combinedRows = readScoredRows(
-        database.exec(createSearchChunksSql(2), {
-          bind: ['alpha', 'beta', 'book-a', 5],
-          rowMode: 'object',
-          returnValue: 'resultRows',
-        }),
-      )
+    const alphaRows = readScoredRows(
+      await database.sql(createSearchChunksSql(1), 'alpha', 'book-a', 5),
+    )
+    const combinedRows = readScoredRows(
+      await database.sql(createSearchChunksSql(2), 'alpha', 'beta', 'book-a', 5),
+    )
 
-      expect(alphaRows.map(({ id }) => id)).toEqual(['a-1', 'a-2'])
-      expect(combinedRows.map(({ id }) => id)).toEqual(['a-1', 'a-2', 'a-3'])
-      expect(combinedRows[0]?.score).toBeGreaterThan(alphaRows[0]?.score ?? 0)
-      expect(combinedRows.some(({ id }) => id === 'b-1')).toBe(false)
-    } finally {
-      database.close()
-    }
+    expect(alphaRows.map(({ id }) => id)).toEqual(['a-1', 'a-2'])
+    expect(combinedRows.map(({ id }) => id)).toEqual(['a-1', 'a-2', 'a-3'])
+    expect(combinedRows[0]?.score).toBeGreaterThan(alphaRows[0]?.score ?? 0)
+    expect(combinedRows.some(({ id }) => id === 'b-1')).toBe(false)
   })
 })

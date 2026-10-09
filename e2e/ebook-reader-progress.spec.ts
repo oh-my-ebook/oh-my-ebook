@@ -31,4 +31,9 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
     await page.getByRole('button', { name: 'The Local Library 열기' }).click()
     await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
   }
+
+  await page.reload()
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(
+    `${pageCount > 1 ? 2 : 1} / ${pageCount}`,
+  )
 })

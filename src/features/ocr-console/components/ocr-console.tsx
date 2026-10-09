@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress'
 import {
   Table,
   TableBody,
@@ -25,18 +25,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress'
+import type { OcrLinePage, OcrPageRecord } from '@/lib/ebook-storage/types/ocr'
 import type {
   ChunkSourcePage,
-  ChunkSourceRecord,
   SearchChunkPage,
-  SearchChunkRecord,
   SearchPostingPage,
-  SearchPostingRecord,
   SearchTermPage,
-  SearchTermRecord,
-} from '@/lib/ebook-storage/data/search-index'
-import type { OcrLinePage, OcrLineRecord, OcrPageRecord } from '@/lib/ebook-storage/data/ocr'
+} from '@/lib/ebook-storage/types/search-index'
+import { useEffect, useState } from 'react'
 import type { OcrConsoleStore } from '../lib/ocr-console-store'
 
 const BOOKS_PER_PAGE = 10
@@ -46,129 +42,6 @@ interface ConsoleBook {
   id: string
   title: string
   analysisStatus: 'analyzing' | 'ready' | 'failed'
-}
-
-interface ConsoleBookRecord {
-  id: string
-  title: string
-  analysis_status: ConsoleBook['analysisStatus']
-}
-
-function isConsoleBook(value: unknown): value is ConsoleBookRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'string') return false
-  if (!('title' in value) || typeof value.title !== 'string') return false
-  if (!('analysis_status' in value) || !isAnalysisStatus(value.analysis_status)) return false
-  return true
-}
-
-function isAnalysisStatus(value: unknown): value is ConsoleBook['analysisStatus'] {
-  return value === 'analyzing' || value === 'ready' || value === 'failed'
-}
-
-function isOcrLineRecord(value: unknown): value is OcrLineRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('line_index' in value) || typeof value.line_index !== 'number') return false
-  if (!('raw_text' in value) || typeof value.raw_text !== 'string') return false
-  if (!('x0' in value) || typeof value.x0 !== 'number') return false
-  if (!('y0' in value) || typeof value.y0 !== 'number') return false
-  if (!('x1' in value) || typeof value.x1 !== 'number') return false
-  if (!('y1' in value) || typeof value.y1 !== 'number') return false
-  return true
-}
-
-function isOcrLinePage(value: unknown): value is OcrLinePage {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('total' in value) || typeof value.total !== 'number') return false
-  if (!('lines' in value) || !Array.isArray(value.lines)) return false
-  return value.lines.every(isOcrLineRecord)
-}
-
-function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
-  return value === 'pending' || value === 'processing' || value === 'ready' || value === 'failed'
-}
-
-function isOcrPageRecord(value: unknown): value is OcrPageRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('status' in value) || !isOcrPageStatus(value.status)) return false
-  if (!('width' in value) || !(value.width === null || typeof value.width === 'number'))
-    return false
-  if (!('height' in value) || !(value.height === null || typeof value.height === 'number'))
-    return false
-  return true
-}
-
-function isSearchChunkRecord(value: unknown): value is SearchChunkRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'string') return false
-  if (!('ordinal' in value) || typeof value.ordinal !== 'number') return false
-  if (!('text' in value) || typeof value.text !== 'string') return false
-  if (!('token_count' in value) || typeof value.token_count !== 'number') return false
-  if (!('created_at' in value) || typeof value.created_at !== 'number') return false
-  return true
-}
-
-function isSearchChunkPage(value: unknown): value is SearchChunkPage {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('total' in value) || typeof value.total !== 'number') return false
-  if (!('chunks' in value) || !Array.isArray(value.chunks)) return false
-  return value.chunks.every(isSearchChunkRecord)
-}
-
-function isChunkSourceRecord(value: unknown): value is ChunkSourceRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'number') return false
-  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
-  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
-  if (!('ocr_page_id' in value) || typeof value.ocr_page_id !== 'string') return false
-  if (!('page_number' in value) || typeof value.page_number !== 'number') return false
-  if (!('start_line_index' in value) || typeof value.start_line_index !== 'number') return false
-  if (!('end_line_index' in value) || typeof value.end_line_index !== 'number') return false
-  if (!('source_order' in value) || typeof value.source_order !== 'number') return false
-  return true
-}
-
-function isChunkSourcePage(value: unknown): value is ChunkSourcePage {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('total' in value) || typeof value.total !== 'number') return false
-  if (!('sources' in value) || !Array.isArray(value.sources)) return false
-  return value.sources.every(isChunkSourceRecord)
-}
-
-function isSearchTermRecord(value: unknown): value is SearchTermRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('id' in value) || typeof value.id !== 'number') return false
-  if (!('term' in value) || typeof value.term !== 'string') return false
-  if (!('document_frequency' in value) || typeof value.document_frequency !== 'number') {
-    return false
-  }
-  return true
-}
-
-function isSearchTermPage(value: unknown): value is SearchTermPage {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('total' in value) || typeof value.total !== 'number') return false
-  if (!('terms' in value) || !Array.isArray(value.terms)) return false
-  return value.terms.every(isSearchTermRecord)
-}
-
-function isSearchPostingRecord(value: unknown): value is SearchPostingRecord {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('term_id' in value) || typeof value.term_id !== 'number') return false
-  if (!('chunk_id' in value) || typeof value.chunk_id !== 'string') return false
-  if (!('term_frequency' in value) || typeof value.term_frequency !== 'number') return false
-  if (!('term' in value) || typeof value.term !== 'string') return false
-  if (!('chunk_ordinal' in value) || typeof value.chunk_ordinal !== 'number') return false
-  return true
-}
-
-function isSearchPostingPage(value: unknown): value is SearchPostingPage {
-  if (typeof value !== 'object' || value === null) return false
-  if (!('total' in value) || typeof value.total !== 'number') return false
-  if (!('postings' in value) || !Array.isArray(value.postings)) return false
-  return value.postings.every(isSearchPostingRecord)
 }
 
 function PageControls({
@@ -238,8 +111,7 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
   useEffect(() => {
     async function loadBooks() {
       try {
-        const result = await store.request('listBooks')
-        if (!Array.isArray(result) || !result.every(isConsoleBook)) throw new Error('Invalid books')
+        const result = await store.listBooks()
         setBooks(
           result.map((book) => ({
             id: book.id,
@@ -271,43 +143,34 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
           postingResult,
           analysisStatus,
         ] = await Promise.all([
-          store.request('listOcrLines', {
+          store.listOcrLines({
             bookId: book.id,
             limit: LINES_PER_PAGE,
             offset: linePage * LINES_PER_PAGE,
           }),
-          store.request('listOcrPages', book.id),
-          store.request('listSearchChunks', {
+          store.listOcrPages(book.id),
+          store.listSearchChunks({
             bookId: book.id,
             limit: LINES_PER_PAGE,
             offset: chunkPage * LINES_PER_PAGE,
           }),
-          store.request('listChunkSources', {
+          store.listChunkSources({
             bookId: book.id,
             limit: LINES_PER_PAGE,
             offset: sourcePage * LINES_PER_PAGE,
           }),
-          store.request('listSearchTerms', {
+          store.listSearchTerms({
             bookId: book.id,
             limit: LINES_PER_PAGE,
             offset: termPage * LINES_PER_PAGE,
           }),
-          store.request('listSearchPostings', {
+          store.listSearchPostings({
             bookId: book.id,
             limit: LINES_PER_PAGE,
             offset: postingPage * LINES_PER_PAGE,
           }),
-          store.request('getBookAnalysisStatus', book.id),
+          store.getBookAnalysisStatus(book.id),
         ])
-        if (!isOcrLinePage(lineResult)) throw new Error('Invalid OCR lines')
-        if (!Array.isArray(pageResult) || !pageResult.every(isOcrPageRecord)) {
-          throw new Error('Invalid OCR pages')
-        }
-        if (!isSearchChunkPage(chunkResult)) throw new Error('Invalid search chunks')
-        if (!isChunkSourcePage(sourceResult)) throw new Error('Invalid chunk sources')
-        if (!isSearchTermPage(termResult)) throw new Error('Invalid search terms')
-        if (!isSearchPostingPage(postingResult)) throw new Error('Invalid search postings')
-        if (!isAnalysisStatus(analysisStatus)) throw new Error('Invalid book analysis status')
         if (cancelled) return
         setOcrPage(lineResult)
         setOcrPages(pageResult)

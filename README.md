@@ -62,24 +62,21 @@ src/
 ├── hooks/                          # 공통 훅
 ├── lib/
 │   ├── ebook-storage/
-│   │   ├── data/
-│   │   │   ├── book.ts             # 책 정보·분석 상태·저장 입력·조회 결과 타입
-│   │   │   ├── search.ts           # 검색 요청·결과·출처 타입
-│   │   │   ├── ocr.ts              # OCR 저장 입력·조회 결과 타입
-│   │   │   └── search-index.ts     # 검색 청크·색인 저장 입력·조회 결과 타입
-│   │   ├── connection.ts           # 공통 저장소 연결 진입점
-│   │   ├── worker-client.ts        # Worker 요청·응답·재시도
-│   │   ├── commands.ts             # 저장소 명령과 명령 타입
-│   │   ├── worker-messages.ts      # Worker 요청·응답 메시지 타입
-│   │   ├── errors.ts               # 공개 오류 코드·메시지·오류 클래스
-│   │   ├── browser-storage.ts      # 브라우저 지원 여부·저장소 사용량
-│   │   └── worker/
-│   │       ├── storage.worker.ts   # 저장소 명령 처리·DB와 PDF 파일 연동
-│   │       ├── database.ts         # SQLite 초기화·데이터 조회와 변경
-│   │       ├── queries.ts          # 스키마·SQL 쿼리
-│   │       ├── pdf-files.ts        # OPFS의 PDF 원본 저장·조회·삭제
-│   │       ├── validation.ts       # 요청 데이터 검증
-│   │       └── errors.ts           # Worker 내부 오류와 공개 오류 코드 변환
+│   │   ├── book/                  # 책 Service·Repository와 PDF 파일 처리
+│   │   ├── ocr/                   # OCR Service·Repository
+│   │   ├── search/                # 검색 Service·Repository와 BM25 SQL
+│   │   ├── types/                 # 책·OCR·검색 입력 및 조회 결과 타입
+│   │   ├── ebook-store.ts         # 기능별 Service를 합친 저장소 타입
+│   │   ├── connection.ts          # 화면에서 사용하는 저장소 인스턴스
+│   │   ├── storage-client.ts      # 저장 작업 순서 보장·오류 변환·재시도
+│   │   ├── storage.service.ts     # Service 조합·초기화·전체 삭제
+│   │   ├── database-connection.ts # SQLocal·Drizzle 연결과 DB 초기화
+│   │   ├── schema.ts              # Drizzle 테이블·컬럼 정의
+│   │   ├── schema-sql.ts          # 기존 초기 스키마·PRAGMA
+│   │   ├── validation.ts          # 입력·저장값 검증
+│   │   ├── errors.ts              # 공개 오류 코드·메시지·오류 클래스
+│   │   ├── storage-errors.ts      # 내부 오류와 공개 오류 코드 변환
+│   │   └── browser-storage.ts     # 브라우저 지원 여부·저장소 사용량
 │   ├── pdf/
 │   │   ├── document.ts             # 문서·페이지 타입 정의와 좌표 배율
 │   │   ├── load-document.ts        # PDF 로딩·취소·자원 정리
@@ -102,7 +99,7 @@ src/
 - 기능 전용 코드는 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다. 공통 코드는 특정 feature를 import하지 않는다.
 - feature끼리 내부 컴포넌트·훅·로직을 직접 import하지 않는다. 리더와 채팅 연결처럼 여러 기능이 만나는 부분은 앱이나 페이지에서 조합한다.
 - 전자책 저장소는 책 정보·표지·PDF 원본·독서 위치·OCR 결과·검색 색인을 관리한다. 페이지에서 공통 저장소를 전달하고, 서재·리더·콘솔은 필요한 저장소 메서드를 인터페이스로 정의한다.
-- 책·검색·OCR 데이터 타입은 `lib/ebook-storage/data/`에 모은다. Worker는 사용하는 모듈에 함께 두며, 저장소·Kiwi Worker는 각 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
+- 책·검색·OCR 데이터 타입은 `lib/ebook-storage/types/`에 모은다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다. PDF 파일 작업은 비동기 파일 API로 처리한다. Kiwi Worker는 해당 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
 - 책 추가와 분석 실행 흐름은 `bookshelf`에, 함께 쓰는 PDF·OCR 처리는 `lib/pdf`에 둔다. 텍스트 레이아웃(text layout)은 기존 글자 영역에 맞춰 선택 레이어의 크기·배율을 계산하며, 문서 전체 레이아웃을 재배치하지 않는다.
 - 테스트는 대상 파일 옆에 `reader-state.test.ts`, `pdf-viewport.test.tsx`처럼 둔다.
 

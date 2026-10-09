@@ -47,7 +47,7 @@ export function Bookshelf({ onOpenBook, store }: BookshelfProps) {
 
   async function openBook(bookId: string) {
     try {
-      await store.request('hasBook', bookId)
+      await store.hasBook(bookId)
       onOpenBook?.(bookId)
     } catch (error) {
       toast.add({
@@ -61,7 +61,7 @@ export function Bookshelf({ onOpenBook, store }: BookshelfProps) {
   }
 
   async function clearAllData() {
-    await store.request('clearStorage')
+    await store.clearStorage()
     await clearOriginData()
     window.location.reload()
   }

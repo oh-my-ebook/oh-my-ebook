@@ -1,12 +1,13 @@
+import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
+import type { StoredBookDetail } from '@/lib/ebook-storage/types/book'
+import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { useEffect, useRef, useState } from 'react'
-import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/data/book'
+import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/types/book'
 
-export interface EbookReaderStore {
-  request(
-    command: 'getBook' | 'getStoredOcrPage' | 'updateProgress' | 'searchChunks',
-    payload?: unknown,
-  ): Promise<unknown>
-}
+export type EbookReaderStore = Pick<
+  EbookStore,
+  'getBook' | 'getStoredOcrPage' | 'updateProgress' | 'searchChunks'
+>
 
 interface ReaderBook {
   analysisStatus: BookAnalysisStatus
@@ -20,55 +21,18 @@ type EbookReaderState =
   | { status: 'ready'; book: ReaderBook }
   | { status: 'error'; message: string }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function isOptionalMetadataValue(value: unknown): value is string | null | undefined {
-  return value === undefined || value === null || typeof value === 'string'
-}
-
-function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
-  return value === 'analyzing' || value === 'ready' || value === 'failed'
-}
-
-function parseReaderBook(value: unknown): ReaderBook | null {
-  if (!isRecord(value)) return null
-
-  const fileName = value.file_name
-  const lastPage = value.last_page
-  const pdfData = value.pdf_data
-  const hasTitle = 'title' in value
-  const title = value.title
-  const author = value.author
-  const subject = value.pdf_subject
-  const keywords = value.pdf_keywords
-  const publisher = value.publisher
-  const analysisStatus = value.analysis_status
-
-  if (typeof fileName !== 'string') return null
-  if (lastPage !== null && (typeof lastPage !== 'number' || !Number.isSafeInteger(lastPage))) {
-    return null
-  }
-  if (!(pdfData instanceof Uint8Array)) return null
-  if (hasTitle && typeof title !== 'string') return null
-  if (!isOptionalMetadataValue(author)) return null
-  if (!isOptionalMetadataValue(subject)) return null
-  if (!isOptionalMetadataValue(keywords)) return null
-  if (!isOptionalMetadataValue(publisher)) return null
-  if (!isBookAnalysisStatus(analysisStatus)) return null
-
+function toReaderBook(book: StoredBookDetail): ReaderBook {
   return {
-    analysisStatus,
-    lastPage,
+    analysisStatus: book.analysis_status,
+    lastPage: book.last_page,
     metadata: {
-      title: typeof title === 'string' ? title : fileName,
-      author: author ?? undefined,
-      subject: subject ?? undefined,
-      keywords: keywords ?? undefined,
-      publisher: publisher ?? undefined,
+      title: book.title,
+      author: book.author ?? undefined,
+      subject: book.pdf_subject ?? undefined,
+      keywords: book.pdf_keywords ?? undefined,
+      publisher: book.publisher ?? undefined,
     },
-    pdfData,
+    pdfData: book.pdf_data,
   }
 }
 
@@ -86,7 +50,7 @@ export function useEbookReadingSession(bookId: string, store: EbookReaderStore) 
     let saved = false
 
     try {
-      await store.request('updateProgress', { id: bookId, page })
+      await store.updateProgress({ id: bookId, page })
       saved = true
     } catch {
       pendingPageRef.current ??= page
@@ -106,20 +70,19 @@ export function useEbookReadingSession(bookId: string, store: EbookReaderStore) 
 
     async function loadBook() {
       try {
-        const result = await store.request('getBook', bookId)
+        const result = await store.getBook(bookId)
         if (!active) return
-        if (result === null) {
-          setState({ status: 'error', message: '책을 찾을 수 없습니다.' })
-          return
-        }
-        const book = parseReaderBook(result)
-        if (book === null) {
-          setState({ status: 'error', message: '저장된 PDF 원본을 읽지 못했습니다.' })
-          return
-        }
+        const book = toReaderBook(result)
         setState({ status: 'ready', book })
-      } catch {
-        if (active) setState({ status: 'error', message: '저장된 PDF 원본을 읽지 못했습니다.' })
+      } catch (error) {
+        if (active)
+          setState({
+            status: 'error',
+            message:
+              error instanceof EbookStoreError && error.code === 'notfound'
+                ? '책을 찾을 수 없습니다.'
+                : '저장된 PDF 원본을 읽지 못했습니다.',
+          })
       }
     }
 

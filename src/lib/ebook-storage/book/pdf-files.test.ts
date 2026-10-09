@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearOpfs, deletePdf, readPdf, writePdf } from './pdf-files'
+import { clearPdfFiles, deletePdf, readPdf, writePdf } from './pdf-files'
 
 const contentHash = 'a'.repeat(64)
 
@@ -91,19 +91,28 @@ describe('pdf-files', () => {
     expect(fixture.getDirectory).not.toHaveBeenCalled()
   })
 
-  it('OPFS 루트의 SQLite와 PDF를 재귀적으로 삭제한다', async () => {
-    const removeEntry = vi.fn(async () => undefined)
-    const entries = async function* () {
-      yield ['ebook-library.sqlite3', {}] as [string, FileSystemHandle]
-      yield ['pdfs', {}] as [string, FileSystemHandle]
-    }
-    vi.stubGlobal('navigator', {
-      storage: { getDirectory: vi.fn(async () => ({ entries, removeEntry })) },
+  it('PDF 폴더만 삭제하고 SQLite 파일은 직접 삭제하지 않는다', async () => {
+    const entries = new Set(['ebook-library.sqlite3', 'pdfs', 'other-file'])
+    const removeEntry = vi.fn(async (name: string) => {
+      entries.delete(name)
     })
-
-    await clearOpfs()
-
-    expect(removeEntry).toHaveBeenCalledWith('ebook-library.sqlite3', { recursive: true })
+    vi.stubGlobal('navigator', {
+      storage: { getDirectory: vi.fn(async () => ({ removeEntry })) },
+    })
+    await clearPdfFiles()
+    expect(entries).toEqual(new Set(['ebook-library.sqlite3', 'other-file']))
     expect(removeEntry).toHaveBeenCalledWith('pdfs', { recursive: true })
+  })
+
+  it('PDF 폴더가 없으면 전체 삭제를 완료하고 다른 삭제 오류는 전달한다', async () => {
+    const removeEntry = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Missing', 'NotFoundError'))
+      .mockRejectedValueOnce(new Error('delete failed'))
+    vi.stubGlobal('navigator', {
+      storage: { getDirectory: vi.fn(async () => ({ removeEntry })) },
+    })
+    await expect(clearPdfFiles()).resolves.toBeUndefined()
+    await expect(clearPdfFiles()).rejects.toThrow('delete failed')
   })
 })

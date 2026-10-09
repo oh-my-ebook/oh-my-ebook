@@ -1,14 +1,10 @@
-import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
-import type {
-  SearchChunkQuery,
-  SearchChunkResult,
-  SearchChunkSource,
-} from '@/lib/ebook-storage/data/search'
+import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook-storage/types/search'
 import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
+import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
 
 const SEARCH_CHUNK_LIMIT = 5
 
-export type SearchChunks = (query: SearchChunkQuery) => Promise<unknown>
+export type SearchChunks = (query: SearchChunkQuery) => Promise<SearchChunkResult[]>
 
 interface SearchBookChunksOptions {
   bookId: string
@@ -30,37 +26,6 @@ function getLatestUserQuestion(messages: readonly ThreadMessage[]): string {
     .join('')
 }
 
-function isSearchChunkSource(value: unknown): value is SearchChunkSource {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'pageNumber' in value &&
-    typeof value.pageNumber === 'number' &&
-    'startLineIndex' in value &&
-    typeof value.startLineIndex === 'number' &&
-    'endLineIndex' in value &&
-    typeof value.endLineIndex === 'number'
-  )
-}
-
-function isSearchChunkResult(value: unknown): value is SearchChunkResult {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'ordinal' in value &&
-    typeof value.ordinal === 'number' &&
-    'text' in value &&
-    typeof value.text === 'string' &&
-    'tokenCount' in value &&
-    typeof value.tokenCount === 'number' &&
-    'score' in value &&
-    typeof value.score === 'number' &&
-    'sources' in value &&
-    Array.isArray(value.sources) &&
-    value.sources.every(isSearchChunkSource)
-  )
-}
-
 export async function searchBookChunks({
   bookId,
   messages,
@@ -75,8 +40,5 @@ export async function searchBookChunks({
   if (terms.length === 0) return []
 
   const result = await searchChunks({ bookId, terms, limit: SEARCH_CHUNK_LIMIT })
-  if (!Array.isArray(result) || !result.every(isSearchChunkResult)) {
-    throw new Error('Invalid search chunks')
-  }
   return result
 }
