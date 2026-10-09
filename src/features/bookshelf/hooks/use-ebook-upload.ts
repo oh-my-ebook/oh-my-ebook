@@ -44,11 +44,9 @@ export function useEbookUpload({
           toast.add({ title: `${file.name}을 추가했습니다.`, type: 'success' })
 
           // 3. OCR 분석 파이프라인 실행
-          if (typeof bookId === 'string') {
-            void startOcrAnalysis(bookId)
-              .finally(() => refreshBooks())
-              .catch(() => undefined)
-          }
+          void startOcrAnalysis(bookId)
+            .finally(() => refreshBooks())
+            .catch(() => undefined)
         } catch (error) {
           toast.add({
             title: `${file.name}을 추가하지 못했습니다.`,

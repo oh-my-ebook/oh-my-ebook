@@ -1,3 +1,6 @@
+import { createStoreMock, createStoredBookDetail } from '@/test/ebook-store'
+import type { StoredBookDetail } from '@/lib/ebook-storage/data/book'
+import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -26,8 +29,8 @@ vi.mock('./reader-page', () => ({
   },
 }))
 
-function createBook(overrides: Record<string, unknown> = {}) {
-  return {
+function createBook(overrides: Partial<StoredBookDetail> = {}) {
+  return createStoredBookDetail({
     id: 'book-id',
     file_name: 'book.pdf',
     title: '저장한 책',
@@ -39,22 +42,20 @@ function createBook(overrides: Record<string, unknown> = {}) {
     last_page: 12,
     analysis_status: 'ready',
     ...overrides,
-  }
+  })
 }
 
-function createStore(book: unknown = createBook()) {
-  return {
-    request: vi.fn(async (command: string) => {
-      if (command === 'getBook') return book
-      return null
-    }),
-  }
+function createStore(book = createBook()) {
+  const store = createStoreMock()
+  store.getBook.mockResolvedValue(book)
+  return store
 }
 
 describe('EbookReaderPage', () => {
   it('책을 불러오는 동안 스피너로 로딩 상태를 알린다', () => {
-    const pendingBook = createPromiseController<unknown>()
-    const store = { request: vi.fn(() => pendingBook.promise) }
+    const pendingBook = createPromiseController<StoredBookDetail>()
+    const store = createStore()
+    store.getBook.mockImplementation(() => pendingBook.promise)
     render(<EbookReaderPage bookId="book-id" store={store} />)
 
     expect(screen.getByRole('status', { name: '책을 불러오는 중' })).toBeInTheDocument()
@@ -83,14 +84,16 @@ describe('EbookReaderPage', () => {
         title: '저장한 책',
       }),
     )
-    expect(store.request).toHaveBeenCalledWith('getBook', 'book-id')
+    expect(store.getBook).toHaveBeenCalledWith('book-id')
   })
 
   it.each([
-    ['없는 책', null, '책을 찾을 수 없습니다.'],
-    ['원본 읽기 실패', { ...createBook(), pdf_data: null }, '저장된 PDF 원본을 읽지 못했습니다.'],
-  ])('%s을 안내한다', async (_label, book, message) => {
-    render(<EbookReaderPage bookId="book-id" store={createStore(book)} />)
+    ['없는 책', new EbookStoreError('notfound'), '책을 찾을 수 없습니다.'],
+    ['원본 읽기 실패', new Error('read failed'), '저장된 PDF 원본을 읽지 못했습니다.'],
+  ])('%s을 안내한다', async (_label, error, message) => {
+    const store = createStore()
+    store.getBook.mockRejectedValue(error)
+    render(<EbookReaderPage bookId="book-id" store={store} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
   })
@@ -99,10 +102,9 @@ describe('EbookReaderPage', () => {
     const user = userEvent.setup()
     let shouldFail = true
     const store = createStore()
-    store.request.mockImplementation(async (command: string) => {
-      if (command === 'getBook' && shouldFail) throw new Error('read failed')
-      if (command === 'getBook') return createBook()
-      return null
+    store.getBook.mockImplementation(async () => {
+      if (shouldFail) throw new Error('read failed')
+      return createBook()
     })
     render(<EbookReaderPage bookId="book-id" store={store} />)
 
@@ -115,35 +117,27 @@ describe('EbookReaderPage', () => {
 
   it('빠르게 이동해도 마지막 페이지를 순서대로 저장한다', async () => {
     const user = userEvent.setup()
-    const firstWrite = createPromiseController<unknown>()
+    const firstWrite = createPromiseController<void>()
     const store = createStore()
-    store.request.mockImplementation((command: string) => {
-      if (command === 'getBook') return Promise.resolve(createBook())
-      if (command === 'updateProgress') return firstWrite.promise
-      return Promise.resolve(null)
-    })
+    store.updateProgress.mockImplementation(() => firstWrite.promise)
     render(<EbookReaderPage bookId="book-id" store={store} />)
     await screen.findByRole('main', { name: '독서 화면' })
 
     await user.click(screen.getByRole('button', { name: '2페이지' }))
     await user.click(screen.getByRole('button', { name: '3페이지' }))
-    expect(store.request).toHaveBeenLastCalledWith('updateProgress', { id: 'book-id', page: 2 })
+    expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 2 })
 
-    firstWrite.resolve(null)
+    firstWrite.resolve(undefined)
     await waitFor(() => {
-      expect(store.request).toHaveBeenLastCalledWith('updateProgress', { id: 'book-id', page: 3 })
+      expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 3 })
     })
   })
 
   it('페이지를 숨길 때 대기 중인 진행률 저장을 이어서 처리한다', async () => {
     const user = userEvent.setup()
-    const firstWrite = createPromiseController<unknown>()
+    const firstWrite = createPromiseController<void>()
     const store = createStore()
-    store.request.mockImplementation((command: string) => {
-      if (command === 'getBook') return Promise.resolve(createBook())
-      if (command === 'updateProgress') return firstWrite.promise
-      return Promise.resolve(null)
-    })
+    store.updateProgress.mockImplementation(() => firstWrite.promise)
     render(<EbookReaderPage bookId="book-id" store={store} />)
     await screen.findByRole('main', { name: '독서 화면' })
     await user.click(screen.getByRole('button', { name: '2페이지' }))
@@ -151,28 +145,24 @@ describe('EbookReaderPage', () => {
 
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     document.dispatchEvent(new Event('visibilitychange'))
-    firstWrite.resolve(null)
+    firstWrite.resolve(undefined)
 
     await waitFor(() => {
-      expect(store.request).toHaveBeenLastCalledWith('updateProgress', { id: 'book-id', page: 3 })
+      expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 3 })
     })
   })
 
   it('진행률 저장이 실패해도 독서를 유지한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    store.request.mockImplementation((command: string) => {
-      if (command === 'getBook') return Promise.resolve(createBook())
-      if (command === 'updateProgress') return Promise.reject(new Error('write failed'))
-      return Promise.resolve(null)
-    })
+    store.updateProgress.mockRejectedValue(new Error('write failed'))
     render(<EbookReaderPage bookId="book-id" store={store} />)
     await screen.findByRole('main', { name: '독서 화면' })
 
     await user.click(screen.getByRole('button', { name: '2페이지' }))
 
     await waitFor(() =>
-      expect(store.request).toHaveBeenCalledWith('updateProgress', { id: 'book-id', page: 2 }),
+      expect(store.updateProgress).toHaveBeenCalledWith({ id: 'book-id', page: 2 }),
     )
     expect(screen.getByRole('main', { name: '독서 화면' })).toBeInTheDocument()
   })

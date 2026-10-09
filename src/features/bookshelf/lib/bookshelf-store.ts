@@ -1,9 +1,24 @@
-import type { AddBookInput } from '@/lib/ebook-storage/data/book'
-import type { EbookClientCommand } from '@/lib/ebook-storage/commands'
+import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
 
-export type BookshelfCommand = Exclude<EbookClientCommand, 'updateProgress'>
-
-export interface BookshelfStore {
-  request(command: BookshelfCommand, payload?: unknown): Promise<unknown>
-  saveBook(input: AddBookInput): Promise<unknown>
-}
+export type BookshelfStore = Pick<
+  EbookStore,
+  | 'initialize'
+  | 'listBooks'
+  | 'saveBook'
+  | 'getBook'
+  | 'deleteBook'
+  | 'clearStorage'
+  | 'hasBook'
+  | 'updateTitle'
+  | 'updateCover'
+  | 'retryBookAnalysis'
+  | 'initializeOcrPages'
+  | 'prepareOcrPagesForRun'
+  | 'acquireNextOcrPage'
+  | 'listOcrPages'
+  | 'getOcrLinesForChunking'
+  | 'storeSearchIndex'
+  | 'storeOcrPage'
+  | 'failOcrPage'
+  | 'failBookAnalysis'
+>

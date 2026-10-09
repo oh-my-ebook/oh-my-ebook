@@ -22,18 +22,10 @@ export function useCoverRegeneration({
     setRegeneratingCover(book.id)
     setCoverErrors((current) => ({ ...current, [book.id]: '' }))
     try {
-      const result = await store.request('getBook', book.id)
-      if (
-        typeof result !== 'object' ||
-        result === null ||
-        !('pdf_data' in result) ||
-        !(result.pdf_data instanceof Uint8Array)
-      ) {
-        throw new Error('Invalid PDF data')
-      }
+      const result = await store.getBook(book.id)
       const analyzed = await analyzePdf(new File([new Uint8Array(result.pdf_data)], book.file_name))
       if (!analyzed.coverData || !analyzed.coverMime) throw new Error('Cover rendering failed')
-      await store.request('updateCover', {
+      await store.updateCover({
         id: book.id,
         coverData: analyzed.coverData,
         coverMime: analyzed.coverMime,
