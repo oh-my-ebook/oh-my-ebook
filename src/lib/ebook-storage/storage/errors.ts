@@ -5,14 +5,9 @@ export class UnsupportedStorageError extends Error {}
 export class NotFoundBookError extends Error {}
 export class DuplicateBookError extends Error {}
 export class DeletedBookError extends Error {}
-export class InvalidPayloadError extends Error {
-  constructor(command: string) {
-    super(`Invalid payload for ${command}`)
-  }
-}
-export class UnsupportedCommandError extends Error {
-  constructor(command: string) {
-    super(`Unsupported command: ${command}`)
+export class InvalidInputError extends Error {
+  constructor(operation: string) {
+    super(`Invalid input for ${operation}`)
   }
 }
 
@@ -38,4 +33,16 @@ export function getErrorCode(error: unknown): EbookStoreErrorCode {
     return 'duplicate'
   }
   return 'storage-failed'
+}
+
+export class InvalidPayloadError extends Error {
+  constructor(command: string) {
+    super(`Invalid payload for ${command}`)
+  }
+}
+
+export class UnsupportedCommandError extends Error {
+  constructor(command: string) {
+    super(`Unsupported command: ${command}`)
+  }
 }

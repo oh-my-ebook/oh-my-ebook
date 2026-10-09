@@ -2,6 +2,12 @@ import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type {
+  GetStoredOcrPageInput,
+  InitializeOcrPagesInput,
+  ListOcrLinesInput,
+  StoreOcrPageInput,
+} from '../data/inputs'
+import type {
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
@@ -10,21 +16,11 @@ import type {
 } from '../data/ocr'
 import { books, ocrLines, ocrPages } from '../schema'
 import { NotFoundBookError } from './errors'
-import {
-  getBookId,
-  getPayload,
-  isGetStoredOcrPageInput,
-  isInitializeOcrPagesInput,
-  isListOcrLinesInput,
-  isStoreOcrPageInput,
-  type StorageRequest,
-} from './validation'
 
 export async function initializeOcrPages(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: InitializeOcrPagesInput,
 ): Promise<void> {
-  const input = getPayload(request, request.command, isInitializeOcrPagesInput)
   const db = drizzle(database.driver)
   const [book] = await db
     .select({ pageCount: books.pageCount })
@@ -53,9 +49,8 @@ export async function initializeOcrPages(
 
 export async function prepareOcrPagesForRun(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  bookId: string,
 ): Promise<void> {
-  const bookId = getBookId(request)
   await drizzle(database.driver)
     .update(ocrPages)
     .set({ status: 'pending', updatedAt: Date.now() })
@@ -64,9 +59,8 @@ export async function prepareOcrPagesForRun(
 
 export async function acquireNextOcrPage(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  bookId: string,
 ): Promise<NextOcrPage | null> {
-  const bookId = getBookId(request)
   const db = drizzle(database.driver)
   const now = Date.now()
   return await database.transaction(async (tx) => {
@@ -98,9 +92,8 @@ export async function acquireNextOcrPage(
 
 export async function storeOcrPage(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: StoreOcrPageInput,
 ): Promise<boolean> {
-  const input = getPayload(request, request.command, isStoreOcrPageInput)
   const db = drizzle(database.driver)
   const now = Date.now()
   return await database.transaction(async (tx) => {
@@ -155,11 +148,7 @@ export async function storeOcrPage(
   })
 }
 
-export async function failOcrPage(
-  database: SQLocalDrizzle,
-  request: StorageRequest,
-): Promise<void> {
-  const pageId = getBookId(request)
+export async function failOcrPage(database: SQLocalDrizzle, pageId: string): Promise<void> {
   const [updated] = await drizzle(database.driver)
     .update(ocrPages)
     .set({ status: 'failed', updatedAt: Date.now() })
@@ -170,9 +159,8 @@ export async function failOcrPage(
 
 export async function getStoredOcrPage(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: GetStoredOcrPageInput,
 ): Promise<StoredOcrPage | null> {
-  const input = getPayload(request, request.command, isGetStoredOcrPageInput)
   const db = drizzle(database.driver)
   const [page] = await db
     .select({ id: ocrPages.id, width: ocrPages.width, height: ocrPages.height })
@@ -217,9 +205,8 @@ function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
 
 export async function listOcrPages(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  bookId: string,
 ): Promise<OcrPageRecord[]> {
-  const bookId = getBookId(request)
   const pages = await drizzle(database.driver)
     .select({
       page_number: ocrPages.pageNumber,
@@ -236,9 +223,8 @@ export async function listOcrPages(
 
 export async function listOcrLines(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: ListOcrLinesInput,
 ): Promise<OcrLinePage> {
-  const input = getPayload(request, request.command, isListOcrLinesInput)
   const db = drizzle(database.driver)
   const [result] = await db
     .select({ total: count() })
@@ -267,9 +253,8 @@ export async function listOcrLines(
 
 export async function getOcrLinesForChunking(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  bookId: string,
 ): Promise<OcrLineForChunking[]> {
-  const bookId = getBookId(request)
   const lines = await drizzle(database.driver)
     .select({
       ocr_page_id: ocrPages.id,

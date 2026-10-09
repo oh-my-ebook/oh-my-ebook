@@ -2,18 +2,11 @@ import { and, desc, eq, gte } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { AddBookInput, BookAnalysisStatus } from '../data/book'
+import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../data/inputs'
 import { books } from '../schema'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from './errors'
 import { refreshSearchTerms } from './search'
-import {
-  getBookId,
-  getPayload,
-  isUpdateCoverInput,
-  isUpdateProgressInput,
-  isUpdateTitleInput,
-  normalizeStoredProgress,
-  type StorageRequest,
-} from './validation'
+import { isBookAnalysisStatus, normalizeStoredProgress } from './validation'
 
 export async function addBook(database: SQLocalDrizzle, input: AddBookInput): Promise<string> {
   const db = drizzle(database.driver)
@@ -71,7 +64,7 @@ export async function deleteBookById(database: SQLocalDrizzle, id: string): Prom
 }
 
 export async function listBooks(database: SQLocalDrizzle) {
-  return await drizzle(database.driver)
+  const rows = await drizzle(database.driver)
     .select({
       id: books.id,
       content_hash: books.contentHash,
@@ -96,10 +89,21 @@ export async function listBooks(database: SQLocalDrizzle) {
     })
     .from(books)
     .orderBy(desc(books.createdAt), desc(books.id))
+  return rows.map((book) => {
+    const { id } = book
+    if (id === null) throw new Error('Invalid book ID')
+    if (!isBookAnalysisStatus(book.analysis_status)) throw new Error('Invalid book analysis status')
+    if (book.cover_status !== 'ready' && book.cover_status !== 'fallback')
+      throw new Error('Invalid cover status')
+    for (const timestamp of [book.ocr_completed_at, book.indexed_at]) {
+      if (timestamp !== null && !Number.isSafeInteger(timestamp))
+        throw new Error('Invalid analysis timestamp')
+    }
+    return { ...book, id }
+  })
 }
 
-export async function hasBook(database: SQLocalDrizzle, request: StorageRequest): Promise<void> {
-  const id = getBookId(request)
+export async function hasBook(database: SQLocalDrizzle, id: string): Promise<void> {
   const [book] = await drizzle(database.driver)
     .select({ id: books.id })
     .from(books)
@@ -107,10 +111,7 @@ export async function hasBook(database: SQLocalDrizzle, request: StorageRequest)
   if (!book) throw new DeletedBookError()
 }
 
-export async function getBookMetadata(
-  database: SQLocalDrizzle,
-  id: string,
-): Promise<Record<string, unknown>> {
+export async function getBookMetadata(database: SQLocalDrizzle, id: string) {
   const [book] = await drizzle(database.driver)
     .select({
       id: books.id,
@@ -130,14 +131,15 @@ export async function getBookMetadata(
     .from(books)
     .where(eq(books.id, id))
   if (!book) throw new NotFoundBookError()
-  return await normalizeStoredProgress(database, id, book)
+  if (book.id === null) throw new Error('Invalid book ID')
+  if (!isBookAnalysisStatus(book.analysis_status)) throw new Error('Invalid book analysis status')
+  return await normalizeStoredProgress(database, id, { ...book, id: book.id })
 }
 
 export async function updateProgress(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: UpdateProgressInput,
 ): Promise<void> {
-  const input = getPayload(request, request.command, isUpdateProgressInput)
   const [updated] = await drizzle(database.driver)
     .update(books)
     .set({ lastPage: input.page, updatedAt: Date.now() })
@@ -148,9 +150,8 @@ export async function updateProgress(
 
 export async function updateTitle(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: UpdateTitleInput,
 ): Promise<void> {
-  const input = getPayload(request, request.command, isUpdateTitleInput)
   const [updated] = await drizzle(database.driver)
     .update(books)
     .set({ title: input.title.trim(), updatedAt: Date.now() })
@@ -161,9 +162,8 @@ export async function updateTitle(
 
 export async function updateCover(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: UpdateCoverInput,
 ): Promise<void> {
-  const input = getPayload(request, request.command, isUpdateCoverInput)
   const [updated] = await drizzle(database.driver)
     .update(books)
     .set({
@@ -177,11 +177,7 @@ export async function updateCover(
   if (!updated) throw new DeletedBookError()
 }
 
-export async function failBookAnalysis(
-  database: SQLocalDrizzle,
-  request: StorageRequest,
-): Promise<void> {
-  const bookId = getBookId(request)
+export async function failBookAnalysis(database: SQLocalDrizzle, bookId: string): Promise<void> {
   const [updated] = await drizzle(database.driver)
     .update(books)
     .set({ analysisStatus: 'failed', updatedAt: Date.now() })
@@ -192,9 +188,8 @@ export async function failBookAnalysis(
 
 export async function getBookAnalysisStatus(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  bookId: string,
 ): Promise<BookAnalysisStatus> {
-  const bookId = getBookId(request)
   const [result] = await drizzle(database.driver)
     .select({ analysis_status: books.analysisStatus })
     .from(books)
@@ -206,11 +201,7 @@ export async function getBookAnalysisStatus(
   throw new Error('Invalid book analysis status')
 }
 
-export async function retryBookAnalysis(
-  database: SQLocalDrizzle,
-  request: StorageRequest,
-): Promise<void> {
-  const bookId = getBookId(request)
+export async function retryBookAnalysis(database: SQLocalDrizzle, bookId: string): Promise<void> {
   const [updated] = await drizzle(database.driver)
     .update(books)
     .set({ analysisStatus: 'analyzing', updatedAt: Date.now() })

@@ -1,68 +1,30 @@
+import { eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
+import type { AddBookInput, BookAnalysisStatus } from '../data/book'
+import type { OcrLineInput } from '../data/ocr'
 import type { SearchChunkQuery } from '../data/search'
-import type { AddBookInput } from '../data/book'
 import type {
   ChunkSourceInput,
   SearchChunkInput,
   SearchIndexChunkInput,
   SearchTermFrequencyInput,
 } from '../data/search-index'
-import type { OcrLineInput } from '../data/ocr'
-import { InvalidPayloadError } from './errors'
-import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { books } from '../schema'
+import { InvalidInputError, InvalidPayloadError } from './errors'
 
-export interface UpdateCoverInput {
-  id: string
-  coverData: ArrayBuffer
-  coverMime: 'image/webp' | 'image/png'
-}
-
-export interface UpdateProgressInput {
-  id: string
-  page: number
-}
-
-export interface UpdateTitleInput {
-  id: string
-  title: string
-}
-
-export interface InitializeOcrPagesInput {
-  bookId: string
-  pageCount: number
-}
-
-export interface StoreOcrPageInput {
-  pageId: string
-  width: number
-  height: number
-  lines: readonly OcrLineInput[]
-}
-
-export interface StoreSearchIndexInput {
-  bookId: string
-  chunks: readonly SearchIndexChunkInput[]
-}
-
-export interface ListOcrLinesInput {
-  bookId: string
-  limit: number
-  offset: number
-}
-
-export interface GetStoredOcrPageInput {
-  bookId: string
-  pageNumber: number
-}
+import type {
+  GetStoredOcrPageInput,
+  InitializeOcrPagesInput,
+  ListOcrLinesInput,
+  StoreOcrPageInput,
+  StoreSearchIndexInput,
+  UpdateCoverInput,
+  UpdateProgressInput,
+  UpdateTitleInput,
+} from '../data/inputs'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
-
-export interface StorageRequest {
-  command: string
-  payload?: unknown
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -70,15 +32,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
-}
-
-export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
-  return (
-    typeof book === 'object' &&
-    book !== null &&
-    'content_hash' in book &&
-    isContentHash(book.content_hash)
-  )
 }
 
 export function isAddBookInput(value: unknown): value is AddBookInput {
@@ -169,7 +122,7 @@ export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
   )
 }
 
-function isIdentifier(value: unknown): value is string {
+export function isIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
@@ -295,28 +248,21 @@ export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPa
   return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
-export function getBookId(request: StorageRequest): string {
-  return getPayload(
-    request,
-    request.command,
-    (value): value is string => typeof value === 'string' && value.length > 0,
-  )
-}
-
-export function getPayload<T>(
-  request: StorageRequest,
-  command: string,
+export function validateInput<T>(
+  input: T,
+  operation: string,
   isValid: (value: unknown) => value is T,
-): T {
-  if (!isValid(request.payload)) throw new InvalidPayloadError(command)
-  return request.payload
+): void {
+  if (!isValid(input)) throw new InvalidInputError(operation)
 }
 
-export async function normalizeStoredProgress(
-  database: Pick<SQLocalDrizzle, 'driver'>,
-  id: string,
-  book: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
+  return value === 'analyzing' || value === 'ready' || value === 'failed'
+}
+
+export async function normalizeStoredProgress<
+  T extends { page_count: number; last_page: number | null },
+>(database: Pick<SQLocalDrizzle, 'driver'>, id: string, book: T): Promise<T> {
   const pageCount = book.page_count
   const lastPage = book.last_page
   if (
@@ -337,4 +283,35 @@ export async function normalizeStoredProgress(
     .set({ lastPage: 1, updatedAt: Date.now() })
     .where(eq(books.id, id))
   return { ...book, last_page: 1 }
+}
+
+export interface StorageRequest {
+  command: string
+  payload?: unknown
+}
+
+export function getPayload<T>(
+  request: StorageRequest,
+  command: string,
+  isValid: (value: unknown) => value is T,
+): T {
+  if (!isValid(request.payload)) throw new InvalidPayloadError(command)
+  return request.payload
+}
+
+export function getBookId(request: StorageRequest): string {
+  return getPayload(
+    request,
+    request.command,
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  )
+}
+
+export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
+  return (
+    typeof book === 'object' &&
+    book !== null &&
+    'content_hash' in book &&
+    isContentHash(book.content_hash)
+  )
 }

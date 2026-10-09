@@ -2,7 +2,8 @@ import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import type { TransactionHandle } from 'sqlocal'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
-import type { SearchChunkResult, SearchChunkSource } from '../data/search'
+import type { ListOcrLinesInput, StoreSearchIndexInput } from '../data/inputs'
+import type { SearchChunkQuery, SearchChunkResult, SearchChunkSource } from '../data/search'
 import type {
   ChunkSourcePage,
   SearchChunkInput,
@@ -20,13 +21,6 @@ import {
 } from '../schema'
 import { NotFoundBookError } from './errors'
 import { createSearchChunksSql } from './search-sql'
-import {
-  getPayload,
-  isListOcrLinesInput,
-  isSearchChunkQuery,
-  isStoreSearchIndexInput,
-  type StorageRequest,
-} from './validation'
 
 export async function refreshSearchTerms(
   db: ReturnType<typeof drizzle>,
@@ -92,9 +86,8 @@ async function storeSearchChunk(
 
 export async function storeSearchIndex(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: StoreSearchIndexInput,
 ): Promise<void> {
-  const input = getPayload(request, request.command, isStoreSearchIndexInput)
   const db = drizzle(database.driver)
   const [book] = await db.select({ id: books.id }).from(books).where(eq(books.id, input.bookId))
   if (!book) throw new NotFoundBookError()
@@ -144,9 +137,8 @@ export async function storeSearchIndex(
 
 export async function listSearchChunks(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: ListOcrLinesInput,
 ): Promise<SearchChunkPage> {
-  const input = getPayload(request, request.command, isListOcrLinesInput)
   const db = drizzle(database.driver)
   const [result] = await db
     .select({ total: count() })
@@ -199,9 +191,8 @@ function isSearchChunkResultRow(value: unknown): value is {
 
 export async function searchChunks(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  query: SearchChunkQuery,
 ): Promise<SearchChunkResult[]> {
-  const query = getPayload(request, request.command, isSearchChunkQuery)
   if (query.terms.length === 0) return []
 
   const rows = await database.sql<Record<string, unknown>>(
@@ -258,9 +249,8 @@ export async function searchChunks(
 
 export async function listSearchTerms(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: ListOcrLinesInput,
 ): Promise<SearchTermPage> {
-  const input = getPayload(request, request.command, isListOcrLinesInput)
   const db = drizzle(database.driver)
   const [result] = await db
     .select({ total: countDistinct(searchTerms.id) })
@@ -293,9 +283,8 @@ export async function listSearchTerms(
 
 export async function listSearchPostings(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: ListOcrLinesInput,
 ): Promise<SearchPostingPage> {
-  const input = getPayload(request, request.command, isListOcrLinesInput)
   const db = drizzle(database.driver)
   const [result] = await db
     .select({ total: count() })
@@ -323,9 +312,8 @@ export async function listSearchPostings(
 
 export async function listChunkSources(
   database: SQLocalDrizzle,
-  request: StorageRequest,
+  input: ListOcrLinesInput,
 ): Promise<ChunkSourcePage> {
-  const input = getPayload(request, request.command, isListOcrLinesInput)
   const db = drizzle(database.driver)
   const [result] = await db
     .select({ total: count() })

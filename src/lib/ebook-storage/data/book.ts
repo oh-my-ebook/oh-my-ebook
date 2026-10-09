@@ -48,3 +48,22 @@ export interface StoredBook {
   created_at: number
   updated_at: number
 }
+
+export interface StoredBookDetail extends Pick<
+  StoredBook,
+  | 'id'
+  | 'content_hash'
+  | 'file_name'
+  | 'title'
+  | 'author'
+  | 'pdf_title'
+  | 'pdf_subject'
+  | 'pdf_keywords'
+  | 'publisher'
+  | 'pdf_size'
+  | 'page_count'
+  | 'last_page'
+  | 'analysis_status'
+> {
+  pdf_data: Uint8Array
+}

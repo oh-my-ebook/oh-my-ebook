@@ -29,7 +29,20 @@ import {
   searchChunks,
   storeSearchIndex,
 } from './search'
-import { type StorageRequest } from './validation'
+import {
+  type StorageRequest,
+  getPayload,
+  getBookId,
+  isUpdateProgressInput,
+  isUpdateTitleInput,
+  isUpdateCoverInput,
+  isInitializeOcrPagesInput,
+  isStoreOcrPageInput,
+  isGetStoredOcrPageInput,
+  isListOcrLinesInput,
+  isStoreSearchIndexInput,
+  isSearchChunkQuery,
+} from './validation'
 export { addBook, deleteBookById, getBookMetadata, listBooks } from './books'
 export { getBookId } from './validation'
 
@@ -49,49 +62,58 @@ export async function executeSqliteCommand(
     case SQLITE_COMMAND.INITIALIZE:
       return undefined
     case SQLITE_COMMAND.HAS_BOOK:
-      return hasBook(database, request)
+      return hasBook(database, getBookId(request))
     case SQLITE_COMMAND.UPDATE_PROGRESS:
-      return updateProgress(database, request)
+      return updateProgress(database, getPayload(request, request.command, isUpdateProgressInput))
     case SQLITE_COMMAND.UPDATE_TITLE:
-      return updateTitle(database, request)
+      return updateTitle(database, getPayload(request, request.command, isUpdateTitleInput))
     case SQLITE_COMMAND.UPDATE_COVER:
-      return updateCover(database, request)
+      return updateCover(database, getPayload(request, request.command, isUpdateCoverInput))
     case SQLITE_COMMAND.INITIALIZE_OCR_PAGES:
-      return initializeOcrPages(database, request)
+      return initializeOcrPages(
+        database,
+        getPayload(request, request.command, isInitializeOcrPagesInput),
+      )
     case SQLITE_COMMAND.PREPARE_OCR_PAGES_FOR_RUN:
-      return prepareOcrPagesForRun(database, request)
+      return prepareOcrPagesForRun(database, getBookId(request))
     case SQLITE_COMMAND.ACQUIRE_NEXT_OCR_PAGE:
-      return acquireNextOcrPage(database, request)
+      return acquireNextOcrPage(database, getBookId(request))
     case SQLITE_COMMAND.STORE_OCR_PAGE:
-      return storeOcrPage(database, request)
+      return storeOcrPage(database, getPayload(request, request.command, isStoreOcrPageInput))
     case SQLITE_COMMAND.FAIL_OCR_PAGE:
-      return failOcrPage(database, request)
+      return failOcrPage(database, getBookId(request))
     case SQLITE_COMMAND.FAIL_BOOK_ANALYSIS:
-      return failBookAnalysis(database, request)
+      return failBookAnalysis(database, getBookId(request))
     case SQLITE_COMMAND.RETRY_BOOK_ANALYSIS:
-      return retryBookAnalysis(database, request)
+      return retryBookAnalysis(database, getBookId(request))
     case SQLITE_COMMAND.LIST_OCR_LINES:
-      return listOcrLines(database, request)
+      return listOcrLines(database, getPayload(request, request.command, isListOcrLinesInput))
     case SQLITE_COMMAND.GET_STORED_OCR_PAGE:
-      return getStoredOcrPage(database, request)
+      return getStoredOcrPage(
+        database,
+        getPayload(request, request.command, isGetStoredOcrPageInput),
+      )
     case SQLITE_COMMAND.LIST_OCR_PAGES:
-      return listOcrPages(database, request)
+      return listOcrPages(database, getBookId(request))
     case SQLITE_COMMAND.GET_BOOK_ANALYSIS_STATUS:
-      return getBookAnalysisStatus(database, request)
+      return getBookAnalysisStatus(database, getBookId(request))
     case SQLITE_COMMAND.GET_OCR_LINES_FOR_CHUNKING:
-      return getOcrLinesForChunking(database, request)
+      return getOcrLinesForChunking(database, getBookId(request))
     case SQLITE_COMMAND.STORE_SEARCH_INDEX:
-      return storeSearchIndex(database, request)
+      return storeSearchIndex(
+        database,
+        getPayload(request, request.command, isStoreSearchIndexInput),
+      )
     case SQLITE_COMMAND.LIST_SEARCH_CHUNKS:
-      return listSearchChunks(database, request)
+      return listSearchChunks(database, getPayload(request, request.command, isListOcrLinesInput))
     case SQLITE_COMMAND.LIST_CHUNK_SOURCES:
-      return listChunkSources(database, request)
+      return listChunkSources(database, getPayload(request, request.command, isListOcrLinesInput))
     case SQLITE_COMMAND.LIST_SEARCH_TERMS:
-      return listSearchTerms(database, request)
+      return listSearchTerms(database, getPayload(request, request.command, isListOcrLinesInput))
     case SQLITE_COMMAND.LIST_SEARCH_POSTINGS:
-      return listSearchPostings(database, request)
+      return listSearchPostings(database, getPayload(request, request.command, isListOcrLinesInput))
     case SQLITE_COMMAND.SEARCH_CHUNKS:
-      return searchChunks(database, request)
+      return searchChunks(database, getPayload(request, request.command, isSearchChunkQuery))
     default:
       throw new UnsupportedCommandError(request.command)
   }

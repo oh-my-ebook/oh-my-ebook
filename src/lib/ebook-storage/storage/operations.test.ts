@@ -1,8 +1,9 @@
+import { EbookStoreClient } from '../storage-client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookInput, createTestDatabase } from '../../../test/sqlocal'
-import { addBook, getBookMetadata, listBooks } from './database'
+import { addBook, getBookMetadata, listBooks } from './books'
 import { getDatabase, closeDatabase } from './database-connection'
-import { executeCommand } from './operations'
+import { executeCommand, storeOperations } from './operations'
 import { clearOpfs, deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 
 vi.mock('./database-connection', () => ({ getDatabase: vi.fn(), closeDatabase: vi.fn() }))
@@ -34,20 +35,16 @@ describe('책 저장 작업', () => {
     vi.mocked(clearOpfs).mockImplementation(async () => {
       expect(closed).toBe(true)
     })
-    await executeCommand({ command: 'clearStorage' })
+    await storeOperations.clearStorage()
     expect(clearOpfs).toHaveBeenCalledOnce()
   })
 
-  it('알 수 없는 명령과 잘못된 책 입력은 DB를 열지 않는다', async () => {
-    await expect(executeCommand({ command: 'unknown' })).rejects.toThrow('Unsupported command')
+  it('잘못된 책 입력은 DB를 열지 않는다', async () => {
     for (const payload of [
-      { title: '불완전' },
       createBookInput({ pdfSize: -1 }),
       createBookInput({ contentHash: ' ' }),
     ]) {
-      await expect(executeCommand({ command: 'saveBook', payload })).rejects.toThrow(
-        'Invalid payload',
-      )
+      await expect(storeOperations.saveBook(payload)).rejects.toThrow('Invalid input')
     }
     expect(getDatabase).not.toHaveBeenCalled()
   })
@@ -55,7 +52,7 @@ describe('책 저장 작업', () => {
   it('PDF 원본은 파일로 저장하고 메타데이터만 DB에 저장한다', async () => {
     const db = await setup()
     const input = createBookInput({ author: '저자', publisher: '출판사', pdfTitle: '원본 제목' })
-    const id = await executeCommand({ command: 'saveBook', payload: input })
+    const id = await storeOperations.saveBook(input)
     expect(writePdf).toHaveBeenCalledWith(input.contentHash, input.pdfData)
     expect(await listBooks(db)).toEqual([
       expect.objectContaining({
@@ -76,9 +73,7 @@ describe('책 저장 작업', () => {
     await db.sql(
       "CREATE TRIGGER fail_book BEFORE INSERT ON books BEGIN SELECT RAISE(ABORT, 'disk failure'); END",
     )
-    await expect(
-      executeCommand({ command: 'saveBook', payload: createBookInput() }),
-    ).rejects.toMatchObject({
+    await expect(storeOperations.saveBook(createBookInput())).rejects.toMatchObject({
       cause: expect.objectContaining({ message: expect.stringContaining('disk failure') }),
     })
     expect(writePdf).not.toHaveBeenCalled()
@@ -88,9 +83,7 @@ describe('책 저장 작업', () => {
   it('PDF 저장 실패 시 방금 추가한 책 정보도 제거한다', async () => {
     const db = await setup()
     vi.mocked(writePdf).mockRejectedValueOnce(new Error('write failed'))
-    await expect(
-      executeCommand({ command: 'saveBook', payload: createBookInput() }),
-    ).rejects.toThrow('write failed')
+    await expect(storeOperations.saveBook(createBookInput())).rejects.toThrow('write failed')
     expect(await listBooks(db)).toEqual([])
   })
 
@@ -100,13 +93,13 @@ describe('책 저장 작업', () => {
     await addBook(db, createBookInput({ contentHash: 'b'.repeat(64) }))
     vi.mocked(hasPdf).mockImplementation(async (hash) => hash === 'a'.repeat(64))
     vi.mocked(readPdf).mockResolvedValue(new Uint8Array([1, 2, 3]))
-    expect(await executeCommand({ command: 'listBooks' })).toEqual(
+    expect(await storeOperations.listBooks()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id, pdf_status: 'available' }),
         expect.objectContaining({ content_hash: 'b'.repeat(64), pdf_status: 'missing' }),
       ]),
     )
-    expect(await executeCommand({ command: 'getBook', payload: id })).toMatchObject({
+    expect(await storeOperations.getBook(id)).toMatchObject({
       id,
       pdf_data: new Uint8Array([1, 2, 3]),
     })
@@ -117,21 +110,84 @@ describe('책 저장 작업', () => {
     const db = await setup()
     const id = await addBook(db, createBookInput())
     vi.mocked(deletePdf).mockRejectedValueOnce(new Error('delete failed'))
-    await expect(executeCommand({ command: 'deleteBook', payload: id })).rejects.toThrow(
-      'delete failed',
-    )
+    await expect(storeOperations.deleteBook(id)).rejects.toThrow('delete failed')
     expect(await getBookMetadata(db, id)).toMatchObject({ id })
-    await executeCommand({ command: 'deleteBook', payload: id })
+    await storeOperations.deleteBook(id)
     expect(await listBooks(db)).toEqual([])
     expect(deletePdf).toHaveBeenCalledWith('a'.repeat(64))
   })
 
-  it('SQL 명령의 입력 검증과 없는 책 오류를 유지한다', async () => {
+  it('저장소 메서드의 입력 검증과 없는 책 오류를 유지한다', async () => {
     await setup()
-    await expect(executeCommand({ command: 'updateCover', payload: { id: '' } })).rejects.toThrow(
-      'Invalid payload for updateCover',
+    await expect(
+      storeOperations.updateCover({
+        id: '',
+        coverData: new ArrayBuffer(1),
+        coverMime: 'image/png',
+      }),
+    ).rejects.toThrow('Invalid input for updateCover')
+    await expect(storeOperations.hasBook('missing')).rejects.toThrow()
+    await expect(storeOperations.getBook('missing')).rejects.toThrow()
+  })
+
+  it('범위를 벗어난 입력은 DB에 전달하지 않는다', async () => {
+    await expect(storeOperations.updateProgress({ id: 'book', page: 0 })).rejects.toThrow(
+      'Invalid input',
     )
-    await expect(executeCommand({ command: 'hasBook', payload: 'missing' })).rejects.toThrow()
-    await expect(executeCommand({ command: 'getBook', payload: 'missing' })).rejects.toThrow()
+    await expect(storeOperations.updateTitle({ id: 'book', title: ' ' })).rejects.toThrow(
+      'Invalid input',
+    )
+    await expect(
+      storeOperations.initializeOcrPages({ bookId: 'book', pageCount: -1 }),
+    ).rejects.toThrow('Invalid input')
+    await expect(
+      storeOperations.storeOcrPage({ pageId: 'page', width: 0, height: 100, lines: [] }),
+    ).rejects.toThrow('Invalid input')
+    await expect(
+      storeOperations.listSearchTerms({ bookId: 'book', limit: 10, offset: -1 }),
+    ).rejects.toThrow('Invalid input')
+    await expect(
+      storeOperations.searchChunks({ bookId: 'book', terms: ['검색'], limit: 6 }),
+    ).rejects.toThrow('Invalid input')
+    expect(getDatabase).not.toHaveBeenCalled()
+  })
+
+  it('DB에 손상된 콘텐츠 해시가 있으면 PDF 파일에 접근하지 않는다', async () => {
+    const db = await setup()
+    const id = await addBook(db, createBookInput())
+    await db.sql('UPDATE books SET content_hash = ? WHERE id = ?', '../unexpected', id)
+    await expect(storeOperations.listBooks()).rejects.toThrow('Invalid content hash')
+    await expect(storeOperations.getBook(id)).rejects.toThrow('Invalid content hash')
+    await expect(storeOperations.deleteBook(id)).rejects.toThrow('Invalid content hash')
+    expect(hasPdf).not.toHaveBeenCalled()
+    expect(readPdf).not.toHaveBeenCalled()
+    expect(deletePdf).not.toHaveBeenCalled()
+    expect(await listBooks(db)).toHaveLength(1)
+  })
+})
+
+describe('새 메서드와 기존 명령의 연결', () => {
+  it('두 API가 같은 책을 저장·조회·갱신·삭제한다', async () => {
+    await setup()
+    const pdf = new Uint8Array([1, 2, 3])
+    vi.mocked(readPdf).mockResolvedValue(pdf)
+    vi.mocked(hasPdf).mockResolvedValue(true)
+    const client = new EbookStoreClient()
+    const id = await client.saveBook(createBookInput())
+    await expect(client.request('getBook', id)).resolves.toMatchObject({ id, pdf_data: pdf })
+    await expect(client.request('updateTitle', { id, title: '변경한 제목' })).resolves.toBeNull()
+    await expect(client.getBook(id)).resolves.toMatchObject({ id, title: '변경한 제목' })
+    await expect(client.updateProgress({ id, page: 2 })).resolves.toBeUndefined()
+    await expect(client.request('getBook', id)).resolves.toMatchObject({ last_page: 2 })
+    await expect(client.request('deleteBook', id)).resolves.toBeNull()
+    await expect(client.listBooks()).resolves.toEqual([])
+    expect(deletePdf).toHaveBeenCalledOnce()
+  })
+
+  it('기존 명령의 잘못된 입력과 알 수 없는 명령도 거부한다', async () => {
+    await expect(
+      executeCommand({ command: 'updateProgress', payload: { id: 'book', page: '2' } }),
+    ).rejects.toThrow('Invalid payload')
+    await expect(executeCommand({ command: 'unknown' })).rejects.toThrow('Unsupported command')
   })
 })
