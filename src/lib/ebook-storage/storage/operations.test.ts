@@ -1,9 +1,8 @@
-import { EbookStoreClient } from '../storage-client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookInput, createTestDatabase } from '../../../test/sqlocal'
 import { addBook, getBookMetadata, listBooks } from './books'
 import { getDatabase, closeDatabase } from './database-connection'
-import { executeCommand, storeOperations } from './operations'
+import { storeOperations } from './operations'
 import { clearOpfs, deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 
 vi.mock('./database-connection', () => ({ getDatabase: vi.fn(), closeDatabase: vi.fn() }))
@@ -163,31 +162,5 @@ describe('책 저장 작업', () => {
     expect(readPdf).not.toHaveBeenCalled()
     expect(deletePdf).not.toHaveBeenCalled()
     expect(await listBooks(db)).toHaveLength(1)
-  })
-})
-
-describe('새 메서드와 기존 명령의 연결', () => {
-  it('두 API가 같은 책을 저장·조회·갱신·삭제한다', async () => {
-    await setup()
-    const pdf = new Uint8Array([1, 2, 3])
-    vi.mocked(readPdf).mockResolvedValue(pdf)
-    vi.mocked(hasPdf).mockResolvedValue(true)
-    const client = new EbookStoreClient()
-    const id = await client.saveBook(createBookInput())
-    await expect(client.request('getBook', id)).resolves.toMatchObject({ id, pdf_data: pdf })
-    await expect(client.request('updateTitle', { id, title: '변경한 제목' })).resolves.toBeNull()
-    await expect(client.getBook(id)).resolves.toMatchObject({ id, title: '변경한 제목' })
-    await expect(client.updateProgress({ id, page: 2 })).resolves.toBeUndefined()
-    await expect(client.request('getBook', id)).resolves.toMatchObject({ last_page: 2 })
-    await expect(client.request('deleteBook', id)).resolves.toBeNull()
-    await expect(client.listBooks()).resolves.toEqual([])
-    expect(deletePdf).toHaveBeenCalledOnce()
-  })
-
-  it('기존 명령의 잘못된 입력과 알 수 없는 명령도 거부한다', async () => {
-    await expect(
-      executeCommand({ command: 'updateProgress', payload: { id: 'book', page: '2' } }),
-    ).rejects.toThrow('Invalid payload')
-    await expect(executeCommand({ command: 'unknown' })).rejects.toThrow('Unsupported command')
   })
 })

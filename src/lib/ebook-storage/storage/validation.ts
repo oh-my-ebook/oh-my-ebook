@@ -11,7 +11,7 @@ import type {
   SearchTermFrequencyInput,
 } from '../data/search-index'
 import { books } from '../schema'
-import { InvalidInputError, InvalidPayloadError } from './errors'
+import { InvalidInputError } from './errors'
 
 import type {
   GetStoredOcrPageInput,
@@ -283,35 +283,4 @@ export async function normalizeStoredProgress<
     .set({ lastPage: 1, updatedAt: Date.now() })
     .where(eq(books.id, id))
   return { ...book, last_page: 1 }
-}
-
-export interface StorageRequest {
-  command: string
-  payload?: unknown
-}
-
-export function getPayload<T>(
-  request: StorageRequest,
-  command: string,
-  isValid: (value: unknown) => value is T,
-): T {
-  if (!isValid(request.payload)) throw new InvalidPayloadError(command)
-  return request.payload
-}
-
-export function getBookId(request: StorageRequest): string {
-  return getPayload(
-    request,
-    request.command,
-    (value): value is string => typeof value === 'string' && value.length > 0,
-  )
-}
-
-export function isBook(book: unknown): book is Record<string, unknown> & { content_hash: string } {
-  return (
-    typeof book === 'object' &&
-    book !== null &&
-    'content_hash' in book &&
-    isContentHash(book.content_hash)
-  )
 }

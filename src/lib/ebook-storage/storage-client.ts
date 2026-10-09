@@ -1,16 +1,10 @@
-import type { EbookClientCommand } from './commands'
 import type { EbookStore } from './ebook-store'
 import { EbookStoreError } from './errors'
 import { getErrorCode } from './storage/errors'
-import { executeCommand, storeOperations } from './storage/operations'
+import { storeOperations } from './storage/operations'
 
 export class EbookStoreClient implements EbookStore {
   private pending: Promise<void> | undefined
-
-  // 호출부 전환이 끝날 때까지 기존 반환값과 실행 순서를 유지한다.
-  request(command: EbookClientCommand, payload?: unknown): Promise<unknown> {
-    return this.enqueue(command, async () => (await executeCommand({ command, payload })) ?? null)
-  }
 
   initialize(): ReturnType<EbookStore['initialize']> {
     return this.enqueue('initialize', () => storeOperations.initialize())

@@ -1,7 +1,3 @@
-import { COMMAND } from '../commands'
-import { UnsupportedCommandError } from './errors'
-import { executeSqliteCommand, isSqliteCommand } from './database'
-import { type StorageRequest, getPayload, getBookId } from './validation'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { EbookStore } from '../ebook-store'
 import type { AddBookInput, StoredBook, StoredBookDetail } from '../data/book'
@@ -149,32 +145,4 @@ export const storeOperations: EbookStore = {
     withDatabase('listSearchPostings', searchDb.listSearchPostings, input, isListOcrLinesInput),
   listChunkSources: (input) =>
     withDatabase('listChunkSources', searchDb.listChunkSources, input, isListOcrLinesInput),
-}
-
-const COMMAND_LIST: ReadonlySet<string> = new Set(Object.values(COMMAND))
-function isLibraryCommand(command: string): command is (typeof COMMAND)[keyof typeof COMMAND] {
-  return COMMAND_LIST.has(command)
-}
-
-function executeLibraryCommand(request: StorageRequest): Promise<unknown> {
-  switch (request.command) {
-    case COMMAND.CLEAR_STORAGE:
-      return clearStorage()
-    case COMMAND.SAVE_BOOK:
-      return saveBook(getPayload(request, request.command, isAddBookInput))
-    case COMMAND.LIST_BOOKS:
-      return listLibraryBooks()
-    case COMMAND.GET_BOOK:
-      return getBook(getBookId(request))
-    case COMMAND.DELETE_BOOK:
-      return deleteBook(getBookId(request))
-    default:
-      throw new UnsupportedCommandError(request.command)
-  }
-}
-
-export async function executeCommand(request: StorageRequest): Promise<unknown> {
-  if (isLibraryCommand(request.command)) return await executeLibraryCommand(request)
-  if (isSqliteCommand(request.command)) return executeSqliteCommand(await getDatabase(), request)
-  throw new UnsupportedCommandError(request.command)
 }

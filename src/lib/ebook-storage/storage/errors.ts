@@ -34,15 +34,3 @@ export function getErrorCode(error: unknown): EbookStoreErrorCode {
   }
   return 'storage-failed'
 }
-
-export class InvalidPayloadError extends Error {
-  constructor(command: string) {
-    super(`Invalid payload for ${command}`)
-  }
-}
-
-export class UnsupportedCommandError extends Error {
-  constructor(command: string) {
-    super(`Unsupported command: ${command}`)
-  }
-}
