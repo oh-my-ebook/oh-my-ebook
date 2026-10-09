@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTestDatabase } from '../../../test/sqlocal'
-import { createSearchChunksSql } from './queries'
+import { createSearchChunksSql } from './search-sql'
 
 function isScoredRow(value: unknown): value is { id: string; score: number } {
   return (

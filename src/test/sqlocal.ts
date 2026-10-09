@@ -1,7 +1,7 @@
 import { onTestFinished, vi } from 'vitest'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
 import type { AddBookInput } from '../lib/ebook-storage/data/book'
-import { INITIAL_SCHEMA_SQL } from '../lib/ebook-storage/storage/queries'
+import { INITIAL_SCHEMA_SQL } from '../lib/ebook-storage/storage/schema-sql'
 
 export async function createTestDatabase(schema = INITIAL_SCHEMA_SQL) {
   const { SQLocalDrizzle } =

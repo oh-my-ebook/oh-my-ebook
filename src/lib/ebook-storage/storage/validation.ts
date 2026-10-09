@@ -295,6 +295,14 @@ export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPa
   return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
+export function getBookId(request: StorageRequest): string {
+  return getPayload(
+    request,
+    request.command,
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  )
+}
+
 export function getPayload<T>(
   request: StorageRequest,
   command: string,

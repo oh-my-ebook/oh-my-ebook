@@ -1,6 +1,6 @@
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { UnsupportedStorageError } from './errors'
-import { ENABLE_FOREIGN_KEYS_SQL, GET_SCHEMA_VERSION_SQL, INITIAL_SCHEMA_SQL } from './queries'
+import { ENABLE_FOREIGN_KEYS_SQL, GET_SCHEMA_VERSION_SQL, INITIAL_SCHEMA_SQL } from './schema-sql'
 
 let databasePromise: Promise<SQLocalDrizzle> | undefined
 
