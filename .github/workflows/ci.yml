@@ -74,7 +74,9 @@ jobs:
             public/kiwi/model
             public/vendor/ocr/paddleocr
           key: ocr-models-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'scripts/prepare-ocr-assets.sh') }}
-      - run: pnpm test:e2e
+      - name: Build E2E app
+        run: pnpm build
+      - run: pnpm exec playwright test
         id: e2e-tests
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ failure() && steps.e2e-tests.outcome == 'failure' }}
