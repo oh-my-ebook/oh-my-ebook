@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TestRouter } from '@/test/test-router'
@@ -13,7 +13,10 @@ function setupResizeObserver() {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('LandingPage', () => {
   it('책장을 연결하고 표지를 앞뒤로 전환한다', async () => {
@@ -76,24 +79,26 @@ describe('LandingPage', () => {
 
   it('실제 채팅처럼 요약 질문을 보내고 자유 질문에는 체험 범위를 안내한다', async () => {
     setupResizeObserver()
-    const user = userEvent.setup()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<LandingPage />, { wrapper: TestRouter })
     const demo = screen.getByRole('region', { name: '읽기 체험' })
     expect(within(demo).getByText(/미리 작성한 답변/)).toBeInTheDocument()
     expect(within(demo).queryByRole('button', { name: '문장 선택해 보기' })).not.toBeInTheDocument()
     expect(within(demo).queryByRole('tab')).not.toBeInTheDocument()
     await user.click(within(demo).getByRole('button', { name: '이 페이지 요약' }))
-    expect(await within(demo).findByText('이 페이지에 대해 요약해줘')).toBeInTheDocument()
-    const log = await within(demo).findByRole('log')
+    expect(within(demo).getByText('이 페이지에 대해 요약해줘')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(220))
+    const log = within(demo).getByRole('log')
     await waitFor(() =>
       expect(log).toHaveTextContent('프로세스는 자신만의 가상 주소 공간을 사용합니다.'),
     )
     expect(log).not.toHaveTextContent('직접 관리할 필요가 없습니다.')
-    await waitFor(() => expect(log).toHaveTextContent('직접 관리할 필요가 없습니다.'), {
-      timeout: 3000,
-    })
+    await act(() => vi.advanceTimersByTimeAsync(660))
+    await waitFor(() => expect(log).toHaveTextContent('직접 관리할 필요가 없습니다.'))
     await user.type(within(demo).getByRole('textbox', { name: '질문 입력' }), '다른 질문')
     await user.click(within(demo).getByRole('button', { name: '질문 보내기' }))
+    await act(() => vi.advanceTimersByTimeAsync(440))
     expect(await within(demo).findByText(/자유로운 질문은 실제 PDF 리더/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /실제 PDF 리더 열기/ })).toHaveAttribute(
       'href',
