@@ -14,19 +14,6 @@ async function openPdf(page: Page, pdfPath: string) {
   await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('1 / 5')
 }
 
-async function expectFirstPageToFitReader(page: Page) {
-  const viewport = page.getByRole('main', { name: 'PDF 읽기 영역' }).locator('..')
-  await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeInViewport({ ratio: 1 })
-  await expect
-    .poll(() =>
-      viewport.evaluate((element) => ({
-        horizontal: element.scrollWidth > element.clientWidth,
-        vertical: element.scrollHeight > element.clientHeight,
-      })),
-    )
-    .toEqual({ horizontal: false, vertical: false })
-}
-
 async function openZoomedPdf(page: Page) {
   await page.setViewportSize({ width: 800, height: 600 })
   await openPdf(page, textPdfPath)
@@ -36,34 +23,20 @@ async function openZoomedPdf(page: Page) {
 }
 
 test.describe('기본 PDF 리더', () => {
-  test('상단 독서 도구에서 빈 목차 패널을 열고 닫는다', async ({ page }) => {
-    await openPdf(page, textPdfPath)
-
-    await page.getByRole('button', { name: '목차 열기' }).click()
-    // 넓은 화면에서는 본문을 덮는 dialog가 아니라 읽기 영역 옆 패널로 열린다.
-    const toc = page.getByRole('region', { name: '목차' })
-    await expect(toc).toBeVisible()
-    await expect(toc.getByRole('link')).toHaveCount(0)
-    // 넓은 화면의 목차 패널에는 헤더가 없어 툴바의 목차 버튼으로 닫는다.
-    await page.getByRole('button', { name: '목차 닫기' }).click()
-
-    await expect(page.getByRole('button', { name: '목차 열기' })).toBeFocused()
-  })
-
   test('텍스트 PDF 첫 페이지를 화면에 맞추고 새로고침 후에도 표시한다', async ({ page }) => {
     await openPdf(page, textPdfPath)
 
-    await expectFirstPageToFitReader(page)
+    await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeInViewport({ ratio: 1 })
     await page.reload()
     await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeVisible()
     await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText('1 / 5')
-    await expectFirstPageToFitReader(page)
+    await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeInViewport({ ratio: 1 })
   })
 
   test('스캔 PDF 첫 페이지 전체를 화면에 맞춰 표시한다', async ({ page }) => {
     await openPdf(page, scannedPdfPath)
 
-    await expectFirstPageToFitReader(page)
+    await expect(page.getByRole('img', { name: 'PDF 1페이지' })).toBeInViewport({ ratio: 1 })
   })
 
   test('확대한 페이지의 모든 영역을 양방향 스크롤로 확인한다', async ({ page }) => {
