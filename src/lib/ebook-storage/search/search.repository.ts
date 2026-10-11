@@ -1,5 +1,4 @@
 import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
-import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import type { TransactionHandle } from 'sqlocal'
 import type { DatabaseConnection } from '../database-connection'
 import type { ListOcrLinesInput, StoreSearchIndexInput } from '../types/inputs'
@@ -23,7 +22,7 @@ import { NotFoundBookError } from '../storage-errors'
 import { createSearchChunksSql } from './search-sql'
 
 export async function refreshSearchTerms(
-  db: SqliteRemoteDatabase,
+  db: DatabaseConnection['db'],
   tx: TransactionHandle,
 ): Promise<void> {
   await tx.query(
@@ -46,7 +45,7 @@ export async function refreshSearchTerms(
 }
 
 async function storeSearchChunk(
-  db: SqliteRemoteDatabase,
+  db: DatabaseConnection['db'],
   tx: TransactionHandle,
   bookId: string,
   chunk: SearchChunkInput,

@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/sqlite-proxy'
+import { createDrizzleDatabase } from '../lib/ebook-storage/drizzle-database'
 import type { DatabaseConnection } from '../lib/ebook-storage/database-connection'
 import { onTestFinished, vi } from 'vitest'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
@@ -54,6 +54,6 @@ export async function createTestConnection(
   schema = INITIAL_SCHEMA_SQL,
 ): Promise<DatabaseConnection> {
   const sqlocal = await createTestDatabase(schema)
-  const db = drizzle(sqlocal.driver, sqlocal.batchDriver)
+  const db = createDrizzleDatabase(sqlocal)
   return { sqlocal, db }
 }
