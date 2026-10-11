@@ -13,48 +13,50 @@ export class EbookStoreClient implements EbookStore {
     return this.enqueue('clearStorage', (store) => store.clearStorage())
   }
 
-  saveBook(input: Parameters<EbookStore['saveBook']>[0]): ReturnType<EbookStore['saveBook']> {
-    return this.enqueue('saveBook', (store) => store.saveBook(input), 1)
+  saveBook(book: Parameters<EbookStore['saveBook']>[0]): ReturnType<EbookStore['saveBook']> {
+    return this.enqueue('saveBook', (store) => store.saveBook(book), 1)
   }
 
-  getBook(id: Parameters<EbookStore['getBook']>[0]): ReturnType<EbookStore['getBook']> {
-    return this.enqueue('getBook', (store) => store.getBook(id))
+  getBook(bookId: Parameters<EbookStore['getBook']>[0]): ReturnType<EbookStore['getBook']> {
+    return this.enqueue('getBook', (store) => store.getBook(bookId))
   }
 
-  deleteBook(id: Parameters<EbookStore['deleteBook']>[0]): ReturnType<EbookStore['deleteBook']> {
-    return this.enqueue('deleteBook', (store) => store.deleteBook(id))
+  deleteBook(
+    bookId: Parameters<EbookStore['deleteBook']>[0],
+  ): ReturnType<EbookStore['deleteBook']> {
+    return this.enqueue('deleteBook', (store) => store.deleteBook(bookId))
   }
 
   listBooks(): ReturnType<EbookStore['listBooks']> {
     return this.enqueue('listBooks', (store) => store.listBooks())
   }
 
-  hasBook(id: Parameters<EbookStore['hasBook']>[0]): ReturnType<EbookStore['hasBook']> {
-    return this.enqueue('hasBook', (store) => store.hasBook(id))
+  hasBook(bookId: Parameters<EbookStore['hasBook']>[0]): ReturnType<EbookStore['hasBook']> {
+    return this.enqueue('hasBook', (store) => store.hasBook(bookId))
   }
 
   updateProgress(
-    input: Parameters<EbookStore['updateProgress']>[0],
+    bookProgress: Parameters<EbookStore['updateProgress']>[0],
   ): ReturnType<EbookStore['updateProgress']> {
-    return this.enqueue('updateProgress', (store) => store.updateProgress(input))
+    return this.enqueue('updateProgress', (store) => store.updateProgress(bookProgress))
   }
 
   updateTitle(
-    input: Parameters<EbookStore['updateTitle']>[0],
+    bookTitle: Parameters<EbookStore['updateTitle']>[0],
   ): ReturnType<EbookStore['updateTitle']> {
-    return this.enqueue('updateTitle', (store) => store.updateTitle(input))
+    return this.enqueue('updateTitle', (store) => store.updateTitle(bookTitle))
   }
 
   updateCover(
-    input: Parameters<EbookStore['updateCover']>[0],
+    bookCover: Parameters<EbookStore['updateCover']>[0],
   ): ReturnType<EbookStore['updateCover']> {
-    return this.enqueue('updateCover', (store) => store.updateCover(input))
+    return this.enqueue('updateCover', (store) => store.updateCover(bookCover))
   }
 
   initializeOcrPages(
-    input: Parameters<EbookStore['initializeOcrPages']>[0],
+    ocrPagesSetup: Parameters<EbookStore['initializeOcrPages']>[0],
   ): ReturnType<EbookStore['initializeOcrPages']> {
-    return this.enqueue('initializeOcrPages', (store) => store.initializeOcrPages(input))
+    return this.enqueue('initializeOcrPages', (store) => store.initializeOcrPages(ocrPagesSetup))
   }
 
   prepareOcrPagesForRun(
@@ -70,9 +72,9 @@ export class EbookStoreClient implements EbookStore {
   }
 
   storeOcrPage(
-    input: Parameters<EbookStore['storeOcrPage']>[0],
+    ocrPage: Parameters<EbookStore['storeOcrPage']>[0],
   ): ReturnType<EbookStore['storeOcrPage']> {
-    return this.enqueue('storeOcrPage', (store) => store.storeOcrPage(input))
+    return this.enqueue('storeOcrPage', (store) => store.storeOcrPage(ocrPage))
   }
 
   failOcrPage(
@@ -100,9 +102,9 @@ export class EbookStoreClient implements EbookStore {
   }
 
   getStoredOcrPage(
-    input: Parameters<EbookStore['getStoredOcrPage']>[0],
+    ocrPageQuery: Parameters<EbookStore['getStoredOcrPage']>[0],
   ): ReturnType<EbookStore['getStoredOcrPage']> {
-    return this.enqueue('getStoredOcrPage', (store) => store.getStoredOcrPage(input))
+    return this.enqueue('getStoredOcrPage', (store) => store.getStoredOcrPage(ocrPageQuery))
   }
 
   listOcrPages(
@@ -112,9 +114,9 @@ export class EbookStoreClient implements EbookStore {
   }
 
   listOcrLines(
-    input: Parameters<EbookStore['listOcrLines']>[0],
+    ocrLineQuery: Parameters<EbookStore['listOcrLines']>[0],
   ): ReturnType<EbookStore['listOcrLines']> {
-    return this.enqueue('listOcrLines', (store) => store.listOcrLines(input))
+    return this.enqueue('listOcrLines', (store) => store.listOcrLines(ocrLineQuery))
   }
 
   getOcrLinesForChunking(
@@ -124,15 +126,15 @@ export class EbookStoreClient implements EbookStore {
   }
 
   storeSearchIndex(
-    input: Parameters<EbookStore['storeSearchIndex']>[0],
+    searchIndex: Parameters<EbookStore['storeSearchIndex']>[0],
   ): ReturnType<EbookStore['storeSearchIndex']> {
-    return this.enqueue('storeSearchIndex', (store) => store.storeSearchIndex(input))
+    return this.enqueue('storeSearchIndex', (store) => store.storeSearchIndex(searchIndex))
   }
 
   listSearchChunks(
-    input: Parameters<EbookStore['listSearchChunks']>[0],
+    searchChunkQuery: Parameters<EbookStore['listSearchChunks']>[0],
   ): ReturnType<EbookStore['listSearchChunks']> {
-    return this.enqueue('listSearchChunks', (store) => store.listSearchChunks(input))
+    return this.enqueue('listSearchChunks', (store) => store.listSearchChunks(searchChunkQuery))
   }
 
   searchChunks(
@@ -142,21 +144,23 @@ export class EbookStoreClient implements EbookStore {
   }
 
   listSearchTerms(
-    input: Parameters<EbookStore['listSearchTerms']>[0],
+    searchTermQuery: Parameters<EbookStore['listSearchTerms']>[0],
   ): ReturnType<EbookStore['listSearchTerms']> {
-    return this.enqueue('listSearchTerms', (store) => store.listSearchTerms(input))
+    return this.enqueue('listSearchTerms', (store) => store.listSearchTerms(searchTermQuery))
   }
 
   listSearchPostings(
-    input: Parameters<EbookStore['listSearchPostings']>[0],
+    searchPostingQuery: Parameters<EbookStore['listSearchPostings']>[0],
   ): ReturnType<EbookStore['listSearchPostings']> {
-    return this.enqueue('listSearchPostings', (store) => store.listSearchPostings(input))
+    return this.enqueue('listSearchPostings', (store) =>
+      store.listSearchPostings(searchPostingQuery),
+    )
   }
 
   listChunkSources(
-    input: Parameters<EbookStore['listChunkSources']>[0],
+    chunkSourceQuery: Parameters<EbookStore['listChunkSources']>[0],
   ): ReturnType<EbookStore['listChunkSources']> {
-    return this.enqueue('listChunkSources', (store) => store.listChunkSources(input))
+    return this.enqueue('listChunkSources', (store) => store.listChunkSources(chunkSourceQuery))
   }
 
   private enqueue<Result>(

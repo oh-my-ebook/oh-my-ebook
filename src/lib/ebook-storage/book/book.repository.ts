@@ -1,6 +1,6 @@
 import { and, desc, eq, gte } from 'drizzle-orm'
 import type { DatabaseConnection } from '../database-connection'
-import type { AddBookInput, BookAnalysisStatus } from '../types/book'
+import type { Book, BookAnalysisStatus } from '../types/book'
 import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
 import { books } from '../schema'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
@@ -10,43 +10,20 @@ import { isBookAnalysisStatus, normalizeStoredProgress } from '../validation'
 export function createBookRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function addBook(input: AddBookInput): Promise<string> {
-    const id = crypto.randomUUID()
-    const now = Date.now()
+  async function addBook(book: Book): Promise<string> {
     const [inserted] = await db
       .insert(books)
-      .values({
-        id,
-        contentHash: input.contentHash,
-        fileName: input.fileName,
-        title: input.title,
-        author: input.author,
-        pdfTitle: input.pdfTitle,
-        pdfSubject: input.pdfSubject,
-        pdfKeywords: input.pdfKeywords,
-        publisher: input.publisher,
-        pdfSize: input.pdfSize,
-        pageCount: input.pageCount,
-        coverData: input.coverData ? new Uint8Array(input.coverData) : null,
-        coverMime: input.coverMime,
-        coverStatus: input.coverStatus,
-        lastPage: null,
-        analysisStatus: 'analyzing',
-        ocrCompletedAt: null,
-        indexedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
+      .values(book)
       .onConflictDoNothing({ target: books.contentHash })
       .returning({ id: books.id })
     if (!inserted) throw new DuplicateBookError()
-    return id
+    return book.id
   }
 
-  async function deleteBookById(id: string): Promise<void> {
+  async function deleteBookById(bookId: string): Promise<void> {
     return await sqlocal.transaction(async (tx) => {
       const [deleted] = await tx.query(
-        db.delete(books).where(eq(books.id, id)).returning({ id: books.id }),
+        db.delete(books).where(eq(books.id, bookId)).returning({ id: books.id }),
       )
       if (!deleted) throw new DeletedBookError()
 
@@ -54,7 +31,7 @@ export function createBookRepository(database: DatabaseConnection) {
     })
   }
 
-  async function listBooks() {
+  async function listBooks(): Promise<Book[]> {
     const rows = await db.query.books.findMany({
       orderBy: [desc(books.createdAt), desc(books.id)],
     })
@@ -73,15 +50,15 @@ export function createBookRepository(database: DatabaseConnection) {
     })
   }
 
-  async function hasBook(id: string): Promise<void> {
+  async function hasBook(bookId: string): Promise<void> {
     const book = await db.query.books.findFirst({
       columns: { id: true },
-      where: eq(books.id, id),
+      where: eq(books.id, bookId),
     })
     if (!book) throw new DeletedBookError()
   }
 
-  async function getBookMetadata(id: string) {
+  async function getBookMetadata(bookId: string) {
     const book = await db.query.books.findFirst({
       columns: {
         coverData: false,
@@ -92,42 +69,42 @@ export function createBookRepository(database: DatabaseConnection) {
         createdAt: false,
         updatedAt: false,
       },
-      where: eq(books.id, id),
+      where: eq(books.id, bookId),
     })
     if (!book) throw new NotFoundBookError()
     if (book.id === null) throw new Error('Invalid book ID')
     if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
-    return await normalizeStoredProgress(database, id, { ...book, id: book.id })
+    return await normalizeStoredProgress(database, bookId, { ...book, id: book.id })
   }
 
-  async function updateProgress(input: UpdateProgressInput): Promise<void> {
+  async function updateProgress(bookProgress: UpdateProgressInput): Promise<void> {
     const [updated] = await db
       .update(books)
-      .set({ lastPage: input.page, updatedAt: Date.now() })
-      .where(and(eq(books.id, input.id), gte(books.pageCount, input.page)))
+      .set({ lastPage: bookProgress.page, updatedAt: Date.now() })
+      .where(and(eq(books.id, bookProgress.id), gte(books.pageCount, bookProgress.page)))
       .returning({ id: books.id })
     if (!updated) throw new DeletedBookError()
   }
 
-  async function updateTitle(input: UpdateTitleInput): Promise<void> {
+  async function updateTitle(bookTitle: UpdateTitleInput): Promise<void> {
     const [updated] = await db
       .update(books)
-      .set({ title: input.title.trim(), updatedAt: Date.now() })
-      .where(eq(books.id, input.id))
+      .set({ title: bookTitle.title.trim(), updatedAt: Date.now() })
+      .where(eq(books.id, bookTitle.id))
       .returning({ id: books.id })
     if (!updated) throw new DeletedBookError()
   }
 
-  async function updateCover(input: UpdateCoverInput): Promise<void> {
+  async function updateCover(bookCover: UpdateCoverInput): Promise<void> {
     const [updated] = await db
       .update(books)
       .set({
-        coverData: new Uint8Array(input.coverData),
-        coverMime: input.coverMime,
+        coverData: new Uint8Array(bookCover.coverData),
+        coverMime: bookCover.coverMime,
         coverStatus: 'ready',
         updatedAt: Date.now(),
       })
-      .where(eq(books.id, input.id))
+      .where(eq(books.id, bookCover.id))
       .returning({ id: books.id })
     if (!updated) throw new DeletedBookError()
   }

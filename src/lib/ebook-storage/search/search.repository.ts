@@ -91,20 +91,22 @@ async function storeSearchChunk(
 export function createSearchRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function storeSearchIndex(input: StoreSearchIndexInput): Promise<void> {
+  async function storeSearchIndex(searchIndex: StoreSearchIndexInput): Promise<void> {
     const book = await db.query.books.findFirst({
       columns: { id: true },
-      where: eq(books.id, input.bookId),
+      where: eq(books.id, searchIndex.bookId),
     })
     if (!book) throw new NotFoundBookError()
 
     const now = Date.now()
     return await sqlocal.transaction(async (tx) => {
-      await tx.query(db.delete(searchChunksTable).where(eq(searchChunksTable.bookId, input.bookId)))
+      await tx.query(
+        db.delete(searchChunksTable).where(eq(searchChunksTable.bookId, searchIndex.bookId)),
+      )
       await refreshSearchTerms(db, tx)
 
-      for (const chunk of input.chunks) {
-        await storeSearchChunk(db, tx, input.bookId, chunk, now)
+      for (const chunk of searchIndex.chunks) {
+        await storeSearchChunk(db, tx, searchIndex.bookId, chunk, now)
         for (const { term, termFrequency } of chunk.terms) {
           const [storedTerm] = await tx.query(
             db
@@ -134,25 +136,25 @@ export function createSearchRepository(database: DatabaseConnection) {
         db
           .update(books)
           .set({ analysisStatus: 'ready', indexedAt: now, updatedAt: now })
-          .where(eq(books.id, input.bookId))
+          .where(eq(books.id, searchIndex.bookId))
           .returning({ id: books.id }),
       )
       if (!updated) throw new NotFoundBookError()
     })
   }
 
-  async function listSearchChunks(input: ListOcrLinesInput): Promise<SearchChunkPage> {
+  async function listSearchChunks(searchChunkQuery: ListOcrLinesInput): Promise<SearchChunkPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchChunksTable)
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, searchChunkQuery.bookId))
     if (!result) throw new Error('Invalid search chunk count')
     const rows = await db.query.searchChunks.findMany({
       columns: { bookId: false },
-      where: eq(searchChunksTable.bookId, input.bookId),
+      where: eq(searchChunksTable.bookId, searchChunkQuery.bookId),
       orderBy: [asc(searchChunksTable.ordinal)],
-      limit: input.limit,
-      offset: input.offset,
+      limit: searchChunkQuery.limit,
+      offset: searchChunkQuery.offset,
     })
     const chunks = rows.map((row) => {
       const { id } = row
@@ -223,13 +225,13 @@ export function createSearchRepository(database: DatabaseConnection) {
     return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
   }
 
-  async function listSearchTerms(input: ListOcrLinesInput): Promise<SearchTermPage> {
+  async function listSearchTerms(searchTermQuery: ListOcrLinesInput): Promise<SearchTermPage> {
     const [result] = await db
       .select({ total: countDistinct(searchTerms.id) })
       .from(searchTerms)
       .innerJoin(searchPostings, eq(searchPostings.termId, searchTerms.id))
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, searchTermQuery.bookId))
     if (!result) throw new Error('Invalid search term count')
     const terms = await db
       .select({
@@ -240,20 +242,22 @@ export function createSearchRepository(database: DatabaseConnection) {
       .from(searchTerms)
       .innerJoin(searchPostings, eq(searchPostings.termId, searchTerms.id))
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, searchTermQuery.bookId))
       .groupBy(searchTerms.id)
       .orderBy(asc(searchTerms.term))
-      .limit(input.limit)
-      .offset(input.offset)
+      .limit(searchTermQuery.limit)
+      .offset(searchTermQuery.offset)
     return { terms, total: result.total }
   }
 
-  async function listSearchPostings(input: ListOcrLinesInput): Promise<SearchPostingPage> {
+  async function listSearchPostings(
+    searchPostingQuery: ListOcrLinesInput,
+  ): Promise<SearchPostingPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchPostings)
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, searchPostingQuery.bookId))
     if (!result) throw new Error('Invalid search posting count')
     const postings = await db
       .select({
@@ -266,19 +270,19 @@ export function createSearchRepository(database: DatabaseConnection) {
       .from(searchPostings)
       .innerJoin(searchTerms, eq(searchTerms.id, searchPostings.termId))
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, searchPostingQuery.bookId))
       .orderBy(asc(searchTerms.term), asc(searchChunksTable.ordinal))
-      .limit(input.limit)
-      .offset(input.offset)
+      .limit(searchPostingQuery.limit)
+      .offset(searchPostingQuery.offset)
     return { postings, total: result.total }
   }
 
-  async function listChunkSources(input: ListOcrLinesInput): Promise<ChunkSourcePage> {
+  async function listChunkSources(chunkSourceQuery: ListOcrLinesInput): Promise<ChunkSourcePage> {
     const [result] = await db
       .select({ total: count() })
       .from(chunkSources)
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSources.chunkId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, chunkSourceQuery.bookId))
     if (!result) throw new Error('Invalid chunk source count')
     const rows = await db
       .select({
@@ -294,10 +298,10 @@ export function createSearchRepository(database: DatabaseConnection) {
       .from(chunkSources)
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSources.chunkId))
       .innerJoin(ocrPages, eq(ocrPages.id, chunkSources.ocrPageId))
-      .where(eq(searchChunksTable.bookId, input.bookId))
+      .where(eq(searchChunksTable.bookId, chunkSourceQuery.bookId))
       .orderBy(asc(searchChunksTable.ordinal), asc(chunkSources.sourceOrder))
-      .limit(input.limit)
-      .offset(input.offset)
+      .limit(chunkSourceQuery.limit)
+      .offset(chunkSourceQuery.offset)
     const sources = rows.map((row) => {
       const { id } = row
       if (id === null) throw new Error('Invalid chunk sources')

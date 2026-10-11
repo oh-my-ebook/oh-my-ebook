@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBookInput, createTestConnection } from '../../test/sqlocal'
+import { createImportedBook, createNewBook, createTestConnection } from '../../test/sqlocal'
 import { createBookRepository } from './book/book.repository'
 import * as connection from './database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './book/pdf-files'
@@ -40,7 +40,7 @@ describe('책 저장 작업', () => {
   it('명시적으로 초기화한 뒤 저장과 조회에서 초기화를 반복하지 않는다', async () => {
     const { storageService } = await setup()
     await storageService.initialize()
-    await storageService.saveBook(createBookInput())
+    await storageService.saveBook(createImportedBook())
     expect(await storageService.listBooks()).toHaveLength(1)
     expect(connection.initializeDatabase).toHaveBeenCalledOnce()
   })
@@ -77,8 +77,8 @@ describe('책 저장 작업', () => {
   it('잘못된 책 입력은 DB를 열지 않는다', async () => {
     const { storageService } = await setup()
     for (const payload of [
-      createBookInput({ pdfSize: -1 }),
-      createBookInput({ contentHash: ' ' }),
+      createImportedBook({ pdfSize: -1 }),
+      createImportedBook({ contentHash: ' ' }),
     ]) {
       await expect(storageService.saveBook(payload)).rejects.toThrow('Invalid input')
     }
@@ -87,16 +87,40 @@ describe('책 저장 작업', () => {
 
   it('PDF 원본은 파일로 저장하고 메타데이터만 DB에 저장한다', async () => {
     const { db, storageService, bookRepository } = await setup()
-    const input = createBookInput({ author: '저자', publisher: '출판사', pdfTitle: '원본 제목' })
-    const id = await storageService.saveBook(input)
-    expect(writePdf).toHaveBeenCalledWith(input.contentHash, input.pdfData)
+    const book = createImportedBook({
+      author: '저자',
+      publisher: '출판사',
+      pdfTitle: '원본 제목',
+      pdfSubject: '주제',
+      pdfKeywords: '키워드',
+      coverData: new Uint8Array([0, 128, 255]).buffer,
+      coverMime: 'image/png',
+      coverStatus: 'ready',
+    })
+    const id = await storageService.saveBook(book)
+    expect(writePdf).toHaveBeenCalledWith(book.contentHash, book.pdfData)
     expect(await bookRepository.listBooks()).toEqual([
       expect.objectContaining({
         id,
         author: '저자',
         publisher: '출판사',
         pdfTitle: '원본 제목',
+        pdfSubject: '주제',
+        pdfKeywords: '키워드',
+        contentHash: book.contentHash,
+        fileName: book.fileName,
+        title: book.title,
+        pdfSize: book.pdfSize,
+        pageCount: book.pageCount,
+        coverData: new Uint8Array([0, 128, 255]),
+        coverMime: 'image/png',
+        coverStatus: 'ready',
+        lastPage: null,
         analysisStatus: 'analyzing',
+        ocrCompletedAt: null,
+        indexedAt: null,
+        createdAt: expect.any(Number),
+        updatedAt: expect.any(Number),
       }),
     ])
     expect(
@@ -109,7 +133,7 @@ describe('책 저장 작업', () => {
     await db.sqlocal.sql(
       "CREATE TRIGGER fail_book BEFORE INSERT ON books BEGIN SELECT RAISE(ABORT, 'disk failure'); END",
     )
-    await expect(storageService.saveBook(createBookInput())).rejects.toMatchObject({
+    await expect(storageService.saveBook(createImportedBook())).rejects.toMatchObject({
       cause: expect.objectContaining({ message: expect.stringContaining('disk failure') }),
     })
     expect(writePdf).not.toHaveBeenCalled()
@@ -119,14 +143,14 @@ describe('책 저장 작업', () => {
   it('PDF 저장 실패 시 방금 추가한 책 정보도 제거한다', async () => {
     const { storageService, bookRepository } = await setup()
     vi.mocked(writePdf).mockRejectedValueOnce(new Error('write failed'))
-    await expect(storageService.saveBook(createBookInput())).rejects.toThrow('write failed')
+    await expect(storageService.saveBook(createImportedBook())).rejects.toThrow('write failed')
     expect(await bookRepository.listBooks()).toEqual([])
   })
 
   it('목록에 PDF 원본 존재 여부를 포함하고 책 조회 시 원본을 읽는다', async () => {
     const { storageService, bookRepository } = await setup()
-    const id = await bookRepository.addBook(createBookInput())
-    await bookRepository.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    const id = await bookRepository.addBook(createNewBook())
+    await bookRepository.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     vi.mocked(hasPdf).mockImplementation(async (hash) => hash === 'a'.repeat(64))
     vi.mocked(readPdf).mockResolvedValue(new Uint8Array([1, 2, 3]))
     expect(await storageService.listBooks()).toEqual(
@@ -144,7 +168,7 @@ describe('책 저장 작업', () => {
 
   it('PDF 삭제가 실패하면 책 정보는 유지하고 성공하면 함께 지운다', async () => {
     const { storageService, bookRepository } = await setup()
-    const id = await bookRepository.addBook(createBookInput())
+    const id = await bookRepository.addBook(createNewBook())
     vi.mocked(deletePdf).mockRejectedValueOnce(new Error('delete failed'))
     await expect(storageService.deleteBook(id)).rejects.toThrow('delete failed')
     expect(await bookRepository.getBookMetadata(id)).toMatchObject({ id })
@@ -191,7 +215,7 @@ describe('책 저장 작업', () => {
 
   it('DB에 손상된 콘텐츠 해시가 있으면 PDF 파일에 접근하지 않는다', async () => {
     const { db, storageService, bookRepository } = await setup()
-    const id = await bookRepository.addBook(createBookInput())
+    const id = await bookRepository.addBook(createNewBook())
     await db.sqlocal.sql('UPDATE books SET content_hash = ? WHERE id = ?', '../unexpected', id)
     await expect(storageService.listBooks()).rejects.toThrow('Invalid content hash')
     await expect(storageService.getBook(id)).rejects.toThrow('Invalid content hash')

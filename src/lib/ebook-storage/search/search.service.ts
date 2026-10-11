@@ -15,48 +15,53 @@ import {
 } from '../validation'
 
 export interface SearchService {
-  storeSearchIndex(input: StoreSearchIndexInput): Promise<void>
-  listSearchChunks(input: ListOcrLinesInput): Promise<SearchChunkPage>
+  storeSearchIndex(searchIndex: StoreSearchIndexInput): Promise<void>
+  listSearchChunks(searchChunkQuery: ListOcrLinesInput): Promise<SearchChunkPage>
   searchChunks(query: SearchChunkQuery): Promise<SearchChunkResult[]>
-  listSearchTerms(input: ListOcrLinesInput): Promise<SearchTermPage>
-  listSearchPostings(input: ListOcrLinesInput): Promise<SearchPostingPage>
-  listChunkSources(input: ListOcrLinesInput): Promise<ChunkSourcePage>
+  listSearchTerms(searchTermQuery: ListOcrLinesInput): Promise<SearchTermPage>
+  listSearchPostings(searchPostingQuery: ListOcrLinesInput): Promise<SearchPostingPage>
+  listChunkSources(chunkSourceQuery: ListOcrLinesInput): Promise<ChunkSourcePage>
 }
 
 export function createSearchService(
   searchRepository: ReturnType<typeof createSearchRepository>,
 ): SearchService {
   return {
-    storeSearchIndex: (input) =>
+    storeSearchIndex: (searchIndex) =>
       runValidated(
         'storeSearchIndex',
         searchRepository.storeSearchIndex,
-        input,
+        searchIndex,
         isStoreSearchIndexInput,
       ),
-    listSearchChunks: (input) =>
+    listSearchChunks: (searchChunkQuery) =>
       runValidated(
         'listSearchChunks',
         searchRepository.listSearchChunks,
-        input,
+        searchChunkQuery,
         isListOcrLinesInput,
       ),
     searchChunks: (query) =>
       runValidated('searchChunks', searchRepository.searchChunks, query, isSearchChunkQuery),
-    listSearchTerms: (input) =>
-      runValidated('listSearchTerms', searchRepository.listSearchTerms, input, isListOcrLinesInput),
-    listSearchPostings: (input) =>
+    listSearchTerms: (searchTermQuery) =>
+      runValidated(
+        'listSearchTerms',
+        searchRepository.listSearchTerms,
+        searchTermQuery,
+        isListOcrLinesInput,
+      ),
+    listSearchPostings: (searchPostingQuery) =>
       runValidated(
         'listSearchPostings',
         searchRepository.listSearchPostings,
-        input,
+        searchPostingQuery,
         isListOcrLinesInput,
       ),
-    listChunkSources: (input) =>
+    listChunkSources: (chunkSourceQuery) =>
       runValidated(
         'listChunkSources',
         searchRepository.listChunkSources,
-        input,
+        chunkSourceQuery,
         isListOcrLinesInput,
       ),
   }

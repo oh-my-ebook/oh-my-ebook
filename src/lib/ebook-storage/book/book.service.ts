@@ -1,9 +1,15 @@
 import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
 import type { createBookRepository } from './book.repository'
-import type { AddBookInput, StoredBook, StoredBookDetail, BookAnalysisStatus } from '../types/book'
+import type {
+  ImportedBook,
+  Book,
+  StoredBook,
+  StoredBookDetail,
+  BookAnalysisStatus,
+} from '../types/book'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
-  isAddBookInput,
+  isImportedBook,
   isContentHash,
   isIdentifier,
   isUpdateCoverInput,
@@ -14,14 +20,14 @@ import {
 } from '../validation'
 
 export interface BookService {
-  saveBook(input: AddBookInput): Promise<string>
-  getBook(id: string): Promise<StoredBookDetail>
-  deleteBook(id: string): Promise<void>
+  saveBook(book: ImportedBook): Promise<string>
+  getBook(bookId: string): Promise<StoredBookDetail>
+  deleteBook(bookId: string): Promise<void>
   listBooks(): Promise<StoredBook[]>
-  hasBook(id: string): Promise<void>
-  updateProgress(input: UpdateProgressInput): Promise<void>
-  updateTitle(input: UpdateTitleInput): Promise<void>
-  updateCover(input: UpdateCoverInput): Promise<void>
+  hasBook(bookId: string): Promise<void>
+  updateProgress(bookProgress: UpdateProgressInput): Promise<void>
+  updateTitle(bookTitle: UpdateTitleInput): Promise<void>
+  updateCover(bookCover: UpdateCoverInput): Promise<void>
   failBookAnalysis(bookId: string): Promise<void>
   getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus>
   retryBookAnalysis(bookId: string): Promise<void>
@@ -34,12 +40,25 @@ export function createBookService(
    * SQLite에 메타 데이터를 먼저 저장한 후, 콘텐츠 해시를 기준으로 OPFS에 PDF 파일 저장
    * 만약 OPFS 저장에 실패하면 SQLite에 저장한 메타 데이터를 삭제
    */
-  async function saveBook(input: AddBookInput): Promise<string> {
-    validateInput(input, 'saveBook', isAddBookInput)
-    const id = await bookRepository.addBook(input)
+  async function saveBook(book: ImportedBook): Promise<string> {
+    validateInput(book, 'saveBook', isImportedBook)
+    const { pdfData, coverData, ...metadata } = book
+    const now = Date.now()
+    const newBook: Book = {
+      ...metadata,
+      id: crypto.randomUUID(),
+      coverData: coverData ? new Uint8Array(coverData) : null,
+      lastPage: null,
+      analysisStatus: 'analyzing',
+      ocrCompletedAt: null,
+      indexedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const id = await bookRepository.addBook(newBook)
 
     try {
-      await writePdf(input.contentHash, input.pdfData)
+      await writePdf(book.contentHash, pdfData)
       return id
     } catch (error) {
       try {
@@ -51,9 +70,9 @@ export function createBookService(
     }
   }
 
-  async function getBook(id: string): Promise<StoredBookDetail> {
-    validateInput(id, 'bookId', isIdentifier)
-    const book = await bookRepository.getBookMetadata(id)
+  async function getBook(bookId: string): Promise<StoredBookDetail> {
+    validateInput(bookId, 'bookId', isIdentifier)
+    const book = await bookRepository.getBookMetadata(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
@@ -76,14 +95,14 @@ export function createBookService(
    * OPFS에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 메타 데이터를 삭제
    * 만약 OPFS 삭제에 실패하면 Error를 발생
    */
-  async function deleteBook(id: string): Promise<void> {
-    validateInput(id, 'bookId', isIdentifier)
-    const book = await bookRepository.getBookMetadata(id)
+  async function deleteBook(bookId: string): Promise<void> {
+    validateInput(bookId, 'bookId', isIdentifier)
+    const book = await bookRepository.getBookMetadata(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
     await deletePdf(contentHash)
-    await bookRepository.deleteBookById(id)
+    await bookRepository.deleteBookById(bookId)
   }
 
   return {
@@ -91,13 +110,18 @@ export function createBookService(
     getBook,
     deleteBook,
     listBooks: listLibraryBooks,
-    hasBook: (id) => runValidated('hasBook', bookRepository.hasBook, id, isIdentifier),
-    updateProgress: (input) =>
-      runValidated('updateProgress', bookRepository.updateProgress, input, isUpdateProgressInput),
-    updateTitle: (input) =>
-      runValidated('updateTitle', bookRepository.updateTitle, input, isUpdateTitleInput),
-    updateCover: (input) =>
-      runValidated('updateCover', bookRepository.updateCover, input, isUpdateCoverInput),
+    hasBook: (bookId) => runValidated('hasBook', bookRepository.hasBook, bookId, isIdentifier),
+    updateProgress: (bookProgress) =>
+      runValidated(
+        'updateProgress',
+        bookRepository.updateProgress,
+        bookProgress,
+        isUpdateProgressInput,
+      ),
+    updateTitle: (bookTitle) =>
+      runValidated('updateTitle', bookRepository.updateTitle, bookTitle, isUpdateTitleInput),
+    updateCover: (bookCover) =>
+      runValidated('updateCover', bookRepository.updateCover, bookCover, isUpdateCoverInput),
     failBookAnalysis: (bookId) =>
       runValidated('failBookAnalysis', bookRepository.failBookAnalysis, bookId, isIdentifier),
     getBookAnalysisStatus: (bookId) =>

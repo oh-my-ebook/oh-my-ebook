@@ -22,14 +22,14 @@ import {
 } from '../validation'
 
 export interface OcrService {
-  initializeOcrPages(input: InitializeOcrPagesInput): Promise<void>
+  initializeOcrPages(ocrPagesSetup: InitializeOcrPagesInput): Promise<void>
   prepareOcrPagesForRun(bookId: string): Promise<void>
   acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null>
-  storeOcrPage(input: StoreOcrPageInput): Promise<boolean>
+  storeOcrPage(ocrPage: StoreOcrPageInput): Promise<boolean>
   failOcrPage(pageId: string): Promise<void>
-  getStoredOcrPage(input: GetStoredOcrPageInput): Promise<StoredOcrPage | null>
+  getStoredOcrPage(ocrPageQuery: GetStoredOcrPageInput): Promise<StoredOcrPage | null>
   listOcrPages(bookId: string): Promise<OcrPageRecord[]>
-  listOcrLines(input: ListOcrLinesInput): Promise<OcrLinePage>
+  listOcrLines(ocrLineQuery: ListOcrLinesInput): Promise<OcrLinePage>
   getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]>
 }
 
@@ -37,11 +37,11 @@ export function createOcrService(
   ocrRepository: ReturnType<typeof createOcrRepository>,
 ): OcrService {
   return {
-    initializeOcrPages: (input) =>
+    initializeOcrPages: (ocrPagesSetup) =>
       runValidated(
         'initializeOcrPages',
         ocrRepository.initializeOcrPages,
-        input,
+        ocrPagesSetup,
         isInitializeOcrPagesInput,
       ),
     prepareOcrPagesForRun: (bookId) =>
@@ -53,21 +53,21 @@ export function createOcrService(
       ),
     acquireNextOcrPage: (bookId) =>
       runValidated('acquireNextOcrPage', ocrRepository.acquireNextOcrPage, bookId, isIdentifier),
-    storeOcrPage: (input) =>
-      runValidated('storeOcrPage', ocrRepository.storeOcrPage, input, isStoreOcrPageInput),
+    storeOcrPage: (ocrPage) =>
+      runValidated('storeOcrPage', ocrRepository.storeOcrPage, ocrPage, isStoreOcrPageInput),
     failOcrPage: (pageId) =>
       runValidated('failOcrPage', ocrRepository.failOcrPage, pageId, isIdentifier),
-    getStoredOcrPage: (input) =>
+    getStoredOcrPage: (ocrPageQuery) =>
       runValidated(
         'getStoredOcrPage',
         ocrRepository.getStoredOcrPage,
-        input,
+        ocrPageQuery,
         isGetStoredOcrPageInput,
       ),
     listOcrPages: (bookId) =>
       runValidated('listOcrPages', ocrRepository.listOcrPages, bookId, isIdentifier),
-    listOcrLines: (input) =>
-      runValidated('listOcrLines', ocrRepository.listOcrLines, input, isListOcrLinesInput),
+    listOcrLines: (ocrLineQuery) =>
+      runValidated('listOcrLines', ocrRepository.listOcrLines, ocrLineQuery, isListOcrLinesInput),
     getOcrLinesForChunking: (bookId) =>
       runValidated(
         'getOcrLinesForChunking',

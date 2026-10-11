@@ -3,7 +3,7 @@ import { createOcrRepository } from './ocr/ocr.repository'
 import { createSearchRepository } from './search/search.repository'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { DrizzleQueryError } from 'drizzle-orm'
-import { createBookInput, createTestConnection } from '../../test/sqlocal'
+import { createNewBook, createTestConnection } from '../../test/sqlocal'
 import {
   DeletedBookError,
   DuplicateBookError,
@@ -18,7 +18,7 @@ async function setup() {
     ...createOcrRepository(db),
     ...createSearchRepository(db),
   }
-  const id = await store.addBook(createBookInput())
+  const id = await store.addBook(createNewBook())
   return { db, id, store }
 }
 
@@ -46,10 +46,10 @@ describe('SQLocal 저장소', () => {
   it('각 저장소는 생성할 때 전달받은 연결의 데이터만 읽고 쓴다', async () => {
     const first = createBookRepository(await createTestConnection())
     const second = createBookRepository(await createTestConnection())
-    await first.addBook(createBookInput({ title: '첫 번째 DB의 책' }))
+    await first.addBook(createNewBook({ title: '첫 번째 DB의 책' }))
     expect(await second.listBooks()).toEqual([])
 
-    await second.addBook(createBookInput({ title: '두 번째 DB의 책' }))
+    await second.addBook(createNewBook({ title: '두 번째 DB의 책' }))
     expect(await first.listBooks()).toEqual([expect.objectContaining({ title: '첫 번째 DB의 책' })])
     expect(await second.listBooks()).toEqual([
       expect.objectContaining({ title: '두 번째 DB의 책' }),
@@ -62,9 +62,9 @@ describe('SQLocal 저장소', () => {
     expect(await store.listBooks()).toEqual([])
     const title = "따옴표 ' 와 ? 제목"
     const id = await store.addBook(
-      createBookInput({ title, coverData: new Uint8Array([0, 128, 255]).buffer }),
+      createNewBook({ title, coverData: new Uint8Array([0, 128, 255]) }),
     )
-    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
+    await store.addBook(createNewBook({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
     await db.sqlocal.sql('UPDATE books SET created_at = 100')
     const expected = await db.sqlocal.sql('SELECT id FROM books ORDER BY created_at DESC, id DESC')
     const listed = await store.listBooks()
@@ -118,7 +118,7 @@ describe('SQLocal 저장소', () => {
     const before = await store.listBooks()
 
     await expect(
-      store.addBook(createBookInput({ title: '중복 등록한 제목' })),
+      store.addBook(createNewBook({ title: '중복 등록한 제목' })),
     ).rejects.toBeInstanceOf(DuplicateBookError)
 
     expect(await store.listBooks()).toEqual(before)
@@ -131,11 +131,11 @@ describe('SQLocal 저장소', () => {
       .spyOn(crypto, 'randomUUID')
       .mockReturnValue('00000000-0000-4000-8000-000000000001')
     onTestFinished(() => randomUUID.mockRestore())
-    await store.addBook(createBookInput())
+    await store.addBook(createNewBook())
     const before = await store.listBooks()
 
     await expect(
-      store.addBook(createBookInput({ contentHash: 'b'.repeat(64) })),
+      store.addBook(createNewBook({ contentHash: 'b'.repeat(64) })),
     ).rejects.toBeInstanceOf(DrizzleQueryError)
 
     expect(await store.listBooks()).toEqual(before)
@@ -190,13 +190,13 @@ describe('SQLocal 저장소', () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
     const results = await Promise.allSettled([
-      store.addBook(createBookInput()),
-      store.addBook(createBookInput()),
+      store.addBook(createNewBook()),
+      store.addBook(createNewBook()),
     ])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const failures = results.filter((result) => result.status === 'rejected')
     expect(failures.map((result) => getErrorCode(result.reason))).toEqual(['duplicate'])
-    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     expect(await store.listBooks()).toHaveLength(2)
   })
 
@@ -218,7 +218,7 @@ describe('SQLocal 저장소', () => {
   it('100개 OCR 페이지를 빠짐없이 등록하고 다시 초기화해도 기존 행을 유지한다', async () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
-    const id = await store.addBook(createBookInput({ pageCount: 100 }))
+    const id = await store.addBook(createNewBook({ pageCount: 100 }))
     const batchSpy = vi.spyOn(db.sqlocal, 'batch')
     onTestFinished(() => batchSpy.mockRestore())
     const input = { bookId: id, pageCount: 100 }
@@ -333,7 +333,7 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 재개는 완료 페이지와 다른 책을 유지하고 최초 완료 시각을 덮어쓰지 않는다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     await store.initializeOcrPages({ bookId: otherId, pageCount: 1 })
     await store.acquireNextOcrPage(otherId)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)
@@ -432,7 +432,7 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 조회는 다른 책을 제외하고 페이지·줄 순서와 페이지네이션을 유지한다', async () => {
     const { db, id, store } = await setup()
-    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     await db.sqlocal.sql(
       `INSERT INTO ocr_pages (id, book_id, page_number, width, height, status, created_at, updated_at)
        VALUES ('page-2', ?, 2, 100, 200, 'ready', 0, 0),
@@ -611,7 +611,7 @@ describe('SQLocal 저장소', () => {
 
   it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
     const { id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -726,7 +726,7 @@ describe('SQLocal 저장소', () => {
 
   it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -846,7 +846,7 @@ describe('SQLocal 저장소', () => {
     '%s OCR 페이지를 출처로 사용하면 거부하고 기존 색인을 보존한다',
     async (source) => {
       const { db, store, pages } = await preparePages()
-      const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+      const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
       await store.storeSearchIndex({
         bookId: otherId,
         chunks: [{ ...chunk('existing', ''), sources: [] }],

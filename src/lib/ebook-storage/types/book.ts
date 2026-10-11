@@ -2,8 +2,12 @@ import type { books } from '../schema'
 
 type BookRow = typeof books.$inferSelect
 
-type BookFields = Pick<
-  BookRow,
+export interface Book extends BookRow {
+  id: string
+}
+
+type ImportedBookFields = Pick<
+  Book,
   | 'contentHash'
   | 'fileName'
   | 'title'
@@ -14,14 +18,11 @@ type BookFields = Pick<
   | 'publisher'
   | 'pdfSize'
   | 'pageCount'
+  | 'coverStatus'
 >
 
-interface StoredBookBase extends BookRow {
-  id: string
-}
-
 type StoredBookMetadata = Omit<
-  StoredBookBase,
+  Book,
   | 'coverData'
   | 'coverMime'
   | 'coverStatus'
@@ -39,16 +40,15 @@ export interface BookMetadata {
   title: string
 }
 
-export type BookAnalysisStatus = BookRow['analysisStatus']
+export type BookAnalysisStatus = Book['analysisStatus']
 
-export interface AddBookInput extends BookFields {
+export interface ImportedBook extends ImportedBookFields {
   pdfData: ArrayBuffer
   coverData: ArrayBuffer | null
   coverMime: 'image/webp' | 'image/png' | null
-  coverStatus: BookRow['coverStatus']
 }
 
-export interface StoredBook extends StoredBookBase {
+export interface StoredBook extends Book {
   pdfStatus: 'available' | 'missing'
 }
 

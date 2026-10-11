@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import type { DatabaseConnection } from './database-connection'
-import type { AddBookInput, BookAnalysisStatus } from './types/book'
+import type { ImportedBook, BookAnalysisStatus } from './types/book'
 import type { OcrLineInput } from './types/ocr'
 import type { SearchChunkQuery } from './types/search'
 import type {
@@ -33,45 +33,41 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
-export function isAddBookInput(value: unknown): value is AddBookInput {
+export function isImportedBook(value: unknown): value is ImportedBook {
   if (!isRecord(value)) return false
-  const input = value
+  const book = value
 
-  if (!(input.pdfData instanceof ArrayBuffer) || input.pdfData.byteLength === 0) return false
-  if (!isContentHash(input.contentHash)) return false
-  if (typeof input.fileName !== 'string' || typeof input.title !== 'string') return false
+  if (!(book.pdfData instanceof ArrayBuffer) || book.pdfData.byteLength === 0) return false
+  if (!isContentHash(book.contentHash)) return false
+  if (typeof book.fileName !== 'string' || typeof book.title !== 'string') return false
   if (
-    !isNullableString(input.author) ||
-    !isNullableString(input.pdfTitle) ||
-    !isNullableString(input.pdfSubject) ||
-    !isNullableString(input.pdfKeywords) ||
-    !isNullableString(input.publisher)
+    !isNullableString(book.author) ||
+    !isNullableString(book.pdfTitle) ||
+    !isNullableString(book.pdfSubject) ||
+    !isNullableString(book.pdfKeywords) ||
+    !isNullableString(book.publisher)
   ) {
     return false
   }
-  if (
-    typeof input.pdfSize !== 'number' ||
-    !Number.isSafeInteger(input.pdfSize) ||
-    input.pdfSize < 0
-  ) {
+  if (typeof book.pdfSize !== 'number' || !Number.isSafeInteger(book.pdfSize) || book.pdfSize < 0) {
     return false
   }
   if (
-    typeof input.pageCount !== 'number' ||
-    !Number.isSafeInteger(input.pageCount) ||
-    input.pageCount <= 0
+    typeof book.pageCount !== 'number' ||
+    !Number.isSafeInteger(book.pageCount) ||
+    book.pageCount <= 0
   ) {
     return false
   }
-  if (!(input.coverData === null || input.coverData instanceof ArrayBuffer)) return false
+  if (!(book.coverData === null || book.coverData instanceof ArrayBuffer)) return false
   if (!(
-    input.coverMime === null ||
-    input.coverMime === 'image/webp' ||
-    input.coverMime === 'image/png'
+    book.coverMime === null ||
+    book.coverMime === 'image/webp' ||
+    book.coverMime === 'image/png'
   )) {
     return false
   }
-  if (!(input.coverStatus === 'ready' || input.coverStatus === 'fallback')) return false
+  if (!(book.coverStatus === 'ready' || book.coverStatus === 'fallback')) return false
 
   return true
 }
