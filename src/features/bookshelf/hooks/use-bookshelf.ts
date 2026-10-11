@@ -102,7 +102,7 @@ export function useBookshelf(store: BookshelfStore) {
   // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
   useEffect(() => {
     if (state.status !== 'ready') return
-    const pendingBooks = state.books.filter((book) => book.analysis_status === 'analyzing')
+    const pendingBooks = state.books.filter((book) => book.analysisStatus === 'analyzing')
 
     async function resumeOcrAnalysis() {
       for (const book of pendingBooks) {
@@ -114,7 +114,7 @@ export function useBookshelf(store: BookshelfStore) {
             status: 'ready',
             books: current.books.map((currentBook) =>
               currentBook.id === book.id
-                ? { ...currentBook, analysis_status: 'failed' }
+                ? { ...currentBook, analysisStatus: 'failed' }
                 : currentBook,
             ),
           }

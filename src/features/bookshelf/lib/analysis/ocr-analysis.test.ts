@@ -37,7 +37,7 @@ describe('runOcrAnalysis', () => {
     ])
     extractSearchTermsWithKiwi.mockResolvedValue([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(false)
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
@@ -102,7 +102,7 @@ describe('runOcrAnalysis', () => {
       lines: [],
     })
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
     store.storeOcrPage.mockResolvedValueOnce(false)
@@ -127,7 +127,7 @@ describe('runOcrAnalysis', () => {
     recognizePdfPageRaw.mockRejectedValueOnce(new Error('PaddleOCR model unavailable'))
     const onFailure = vi.fn()
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-3', pageNumber: 3 })
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
@@ -151,7 +151,7 @@ describe('runOcrAnalysis', () => {
     recognizePdfPageRaw.mockResolvedValue({ width: 100, height: 200, lines: [] })
     createSearchChunks.mockRejectedValueOnce(new Error('Kiwi failed'))
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(true)
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
@@ -175,7 +175,7 @@ describe('runOcrAnalysis', () => {
     extractSearchTermsWithKiwi.mockResolvedValueOnce([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
     store.getBook.mockImplementation(async () => {
-      return createStoredBookDetail({ pdf_data: new Uint8Array([1]) })
+      return createStoredBookDetail({ pdfData: new Uint8Array([1]) })
     })
     store.acquireNextOcrPage.mockImplementation(async () => {
       return null
@@ -213,7 +213,7 @@ describe('runOcrAnalysis', () => {
     createSearchChunks.mockResolvedValueOnce([])
     extractSearchTermsWithKiwi.mockResolvedValueOnce([])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
       { page_number: 1, width: null, height: null, status: 'ready' },

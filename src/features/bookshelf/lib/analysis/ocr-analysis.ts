@@ -31,7 +31,7 @@ export async function runOcrAnalysis(
   try {
     const storedBook = await store.getBook(bookId)
 
-    const loaded = await loadPdfDocument(storedBook.pdf_data, controller.signal)
+    const loaded = await loadPdfDocument(storedBook.pdfData, controller.signal)
 
     // 1. PDF 페이지 수를 보고 OCR 페이지를 초기화한다.
     await store.initializeOcrPages({ bookId, pageCount: loaded.document.numPages })

@@ -95,8 +95,8 @@ describe('책 저장 작업', () => {
         id,
         author: '저자',
         publisher: '출판사',
-        pdf_title: '원본 제목',
-        analysis_status: 'analyzing',
+        pdfTitle: '원본 제목',
+        analysisStatus: 'analyzing',
       }),
     ])
     expect(
@@ -131,13 +131,13 @@ describe('책 저장 작업', () => {
     vi.mocked(readPdf).mockResolvedValue(new Uint8Array([1, 2, 3]))
     expect(await storageService.listBooks()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id, pdf_status: 'available' }),
-        expect.objectContaining({ content_hash: 'b'.repeat(64), pdf_status: 'missing' }),
+        expect.objectContaining({ id, pdfStatus: 'available' }),
+        expect.objectContaining({ contentHash: 'b'.repeat(64), pdfStatus: 'missing' }),
       ]),
     )
     expect(await storageService.getBook(id)).toMatchObject({
       id,
-      pdf_data: new Uint8Array([1, 2, 3]),
+      pdfData: new Uint8Array([1, 2, 3]),
     })
     expect(readPdf).toHaveBeenCalledWith('a'.repeat(64))
   })

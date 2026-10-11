@@ -20,26 +20,26 @@ function createStore() {
 function createStoredBook(title: string) {
   return {
     id: `${title}-id`,
-    content_hash: `${title}-hash`,
-    file_name: `${title}.pdf`,
+    contentHash: `${title}-hash`,
+    fileName: `${title}.pdf`,
     title,
     author: null,
-    pdf_title: null,
-    pdf_subject: null,
-    pdf_keywords: null,
+    pdfTitle: null,
+    pdfSubject: null,
+    pdfKeywords: null,
     publisher: null,
-    pdf_size: 0,
-    page_count: 1,
-    cover_data: null,
-    cover_mime: null,
-    cover_status: 'fallback' as const,
-    pdf_status: 'available' as const,
-    last_page: null,
-    analysis_status: 'analyzing' as const,
-    ocr_completed_at: null,
-    indexed_at: null,
-    created_at: 0,
-    updated_at: 0,
+    pdfSize: 0,
+    pageCount: 1,
+    coverData: null,
+    coverMime: null,
+    coverStatus: 'fallback' as const,
+    pdfStatus: 'available' as const,
+    lastPage: null,
+    analysisStatus: 'analyzing' as const,
+    ocrCompletedAt: null,
+    indexedAt: null,
+    createdAt: 0,
+    updatedAt: 0,
   }
 }
 
@@ -144,7 +144,7 @@ describe('Bookshelf', () => {
   })
 
   it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {
-    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocr_completed_at: 1 }
+    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocrCompletedAt: 1 }
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [interruptedBook]

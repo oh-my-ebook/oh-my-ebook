@@ -55,39 +55,17 @@ export function createBookRepository(database: DatabaseConnection) {
   }
 
   async function listBooks() {
-    const rows = await db
-      .select({
-        id: books.id,
-        content_hash: books.contentHash,
-        file_name: books.fileName,
-        title: books.title,
-        author: books.author,
-        pdf_title: books.pdfTitle,
-        pdf_subject: books.pdfSubject,
-        pdf_keywords: books.pdfKeywords,
-        publisher: books.publisher,
-        pdf_size: books.pdfSize,
-        page_count: books.pageCount,
-        cover_data: books.coverData,
-        cover_mime: books.coverMime,
-        cover_status: books.coverStatus,
-        last_page: books.lastPage,
-        analysis_status: books.analysisStatus,
-        ocr_completed_at: books.ocrCompletedAt,
-        indexed_at: books.indexedAt,
-        created_at: books.createdAt,
-        updated_at: books.updatedAt,
-      })
-      .from(books)
-      .orderBy(desc(books.createdAt), desc(books.id))
+    const rows = await db.query.books.findMany({
+      orderBy: [desc(books.createdAt), desc(books.id)],
+    })
     return rows.map((book) => {
       const { id } = book
       if (id === null) throw new Error('Invalid book ID')
-      if (!isBookAnalysisStatus(book.analysis_status))
+      if (!isBookAnalysisStatus(book.analysisStatus))
         throw new Error('Invalid book analysis status')
-      if (book.cover_status !== 'ready' && book.cover_status !== 'fallback')
+      if (book.coverStatus !== 'ready' && book.coverStatus !== 'fallback')
         throw new Error('Invalid cover status')
-      for (const timestamp of [book.ocr_completed_at, book.indexed_at]) {
+      for (const timestamp of [book.ocrCompletedAt, book.indexedAt]) {
         if (timestamp !== null && !Number.isSafeInteger(timestamp))
           throw new Error('Invalid analysis timestamp')
       }
@@ -96,32 +74,29 @@ export function createBookRepository(database: DatabaseConnection) {
   }
 
   async function hasBook(id: string): Promise<void> {
-    const [book] = await db.select({ id: books.id }).from(books).where(eq(books.id, id))
+    const book = await db.query.books.findFirst({
+      columns: { id: true },
+      where: eq(books.id, id),
+    })
     if (!book) throw new DeletedBookError()
   }
 
   async function getBookMetadata(id: string) {
-    const [book] = await db
-      .select({
-        id: books.id,
-        content_hash: books.contentHash,
-        file_name: books.fileName,
-        title: books.title,
-        author: books.author,
-        pdf_title: books.pdfTitle,
-        pdf_subject: books.pdfSubject,
-        pdf_keywords: books.pdfKeywords,
-        publisher: books.publisher,
-        pdf_size: books.pdfSize,
-        page_count: books.pageCount,
-        last_page: books.lastPage,
-        analysis_status: books.analysisStatus,
-      })
-      .from(books)
-      .where(eq(books.id, id))
+    const book = await db.query.books.findFirst({
+      columns: {
+        coverData: false,
+        coverMime: false,
+        coverStatus: false,
+        ocrCompletedAt: false,
+        indexedAt: false,
+        createdAt: false,
+        updatedAt: false,
+      },
+      where: eq(books.id, id),
+    })
     if (!book) throw new NotFoundBookError()
     if (book.id === null) throw new Error('Invalid book ID')
-    if (!isBookAnalysisStatus(book.analysis_status)) throw new Error('Invalid book analysis status')
+    if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
     return await normalizeStoredProgress(database, id, { ...book, id: book.id })
   }
 
@@ -167,15 +142,14 @@ export function createBookRepository(database: DatabaseConnection) {
   }
 
   async function getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus> {
-    const [result] = await db
-      .select({ analysis_status: books.analysisStatus })
-      .from(books)
-      .where(eq(books.id, bookId))
-    if (result?.analysis_status === 'analyzing') return result.analysis_status
-    if (result?.analysis_status === 'ready') return result.analysis_status
-    if (result?.analysis_status === 'failed') return result.analysis_status
+    const result = await db.query.books.findFirst({
+      columns: { analysisStatus: true },
+      where: eq(books.id, bookId),
+    })
     if (!result) throw new NotFoundBookError()
-    throw new Error('Invalid book analysis status')
+    if (!isBookAnalysisStatus(result.analysisStatus))
+      throw new Error('Invalid book analysis status')
+    return result.analysisStatus
   }
 
   async function retryBookAnalysis(bookId: string): Promise<void> {

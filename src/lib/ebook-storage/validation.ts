@@ -260,10 +260,10 @@ export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatu
 }
 
 export async function normalizeStoredProgress<
-  T extends { page_count: number; last_page: number | null },
+  T extends { pageCount: number; lastPage: number | null },
 >(database: Pick<DatabaseConnection, 'db'>, id: string, book: T): Promise<T> {
-  const pageCount = book.page_count
-  const lastPage = book.last_page
+  const pageCount = book.pageCount
+  const lastPage = book.lastPage
   if (
     lastPage === null ||
     (typeof pageCount === 'number' &&
@@ -281,7 +281,7 @@ export async function normalizeStoredProgress<
     .update(books)
     .set({ lastPage: 1, updatedAt: Date.now() })
     .where(eq(books.id, id))
-  return { ...book, last_page: 1 }
+  return { ...book, lastPage: 1 }
 }
 
 export async function runValidated<Input, Result>(

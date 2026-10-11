@@ -11,7 +11,7 @@ describe('OcrConsole', () => {
       createStoredBook({
         id: `book-${index + 1}`,
         title: `PDF ${index + 1}`,
-        analysis_status: 'analyzing',
+        analysisStatus: 'analyzing',
       }),
     )
     const store = createStoreMock()
@@ -114,8 +114,8 @@ describe('OcrConsole', () => {
     const store = createStoreMock()
     store.listBooks.mockImplementation(async () => {
       return [
-        createStoredBook({ id: 'failed-book', title: '실패한 PDF', analysis_status: 'analyzing' }),
-        createStoredBook({ id: 'ready-book', title: '완료된 PDF', analysis_status: 'ready' }),
+        createStoredBook({ id: 'failed-book', title: '실패한 PDF', analysisStatus: 'analyzing' }),
+        createStoredBook({ id: 'ready-book', title: '완료된 PDF', analysisStatus: 'ready' }),
       ]
     })
     store.listOcrLines.mockImplementation(async (payload) => {

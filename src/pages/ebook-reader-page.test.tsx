@@ -32,15 +32,15 @@ vi.mock('./reader-page', () => ({
 function createBook(overrides: Partial<StoredBookDetail> = {}) {
   return createStoredBookDetail({
     id: 'book-id',
-    file_name: 'book.pdf',
+    fileName: 'book.pdf',
     title: '저장한 책',
     author: '저자',
-    pdf_subject: '주제',
-    pdf_keywords: null,
+    pdfSubject: '주제',
+    pdfKeywords: null,
     publisher: '출판사',
-    pdf_data: new Uint8Array([1, 2, 3]),
-    last_page: 12,
-    analysis_status: 'ready',
+    pdfData: new Uint8Array([1, 2, 3]),
+    lastPage: 12,
+    analysisStatus: 'ready',
     ...overrides,
   })
 }

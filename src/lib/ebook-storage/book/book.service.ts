@@ -54,10 +54,10 @@ export function createBookService(
   async function getBook(id: string): Promise<StoredBookDetail> {
     validateInput(id, 'bookId', isIdentifier)
     const book = await bookRepository.getBookMetadata(id)
-    const contentHash = book.content_hash
+    const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
-    return { ...book, pdf_data: await readPdf(contentHash) }
+    return { ...book, pdfData: await readPdf(contentHash) }
   }
 
   async function listLibraryBooks(): Promise<StoredBook[]> {
@@ -65,9 +65,9 @@ export function createBookService(
 
     return await Promise.all(
       books.map(async (book) => {
-        if (!isContentHash(book.content_hash)) throw new Error('Invalid content hash')
+        if (!isContentHash(book.contentHash)) throw new Error('Invalid content hash')
 
-        return { ...book, pdf_status: (await hasPdf(book.content_hash)) ? 'available' : 'missing' }
+        return { ...book, pdfStatus: (await hasPdf(book.contentHash)) ? 'available' : 'missing' }
       }),
     )
   }
@@ -79,7 +79,7 @@ export function createBookService(
   async function deleteBook(id: string): Promise<void> {
     validateInput(id, 'bookId', isIdentifier)
     const book = await bookRepository.getBookMetadata(id)
-    const contentHash = book.content_hash
+    const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
     await deletePdf(contentHash)

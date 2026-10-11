@@ -66,13 +66,50 @@ describe('SQLocal 저장소', () => {
     )
     await store.addBook(createBookInput({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
     await db.sqlocal.sql('UPDATE books SET created_at = 100')
-    const expected = await db.sqlocal.sql('SELECT * FROM books ORDER BY created_at DESC, id DESC')
-    expect(await store.listBooks()).toEqual(expected)
-    expect(expected.find((book) => book.id === id)).toMatchObject({
+    const expected = await db.sqlocal.sql('SELECT id FROM books ORDER BY created_at DESC, id DESC')
+    const listed = await store.listBooks()
+    expect(listed.map(({ id }) => ({ id }))).toEqual(expected)
+    expect(listed.find((book) => book.id === id)).toEqual({
+      id,
+      contentHash: 'a'.repeat(64),
+      fileName: 'book.pdf',
       title,
       author: null,
-      last_page: null,
-      cover_data: new Uint8Array([0, 128, 255]),
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 3,
+      pageCount: 2,
+      lastPage: null,
+      coverData: new Uint8Array([0, 128, 255]),
+      coverMime: null,
+      coverStatus: 'fallback',
+      analysisStatus: 'analyzing',
+      ocrCompletedAt: null,
+      indexedAt: null,
+      createdAt: 100,
+      updatedAt: expect.any(Number),
+    })
+  })
+
+  it('책 상세에는 표지와 분석 시각을 제외한 메타데이터를 반환한다', async () => {
+    const { id, store } = await setup()
+
+    expect(await store.getBookMetadata(id)).toEqual({
+      id,
+      contentHash: 'a'.repeat(64),
+      fileName: 'book.pdf',
+      title: '책',
+      author: null,
+      pdfTitle: null,
+      pdfSubject: null,
+      pdfKeywords: null,
+      publisher: null,
+      pdfSize: 3,
+      pageCount: 2,
+      lastPage: null,
+      analysisStatus: 'analyzing',
     })
   })
 
@@ -113,15 +150,15 @@ describe('SQLocal 저장소', () => {
       coverMime: 'image/png',
     })
     await store.updateProgress({ id, page: 2 })
-    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', last_page: 2 })
+    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
     expect(await store.listBooks()).toEqual([
-      expect.objectContaining({ cover_data: new Uint8Array([4, 5]), cover_status: 'ready' }),
+      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverStatus: 'ready' }),
     ])
     await expect(store.updateProgress({ id, page: 3 })).rejects.toBeInstanceOf(DeletedBookError)
-    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 2 })
+    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
     await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
     await db.sqlocal.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
-    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 1 })
+    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 1 })
     await store.deleteBookById(id)
     await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
     await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)

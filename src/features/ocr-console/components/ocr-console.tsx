@@ -116,7 +116,7 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
           result.map((book) => ({
             id: book.id,
             title: book.title,
-            analysisStatus: book.analysis_status,
+            analysisStatus: book.analysisStatus,
           })),
         )
       } catch {

@@ -23,16 +23,16 @@ type EbookReaderState =
 
 function toReaderBook(book: StoredBookDetail): ReaderBook {
   return {
-    analysisStatus: book.analysis_status,
-    lastPage: book.last_page,
+    analysisStatus: book.analysisStatus,
+    lastPage: book.lastPage,
     metadata: {
       title: book.title,
       author: book.author ?? undefined,
-      subject: book.pdf_subject ?? undefined,
-      keywords: book.pdf_keywords ?? undefined,
+      subject: book.pdfSubject ?? undefined,
+      keywords: book.pdfKeywords ?? undefined,
       publisher: book.publisher ?? undefined,
     },
-    pdfData: book.pdf_data,
+    pdfData: book.pdfData,
   }
 }
 

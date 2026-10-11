@@ -1,3 +1,7 @@
+import type { books } from '../schema'
+
+type BookRow = typeof books.$inferSelect
+
 export interface BookMetadata {
   author?: string
   keywords?: string
@@ -6,7 +10,7 @@ export interface BookMetadata {
   title: string
 }
 
-export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'
+export type BookAnalysisStatus = BookRow['analysisStatus']
 
 export interface AddBookInput {
   pdfData: ArrayBuffer
@@ -25,45 +29,26 @@ export interface AddBookInput {
   coverStatus: 'ready' | 'fallback'
 }
 
-export interface StoredBook {
+export interface StoredBook extends Omit<BookRow, 'id'> {
   id: string
-  content_hash: string
-  file_name: string
-  title: string
-  author: string | null
-  pdf_title: string | null
-  pdf_subject: string | null
-  pdf_keywords: string | null
-  publisher: string | null
-  pdf_size: number
-  page_count: number
-  cover_data: Uint8Array | null
-  cover_mime: string | null
-  cover_status: 'ready' | 'fallback'
-  pdf_status: 'available' | 'missing'
-  last_page: number | null
-  analysis_status: BookAnalysisStatus
-  ocr_completed_at: number | null
-  indexed_at: number | null
-  created_at: number
-  updated_at: number
+  pdfStatus: 'available' | 'missing'
 }
 
 export interface StoredBookDetail extends Pick<
   StoredBook,
   | 'id'
-  | 'content_hash'
-  | 'file_name'
+  | 'contentHash'
+  | 'fileName'
   | 'title'
   | 'author'
-  | 'pdf_title'
-  | 'pdf_subject'
-  | 'pdf_keywords'
+  | 'pdfTitle'
+  | 'pdfSubject'
+  | 'pdfKeywords'
   | 'publisher'
-  | 'pdf_size'
-  | 'page_count'
-  | 'last_page'
-  | 'analysis_status'
+  | 'pdfSize'
+  | 'pageCount'
+  | 'lastPage'
+  | 'analysisStatus'
 > {
-  pdf_data: Uint8Array
+  pdfData: Uint8Array
 }
