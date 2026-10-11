@@ -218,7 +218,7 @@ export function createOcrRepository(database: DatabaseConnection) {
   async function getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]> {
     const lines = await db
       .select({
-        ocrPageId: ocrPages.id,
+        ocrPageId: ocrLines.ocrPageId,
         pageNumber: ocrPages.pageNumber,
         lineIndex: ocrLines.lineIndex,
         rawText: ocrLines.rawText,
@@ -227,11 +227,7 @@ export function createOcrRepository(database: DatabaseConnection) {
       .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
       .where(eq(ocrPages.bookId, bookId))
       .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
-    return lines.map((line) => {
-      const { ocrPageId } = line
-      if (ocrPageId === null) throw new Error('Invalid OCR lines for chunking')
-      return { ...line, ocrPageId }
-    })
+    return lines
   }
 
   return {
