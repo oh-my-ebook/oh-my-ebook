@@ -1,7 +1,6 @@
-import { and, desc, eq, gte } from 'drizzle-orm'
 import type { DatabaseConnection } from '../database-connection'
-import type { Book, BookAnalysisStatus } from '../types/book'
-import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
+import type { Book, BookAnalysisStatus, BookCover, BookProgress, BookTitle } from '../types/book'
+import { and, desc, eq, gte } from 'drizzle-orm'
 import { books } from '../schema'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
 import { refreshSearchTerms } from '../search/search.repository'
@@ -77,7 +76,7 @@ export function createBookRepository(database: DatabaseConnection) {
     return await normalizeStoredProgress(database, bookId, { ...book, id: book.id })
   }
 
-  async function updateProgress(bookProgress: UpdateProgressInput): Promise<void> {
+  async function updateProgress(bookProgress: BookProgress): Promise<void> {
     const [updated] = await db
       .update(books)
       .set({ lastPage: bookProgress.page, updatedAt: Date.now() })
@@ -86,7 +85,7 @@ export function createBookRepository(database: DatabaseConnection) {
     if (!updated) throw new DeletedBookError()
   }
 
-  async function updateTitle(bookTitle: UpdateTitleInput): Promise<void> {
+  async function updateTitle(bookTitle: BookTitle): Promise<void> {
     const [updated] = await db
       .update(books)
       .set({ title: bookTitle.title.trim(), updatedAt: Date.now() })
@@ -95,7 +94,7 @@ export function createBookRepository(database: DatabaseConnection) {
     if (!updated) throw new DeletedBookError()
   }
 
-  async function updateCover(bookCover: UpdateCoverInput): Promise<void> {
+  async function updateCover(bookCover: BookCover): Promise<void> {
     const [updated] = await db
       .update(books)
       .set({

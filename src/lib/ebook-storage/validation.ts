@@ -1,27 +1,25 @@
-import { eq } from 'drizzle-orm'
 import type { DatabaseConnection } from './database-connection'
-import type { ImportedBook, BookAnalysisStatus } from './types/book'
-import type { OcrLineInput } from './types/ocr'
+import type {
+  ImportedBook,
+  BookAnalysisStatus,
+  BookPageMetadata,
+  BookRecordsQuery,
+  BookCover,
+  BookProgress,
+  BookTitle,
+} from './types/book'
+import type { OcrLine, OcrPageQuery, OcrPageResult } from './types/ocr'
 import type { SearchChunkQuery } from './types/search'
 import type {
-  ChunkSourceInput,
-  SearchChunkInput,
-  SearchIndexChunkInput,
-  SearchTermFrequencyInput,
+  ChunkSource,
+  SearchChunkWithSources,
+  IndexedSearchChunk,
+  SearchTermFrequency,
+  SearchIndex,
 } from './types/search-index'
+import { eq } from 'drizzle-orm'
 import { books } from './schema'
-import { InvalidInputError } from './storage-errors'
-
-import type {
-  GetStoredOcrPageInput,
-  InitializeOcrPagesInput,
-  ListOcrLinesInput,
-  StoreOcrPageInput,
-  StoreSearchIndexInput,
-  UpdateCoverInput,
-  UpdateProgressInput,
-  UpdateTitleInput,
-} from './types/inputs'
+import { InvalidDataError } from './storage-errors'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
 
@@ -76,7 +74,7 @@ export function isContentHash(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 }
 
-export function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
+export function isBookCover(value: unknown): value is BookCover {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -90,7 +88,7 @@ export function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
   )
 }
 
-export function isUpdateProgressInput(value: unknown): value is UpdateProgressInput {
+export function isBookProgress(value: unknown): value is BookProgress {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -104,7 +102,7 @@ export function isUpdateProgressInput(value: unknown): value is UpdateProgressIn
   )
 }
 
-export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
+export function isBookTitle(value: unknown): value is BookTitle {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -129,7 +127,7 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-function isOcrLineInput(value: unknown): value is OcrLineInput {
+function isOcrLine(value: unknown): value is OcrLine {
   if (!isRecord(value)) return false
   return (
     typeof value.rawText === 'string' &&
@@ -146,7 +144,7 @@ function isOcrLineInput(value: unknown): value is OcrLineInput {
   )
 }
 
-export function isInitializeOcrPagesInput(value: unknown): value is InitializeOcrPagesInput {
+export function isBookPageMetadata(value: unknown): value is BookPageMetadata {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
@@ -156,18 +154,18 @@ export function isInitializeOcrPagesInput(value: unknown): value is InitializeOc
   )
 }
 
-export function isStoreOcrPageInput(value: unknown): value is StoreOcrPageInput {
+export function isOcrPageResult(value: unknown): value is OcrPageResult {
   return (
     isRecord(value) &&
     isIdentifier(value.pageId) &&
     isPositiveInteger(value.width) &&
     isPositiveInteger(value.height) &&
     Array.isArray(value.lines) &&
-    value.lines.every(isOcrLineInput)
+    value.lines.every(isOcrLine)
   )
 }
 
-function isChunkSourceInput(value: unknown): value is ChunkSourceInput {
+function isChunkSource(value: unknown): value is ChunkSource {
   return (
     isRecord(value) &&
     isIdentifier(value.ocrPageId) &&
@@ -178,7 +176,7 @@ function isChunkSourceInput(value: unknown): value is ChunkSourceInput {
   )
 }
 
-function isSearchChunkInput(value: unknown): value is SearchChunkInput {
+function isSearchChunkWithSources(value: unknown): value is SearchChunkWithSources {
   return (
     isRecord(value) &&
     isIdentifier(value.id) &&
@@ -187,11 +185,11 @@ function isSearchChunkInput(value: unknown): value is SearchChunkInput {
     value.text.trim().length > 0 &&
     isPositiveInteger(value.tokenCount) &&
     Array.isArray(value.sources) &&
-    value.sources.every(isChunkSourceInput)
+    value.sources.every(isChunkSource)
   )
 }
 
-function isSearchTermFrequencyInput(value: unknown): value is SearchTermFrequencyInput {
+function isSearchTermFrequency(value: unknown): value is SearchTermFrequency {
   return (
     isRecord(value) &&
     typeof value.term === 'string' &&
@@ -200,18 +198,19 @@ function isSearchTermFrequencyInput(value: unknown): value is SearchTermFrequenc
   )
 }
 
-function isSearchIndexChunkInput(value: unknown): value is SearchIndexChunkInput {
-  if (!isSearchChunkInput(value) || !('terms' in value) || !Array.isArray(value.terms)) return false
-  if (!value.terms.every(isSearchTermFrequencyInput)) return false
+function isIndexedSearchChunk(value: unknown): value is IndexedSearchChunk {
+  if (!isSearchChunkWithSources(value) || !('terms' in value) || !Array.isArray(value.terms))
+    return false
+  if (!value.terms.every(isSearchTermFrequency)) return false
   return new Set(value.terms.map(({ term }) => term)).size === value.terms.length
 }
 
-export function isStoreSearchIndexInput(value: unknown): value is StoreSearchIndexInput {
+export function isSearchIndex(value: unknown): value is SearchIndex {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
     Array.isArray(value.chunks) &&
-    value.chunks.every(isSearchIndexChunkInput)
+    value.chunks.every(isIndexedSearchChunk)
   )
 }
 
@@ -228,7 +227,7 @@ export function isSearchChunkQuery(value: unknown): value is SearchChunkQuery {
   return isPositiveInteger(value.limit) && value.limit <= MAX_SEARCH_CHUNK_RESULTS
 }
 
-export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput {
+export function isBookRecordsQuery(value: unknown): value is BookRecordsQuery {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
@@ -239,16 +238,16 @@ export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput 
   )
 }
 
-export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPageInput {
+export function isOcrPageQuery(value: unknown): value is OcrPageQuery {
   return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
-export function validateInput<T>(
-  input: T,
+export function validateData<T>(
+  data: T,
   operation: string,
   isValid: (value: unknown) => value is T,
 ): void {
-  if (!isValid(input)) throw new InvalidInputError(operation)
+  if (!isValid(data)) throw new InvalidDataError(operation)
 }
 
 export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
@@ -280,12 +279,12 @@ export async function normalizeStoredProgress<
   return { ...book, lastPage: 1 }
 }
 
-export async function runValidated<Input, Result>(
+export async function runValidated<Data, Result>(
   name: string,
-  operation: (input: Input) => Promise<Result>,
-  input: Input,
-  isValid: (value: unknown) => value is Input,
+  operation: (data: Data) => Promise<Result>,
+  data: Data,
+  isValid: (value: unknown) => value is Data,
 ): Promise<Result> {
-  validateInput(input, name, isValid)
-  return await operation(input)
+  validateData(data, name, isValid)
+  return await operation(data)
 }

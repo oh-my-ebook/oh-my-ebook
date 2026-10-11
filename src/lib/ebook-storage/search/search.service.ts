@@ -3,24 +3,20 @@ import type {
   SearchTermPage,
   SearchPostingPage,
   ChunkSourcePage,
+  SearchIndex,
 } from '../types/search-index'
 import type { SearchChunkQuery, SearchChunkResult } from '../types/search'
-import type { StoreSearchIndexInput, ListOcrLinesInput } from '../types/inputs'
+import type { BookRecordsQuery } from '../types/book'
 import type { createSearchRepository } from './search.repository'
-import {
-  isListOcrLinesInput,
-  isSearchChunkQuery,
-  isStoreSearchIndexInput,
-  runValidated,
-} from '../validation'
+import { isBookRecordsQuery, isSearchChunkQuery, isSearchIndex, runValidated } from '../validation'
 
 export interface SearchService {
-  storeSearchIndex(searchIndex: StoreSearchIndexInput): Promise<void>
-  listSearchChunks(searchChunkQuery: ListOcrLinesInput): Promise<SearchChunkPage>
+  storeSearchIndex(searchIndex: SearchIndex): Promise<void>
+  listSearchChunks(searchChunkQuery: BookRecordsQuery): Promise<SearchChunkPage>
   searchChunks(query: SearchChunkQuery): Promise<SearchChunkResult[]>
-  listSearchTerms(searchTermQuery: ListOcrLinesInput): Promise<SearchTermPage>
-  listSearchPostings(searchPostingQuery: ListOcrLinesInput): Promise<SearchPostingPage>
-  listChunkSources(chunkSourceQuery: ListOcrLinesInput): Promise<ChunkSourcePage>
+  listSearchTerms(searchTermQuery: BookRecordsQuery): Promise<SearchTermPage>
+  listSearchPostings(searchPostingQuery: BookRecordsQuery): Promise<SearchPostingPage>
+  listChunkSources(chunkSourceQuery: BookRecordsQuery): Promise<ChunkSourcePage>
 }
 
 export function createSearchService(
@@ -32,14 +28,14 @@ export function createSearchService(
         'storeSearchIndex',
         searchRepository.storeSearchIndex,
         searchIndex,
-        isStoreSearchIndexInput,
+        isSearchIndex,
       ),
     listSearchChunks: (searchChunkQuery) =>
       runValidated(
         'listSearchChunks',
         searchRepository.listSearchChunks,
         searchChunkQuery,
-        isListOcrLinesInput,
+        isBookRecordsQuery,
       ),
     searchChunks: (query) =>
       runValidated('searchChunks', searchRepository.searchChunks, query, isSearchChunkQuery),
@@ -48,21 +44,21 @@ export function createSearchService(
         'listSearchTerms',
         searchRepository.listSearchTerms,
         searchTermQuery,
-        isListOcrLinesInput,
+        isBookRecordsQuery,
       ),
     listSearchPostings: (searchPostingQuery) =>
       runValidated(
         'listSearchPostings',
         searchRepository.listSearchPostings,
         searchPostingQuery,
-        isListOcrLinesInput,
+        isBookRecordsQuery,
       ),
     listChunkSources: (chunkSourceQuery) =>
       runValidated(
         'listChunkSources',
         searchRepository.listChunkSources,
         chunkSourceQuery,
-        isListOcrLinesInput,
+        isBookRecordsQuery,
       ),
   }
 }

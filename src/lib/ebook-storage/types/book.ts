@@ -55,3 +55,30 @@ export interface StoredBook extends Book {
 export interface StoredBookDetail extends StoredBookMetadata {
   pdfData: Uint8Array
 }
+
+export interface BookCover {
+  id: Book['id']
+  coverData: ArrayBuffer
+  coverMime: 'image/webp' | 'image/png'
+}
+
+export interface BookProgress {
+  id: Book['id']
+  page: number
+}
+
+export interface BookTitle {
+  id: Book['id']
+  title: Book['title']
+}
+
+export interface BookPageMetadata {
+  bookId: Book['id']
+  pageCount: Book['pageCount']
+}
+
+export interface BookRecordsQuery {
+  bookId: Book['id']
+  limit: number
+  offset: number
+}

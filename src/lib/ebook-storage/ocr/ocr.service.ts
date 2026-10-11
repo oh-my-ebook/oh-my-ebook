@@ -4,32 +4,29 @@ import type {
   OcrPageRecord,
   OcrLinePage,
   OcrLineForChunking,
+  OcrPageResult,
+  OcrPageQuery,
 } from '../types/ocr'
-import type {
-  InitializeOcrPagesInput,
-  StoreOcrPageInput,
-  ListOcrLinesInput,
-  GetStoredOcrPageInput,
-} from '../types/inputs'
+import type { BookPageMetadata, BookRecordsQuery } from '../types/book'
 import type { createOcrRepository } from './ocr.repository'
 import {
-  isGetStoredOcrPageInput,
+  isOcrPageQuery,
   isIdentifier,
-  isInitializeOcrPagesInput,
-  isListOcrLinesInput,
-  isStoreOcrPageInput,
+  isBookPageMetadata,
+  isBookRecordsQuery,
+  isOcrPageResult,
   runValidated,
 } from '../validation'
 
 export interface OcrService {
-  initializeOcrPages(ocrPagesSetup: InitializeOcrPagesInput): Promise<void>
+  initializeOcrPages(bookMetadata: BookPageMetadata): Promise<void>
   prepareOcrPagesForRun(bookId: string): Promise<void>
   acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null>
-  storeOcrPage(ocrPage: StoreOcrPageInput): Promise<boolean>
+  storeOcrPage(ocrPage: OcrPageResult): Promise<boolean>
   failOcrPage(pageId: string): Promise<void>
-  getStoredOcrPage(ocrPageQuery: GetStoredOcrPageInput): Promise<StoredOcrPage | null>
+  getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null>
   listOcrPages(bookId: string): Promise<OcrPageRecord[]>
-  listOcrLines(ocrLineQuery: ListOcrLinesInput): Promise<OcrLinePage>
+  listOcrLines(ocrLineQuery: BookRecordsQuery): Promise<OcrLinePage>
   getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]>
 }
 
@@ -37,12 +34,12 @@ export function createOcrService(
   ocrRepository: ReturnType<typeof createOcrRepository>,
 ): OcrService {
   return {
-    initializeOcrPages: (ocrPagesSetup) =>
+    initializeOcrPages: (bookMetadata) =>
       runValidated(
         'initializeOcrPages',
         ocrRepository.initializeOcrPages,
-        ocrPagesSetup,
-        isInitializeOcrPagesInput,
+        bookMetadata,
+        isBookPageMetadata,
       ),
     prepareOcrPagesForRun: (bookId) =>
       runValidated(
@@ -54,7 +51,7 @@ export function createOcrService(
     acquireNextOcrPage: (bookId) =>
       runValidated('acquireNextOcrPage', ocrRepository.acquireNextOcrPage, bookId, isIdentifier),
     storeOcrPage: (ocrPage) =>
-      runValidated('storeOcrPage', ocrRepository.storeOcrPage, ocrPage, isStoreOcrPageInput),
+      runValidated('storeOcrPage', ocrRepository.storeOcrPage, ocrPage, isOcrPageResult),
     failOcrPage: (pageId) =>
       runValidated('failOcrPage', ocrRepository.failOcrPage, pageId, isIdentifier),
     getStoredOcrPage: (ocrPageQuery) =>
@@ -62,12 +59,12 @@ export function createOcrService(
         'getStoredOcrPage',
         ocrRepository.getStoredOcrPage,
         ocrPageQuery,
-        isGetStoredOcrPageInput,
+        isOcrPageQuery,
       ),
     listOcrPages: (bookId) =>
       runValidated('listOcrPages', ocrRepository.listOcrPages, bookId, isIdentifier),
     listOcrLines: (ocrLineQuery) =>
-      runValidated('listOcrLines', ocrRepository.listOcrLines, ocrLineQuery, isListOcrLinesInput),
+      runValidated('listOcrLines', ocrRepository.listOcrLines, ocrLineQuery, isBookRecordsQuery),
     getOcrLinesForChunking: (bookId) =>
       runValidated(
         'getOcrLinesForChunking',

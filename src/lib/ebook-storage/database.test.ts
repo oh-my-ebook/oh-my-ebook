@@ -221,13 +221,13 @@ describe('SQLocal 저장소', () => {
     const id = await store.addBook(createNewBook({ pageCount: 100 }))
     const batchSpy = vi.spyOn(db.sqlocal, 'batch')
     onTestFinished(() => batchSpy.mockRestore())
-    const input = { bookId: id, pageCount: 100 }
-    await store.initializeOcrPages(input)
+    const bookMetadata = { bookId: id, pageCount: 100 }
+    await store.initializeOcrPages(bookMetadata)
     const pages = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
     expect(pages.map((page) => page.page_number)).toEqual(
       Array.from({ length: 100 }, (_, index) => index + 1),
     )
-    await store.initializeOcrPages(input)
+    await store.initializeOcrPages(bookMetadata)
     expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
     expect(batchSpy).toHaveBeenCalledTimes(2)
   })
@@ -412,15 +412,15 @@ describe('SQLocal 저장소', () => {
         x1: 10,
         y1: index + 1,
       }))
-      const input = { pageId: pages[0].id, width: 100, height: 2000, lines }
-      await store.storeOcrPage(input)
+      const ocrPage = { pageId: pages[0].id, width: 100, height: 2000, lines }
+      await store.storeOcrPage(ocrPage)
       expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toEqual({
         width: 100,
         height: 2000,
         lines,
       })
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
-      await store.storeOcrPage({ ...input, lines: [] })
+      await store.storeOcrPage({ ...ocrPage, lines: [] })
       expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toEqual({
         width: 100,
         height: 2000,
@@ -513,14 +513,14 @@ describe('SQLocal 저장소', () => {
     'OCR %s 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다',
     async (target) => {
       const { db, id, store, pages } = await preparePages()
-      const input = {
+      const ocrPage = {
         pageId: pages[0].id,
         width: 100,
         height: 200,
         lines: [{ rawText: '기존 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
       }
       await store.acquireNextOcrPage(id)
-      await store.storeOcrPage(input)
+      await store.storeOcrPage(ocrPage)
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[1].id)
       const before = await db.sqlocal.sql('SELECT * FROM ocr_lines')
@@ -535,10 +535,10 @@ describe('SQLocal 저장소', () => {
       )
       await expect(
         store.storeOcrPage({
-          ...input,
+          ...ocrPage,
           lines: [
-            { ...input.lines[0], rawText: '새 첫 줄' },
-            { ...input.lines[0], rawText: '새 둘째 줄' },
+            { ...ocrPage.lines[0], rawText: '새 첫 줄' },
+            { ...ocrPage.lines[0], rawText: '새 둘째 줄' },
           ],
         }),
       ).rejects.toMatchObject(
@@ -816,8 +816,8 @@ describe('SQLocal 저장소', () => {
     '색인 교체 중 %s 저장에 실패하면 기존 색인과 분석 상태를 복원한다',
     async (table) => {
       const { db, id, store, pages } = await preparePages()
-      const input = { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] }
-      await store.storeSearchIndex(input)
+      const searchIndex = { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] }
+      await store.storeSearchIndex(searchIndex)
       const readState = () =>
         Promise.all(
           ['books', 'search_chunks', 'chunk_sources', 'search_terms', 'search_postings'].map(

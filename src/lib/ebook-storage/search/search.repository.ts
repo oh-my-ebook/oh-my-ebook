@@ -1,20 +1,21 @@
-import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
 import type { TransactionHandle } from 'sqlocal'
 import type { DatabaseConnection } from '../database-connection'
-import type { ListOcrLinesInput, StoreSearchIndexInput } from '../types/inputs'
+import type { BookRecordsQuery } from '../types/book'
+import type {
+  SearchIndex,
+  ChunkSourcePage,
+  SearchChunkWithSources,
+  SearchChunkPage,
+  SearchPostingPage,
+  SearchTermPage,
+} from '../types/search-index'
 import type {
   ScoredSearchChunk,
   SearchChunkQuery,
   SearchChunkResult,
   SearchChunkSource,
 } from '../types/search'
-import type {
-  ChunkSourcePage,
-  SearchChunkInput,
-  SearchChunkPage,
-  SearchPostingPage,
-  SearchTermPage,
-} from '../types/search-index'
+import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
 import {
   books,
   chunkSources,
@@ -53,7 +54,7 @@ async function storeSearchChunk(
   db: DatabaseConnection['db'],
   tx: TransactionHandle,
   bookId: string,
-  chunk: SearchChunkInput,
+  chunk: SearchChunkWithSources,
   createdAt: number,
 ): Promise<void> {
   await tx.query(
@@ -91,7 +92,7 @@ async function storeSearchChunk(
 export function createSearchRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function storeSearchIndex(searchIndex: StoreSearchIndexInput): Promise<void> {
+  async function storeSearchIndex(searchIndex: SearchIndex): Promise<void> {
     const book = await db.query.books.findFirst({
       columns: { id: true },
       where: eq(books.id, searchIndex.bookId),
@@ -143,7 +144,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     })
   }
 
-  async function listSearchChunks(searchChunkQuery: ListOcrLinesInput): Promise<SearchChunkPage> {
+  async function listSearchChunks(searchChunkQuery: BookRecordsQuery): Promise<SearchChunkPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchChunksTable)
@@ -225,7 +226,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
   }
 
-  async function listSearchTerms(searchTermQuery: ListOcrLinesInput): Promise<SearchTermPage> {
+  async function listSearchTerms(searchTermQuery: BookRecordsQuery): Promise<SearchTermPage> {
     const [result] = await db
       .select({ total: countDistinct(searchTerms.id) })
       .from(searchTerms)
@@ -251,7 +252,7 @@ export function createSearchRepository(database: DatabaseConnection) {
   }
 
   async function listSearchPostings(
-    searchPostingQuery: ListOcrLinesInput,
+    searchPostingQuery: BookRecordsQuery,
   ): Promise<SearchPostingPage> {
     const [result] = await db
       .select({ total: count() })
@@ -277,7 +278,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     return { postings, total: result.total }
   }
 
-  async function listChunkSources(chunkSourceQuery: ListOcrLinesInput): Promise<ChunkSourcePage> {
+  async function listChunkSources(chunkSourceQuery: BookRecordsQuery): Promise<ChunkSourcePage> {
     const [result] = await db
       .select({ total: count() })
       .from(chunkSources)

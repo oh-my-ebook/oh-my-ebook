@@ -80,7 +80,7 @@ describe('책 저장 작업', () => {
       createImportedBook({ pdfSize: -1 }),
       createImportedBook({ contentHash: ' ' }),
     ]) {
-      await expect(storageService.saveBook(payload)).rejects.toThrow('Invalid input')
+      await expect(storageService.saveBook(payload)).rejects.toThrow('Invalid data')
     }
     expect(connection.initializeDatabase).not.toHaveBeenCalled()
   })
@@ -185,7 +185,7 @@ describe('책 저장 작업', () => {
         coverData: new ArrayBuffer(1),
         coverMime: 'image/png',
       }),
-    ).rejects.toThrow('Invalid input for updateCover')
+    ).rejects.toThrow('Invalid data for updateCover')
     await expect(storageService.hasBook('missing')).rejects.toThrow()
     await expect(storageService.getBook('missing')).rejects.toThrow()
   })
@@ -193,23 +193,23 @@ describe('책 저장 작업', () => {
   it('범위를 벗어난 입력은 DB에 전달하지 않는다', async () => {
     const { storageService } = await setup()
     await expect(storageService.updateProgress({ id: 'book', page: 0 })).rejects.toThrow(
-      'Invalid input',
+      'Invalid data',
     )
     await expect(storageService.updateTitle({ id: 'book', title: ' ' })).rejects.toThrow(
-      'Invalid input',
+      'Invalid data',
     )
     await expect(
       storageService.initializeOcrPages({ bookId: 'book', pageCount: -1 }),
-    ).rejects.toThrow('Invalid input')
+    ).rejects.toThrow('Invalid data')
     await expect(
       storageService.storeOcrPage({ pageId: 'page', width: 0, height: 100, lines: [] }),
-    ).rejects.toThrow('Invalid input')
+    ).rejects.toThrow('Invalid data')
     await expect(
       storageService.listSearchTerms({ bookId: 'book', limit: 10, offset: -1 }),
-    ).rejects.toThrow('Invalid input')
+    ).rejects.toThrow('Invalid data')
     await expect(
       storageService.searchChunks({ bookId: 'book', terms: ['검색'], limit: 6 }),
-    ).rejects.toThrow('Invalid input')
+    ).rejects.toThrow('Invalid data')
     expect(connection.initializeDatabase).not.toHaveBeenCalled()
   })
 

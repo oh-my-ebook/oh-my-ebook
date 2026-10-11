@@ -6,13 +6,13 @@ type OcrPageRow = typeof ocrPages.$inferSelect
 type OcrPagePosition = Pick<OcrPageRow, 'id' | 'pageNumber'>
 type OcrChunkingLine = Pick<OcrLineRow, 'ocrPageId' | 'lineIndex' | 'rawText'>
 
-export type OcrLineInput = Omit<OcrLineRow, 'id' | 'ocrPageId' | 'lineIndex'>
+export type OcrLine = Omit<OcrLineRow, 'id' | 'ocrPageId' | 'lineIndex'>
 
 export interface NextOcrPage extends OcrPagePosition {
   id: string
 }
 
-export interface OcrLineRecord extends OcrLineInput {
+export interface OcrLineRecord extends OcrLine {
   pageNumber: OcrPageRow['pageNumber']
   lineIndex: OcrLineRow['lineIndex']
 }
@@ -29,7 +29,19 @@ export interface OcrLineForChunking extends OcrChunkingLine {
 export interface StoredOcrPage {
   width: number
   height: number
-  lines: OcrLineInput[]
+  lines: OcrLine[]
 }
 
 export type OcrPageRecord = Pick<OcrPageRow, 'pageNumber' | 'status' | 'width' | 'height'>
+
+export interface OcrPageResult {
+  pageId: string
+  width: number
+  height: number
+  lines: readonly OcrLine[]
+}
+
+export interface OcrPageQuery {
+  bookId: string
+  pageNumber: number
+}

@@ -8,23 +8,23 @@ type OcrPageRow = typeof ocrPages.$inferSelect
 
 type SearchChunkFields = Omit<SearchChunkRow, 'bookId' | 'createdAt'>
 
-export type ChunkSourceInput = Omit<ChunkSourceRow, 'id' | 'chunkId'>
+export type ChunkSource = Omit<ChunkSourceRow, 'id' | 'chunkId'>
 
 export interface SearchChunk extends SearchChunkFields {
   id: string
 }
 
-export interface SearchChunkInput extends SearchChunk {
-  sources: readonly ChunkSourceInput[]
+export interface SearchChunkWithSources extends SearchChunk {
+  sources: readonly ChunkSource[]
 }
 
-export interface SearchTermFrequencyInput {
+export interface SearchTermFrequency {
   term: SearchTermRow['term']
   termFrequency: SearchPostingRow['termFrequency']
 }
 
-export interface SearchIndexChunkInput extends SearchChunkInput {
-  terms: readonly SearchTermFrequencyInput[]
+export interface IndexedSearchChunk extends SearchChunkWithSources {
+  terms: readonly SearchTermFrequency[]
 }
 
 export interface SearchChunkRecord extends SearchChunk {
@@ -64,4 +64,9 @@ export interface SearchPostingRecord extends SearchPostingRow {
 export interface SearchPostingPage {
   postings: SearchPostingRecord[]
   total: number
+}
+
+export interface SearchIndex {
+  bookId: string
+  chunks: readonly IndexedSearchChunk[]
 }

@@ -1,39 +1,36 @@
-import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import type { DatabaseConnection } from '../database-connection'
 import type {
-  GetStoredOcrPageInput,
-  InitializeOcrPagesInput,
-  ListOcrLinesInput,
-  StoreOcrPageInput,
-} from '../types/inputs'
-import type {
+  OcrPageQuery,
+  OcrPageResult,
   NextOcrPage,
   OcrLineForChunking,
   OcrLinePage,
   OcrPageRecord,
   StoredOcrPage,
 } from '../types/ocr'
+import type { BookPageMetadata, BookRecordsQuery } from '../types/book'
+import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { books, ocrLines, ocrPages } from '../schema'
 import { NotFoundBookError } from '../storage-errors'
 
 export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function initializeOcrPages(ocrPagesSetup: InitializeOcrPagesInput): Promise<void> {
+  async function initializeOcrPages(bookMetadata: BookPageMetadata): Promise<void> {
     const book = await db.query.books.findFirst({
       columns: { pageCount: true },
-      where: eq(books.id, ocrPagesSetup.bookId),
+      where: eq(books.id, bookMetadata.bookId),
     })
     if (!book?.pageCount) throw new NotFoundBookError()
 
     const now = Date.now()
     await sqlocal.batch(() =>
-      Array.from({ length: ocrPagesSetup.pageCount }, (_, index) =>
+      Array.from({ length: bookMetadata.pageCount }, (_, index) =>
         db
           .insert(ocrPages)
           .values({
             id: crypto.randomUUID(),
-            bookId: ocrPagesSetup.bookId,
+            bookId: bookMetadata.bookId,
             pageNumber: index + 1,
             status: 'pending',
             createdAt: now,
@@ -81,7 +78,7 @@ export function createOcrRepository(database: DatabaseConnection) {
     })
   }
 
-  async function storeOcrPage(ocrPage: StoreOcrPageInput): Promise<boolean> {
+  async function storeOcrPage(ocrPage: OcrPageResult): Promise<boolean> {
     const now = Date.now()
     return await sqlocal.transaction(async (tx) => {
       const [page] = await tx.query(
@@ -147,9 +144,7 @@ export function createOcrRepository(database: DatabaseConnection) {
     if (!updated) throw new NotFoundBookError()
   }
 
-  async function getStoredOcrPage(
-    ocrPageQuery: GetStoredOcrPageInput,
-  ): Promise<StoredOcrPage | null> {
+  async function getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null> {
     const page = await db.query.ocrPages.findFirst({
       columns: { id: true, width: true, height: true },
       where: and(
@@ -194,7 +189,7 @@ export function createOcrRepository(database: DatabaseConnection) {
     return pages
   }
 
-  async function listOcrLines(ocrLineQuery: ListOcrLinesInput): Promise<OcrLinePage> {
+  async function listOcrLines(ocrLineQuery: BookRecordsQuery): Promise<OcrLinePage> {
     const [result] = await db
       .select({ total: count() })
       .from(ocrLines)

@@ -1,6 +1,6 @@
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
-import type { SearchChunkInput } from '@/lib/ebook-storage/types/search-index'
+import type { SearchChunkWithSources } from '@/lib/ebook-storage/types/search-index'
 
 export const DEFAULT_SEARCH_CHUNK_TOKEN_TARGET = 300
 
@@ -133,7 +133,7 @@ async function createParagraphUnits(
 }
 
 function createChunkSources(lines: OcrLineForChunking[]) {
-  const sources: SearchChunkInput['sources'][number][] = []
+  const sources: SearchChunkWithSources['sources'][number][] = []
   lines.forEach((line) => {
     const lastSource = sources.at(-1)
     if (
@@ -169,7 +169,7 @@ export async function createSearchChunks(
   ocrLines: OcrLineForChunking[],
   signal: AbortSignal,
   tokenTarget = DEFAULT_SEARCH_CHUNK_TOKEN_TARGET,
-): Promise<SearchChunkInput[]> {
+): Promise<SearchChunkWithSources[]> {
   if (!Number.isSafeInteger(tokenTarget) || tokenTarget <= 0) {
     throw new RangeError('검색 청크 목표 토큰 수는 양의 정수여야 합니다.')
   }

@@ -1,22 +1,24 @@
-import type { UpdateCoverInput, UpdateProgressInput, UpdateTitleInput } from '../types/inputs'
-import type { createBookRepository } from './book.repository'
 import type {
+  BookCover,
+  BookProgress,
+  BookTitle,
   ImportedBook,
   Book,
   StoredBook,
   StoredBookDetail,
   BookAnalysisStatus,
 } from '../types/book'
+import type { createBookRepository } from './book.repository'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
   isImportedBook,
   isContentHash,
   isIdentifier,
-  isUpdateCoverInput,
-  isUpdateProgressInput,
-  isUpdateTitleInput,
+  isBookCover,
+  isBookProgress,
+  isBookTitle,
   runValidated,
-  validateInput,
+  validateData,
 } from '../validation'
 
 export interface BookService {
@@ -25,9 +27,9 @@ export interface BookService {
   deleteBook(bookId: string): Promise<void>
   listBooks(): Promise<StoredBook[]>
   hasBook(bookId: string): Promise<void>
-  updateProgress(bookProgress: UpdateProgressInput): Promise<void>
-  updateTitle(bookTitle: UpdateTitleInput): Promise<void>
-  updateCover(bookCover: UpdateCoverInput): Promise<void>
+  updateProgress(bookProgress: BookProgress): Promise<void>
+  updateTitle(bookTitle: BookTitle): Promise<void>
+  updateCover(bookCover: BookCover): Promise<void>
   failBookAnalysis(bookId: string): Promise<void>
   getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus>
   retryBookAnalysis(bookId: string): Promise<void>
@@ -41,7 +43,7 @@ export function createBookService(
    * 만약 OPFS 저장에 실패하면 SQLite에 저장한 메타 데이터를 삭제
    */
   async function saveBook(book: ImportedBook): Promise<string> {
-    validateInput(book, 'saveBook', isImportedBook)
+    validateData(book, 'saveBook', isImportedBook)
     const { pdfData, coverData, ...metadata } = book
     const now = Date.now()
     const newBook: Book = {
@@ -71,7 +73,7 @@ export function createBookService(
   }
 
   async function getBook(bookId: string): Promise<StoredBookDetail> {
-    validateInput(bookId, 'bookId', isIdentifier)
+    validateData(bookId, 'bookId', isIdentifier)
     const book = await bookRepository.getBookMetadata(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
@@ -96,7 +98,7 @@ export function createBookService(
    * 만약 OPFS 삭제에 실패하면 Error를 발생
    */
   async function deleteBook(bookId: string): Promise<void> {
-    validateInput(bookId, 'bookId', isIdentifier)
+    validateData(bookId, 'bookId', isIdentifier)
     const book = await bookRepository.getBookMetadata(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
@@ -112,16 +114,11 @@ export function createBookService(
     listBooks: listLibraryBooks,
     hasBook: (bookId) => runValidated('hasBook', bookRepository.hasBook, bookId, isIdentifier),
     updateProgress: (bookProgress) =>
-      runValidated(
-        'updateProgress',
-        bookRepository.updateProgress,
-        bookProgress,
-        isUpdateProgressInput,
-      ),
+      runValidated('updateProgress', bookRepository.updateProgress, bookProgress, isBookProgress),
     updateTitle: (bookTitle) =>
-      runValidated('updateTitle', bookRepository.updateTitle, bookTitle, isUpdateTitleInput),
+      runValidated('updateTitle', bookRepository.updateTitle, bookTitle, isBookTitle),
     updateCover: (bookCover) =>
-      runValidated('updateCover', bookRepository.updateCover, bookCover, isUpdateCoverInput),
+      runValidated('updateCover', bookRepository.updateCover, bookCover, isBookCover),
     failBookAnalysis: (bookId) =>
       runValidated('failBookAnalysis', bookRepository.failBookAnalysis, bookId, isIdentifier),
     getBookAnalysisStatus: (bookId) =>
