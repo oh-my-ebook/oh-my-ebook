@@ -223,7 +223,7 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
   const processingOcrPages = ocrPages.filter((page) => page.status === 'processing')
   const ocrProgress = ocrPages.length ? (completedOcrPages / ocrPages.length) * 100 : null
   const ocrWorkerStatus = processingOcrPages.length
-    ? `OCR Worker가 ${processingOcrPages.map((page) => `${page.page_number}페이지`).join(', ')} 처리 중`
+    ? `OCR Worker가 ${processingOcrPages.map((page) => `${page.pageNumber}페이지`).join(', ')} 처리 중`
     : 'OCR Worker가 처리 중인 페이지 없음'
 
   return (
@@ -312,8 +312,8 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                   </TableHeader>
                   <TableBody>
                     {ocrPages.map((page) => (
-                      <TableRow key={page.page_number}>
-                        <TableCell>{page.page_number}</TableCell>
+                      <TableRow key={page.pageNumber}>
+                        <TableCell>{page.pageNumber}</TableCell>
                         <TableCell>{page.status}</TableCell>
                         <TableCell>
                           {page.width === null || page.height === null
@@ -340,10 +340,10 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                   </TableHeader>
                   <TableBody>
                     {ocrPage?.lines.map((line) => (
-                      <TableRow key={`${line.page_number}-${line.line_index}`}>
-                        <TableCell>{line.page_number}</TableCell>
-                        <TableCell>{line.line_index}</TableCell>
-                        <TableCell className="whitespace-normal">{line.raw_text}</TableCell>
+                      <TableRow key={`${line.pageNumber}-${line.lineIndex}`}>
+                        <TableCell>{line.pageNumber}</TableCell>
+                        <TableCell>{line.lineIndex}</TableCell>
+                        <TableCell className="whitespace-normal">{line.rawText}</TableCell>
                         <TableCell>{`${line.x0}, ${line.y0}, ${line.x1}, ${line.y1}`}</TableCell>
                       </TableRow>
                     ))}

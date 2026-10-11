@@ -285,18 +285,18 @@ describe('SQLocal 저장소', () => {
       await store.storeOcrPage({ pageId: pages[1].id, width: 100, height: 200, lines: [] }),
     ).toBe(true)
     expect(await store.listOcrPages(id)).toEqual(
-      [1, 2].map((page_number) => ({ page_number, width: 100, height: 200, status: 'ready' })),
+      [1, 2].map((pageNumber) => ({ pageNumber, width: 100, height: 200, status: 'ready' })),
     )
     expect(await store.listOcrLines({ bookId: id, limit: 10, offset: 0 })).toEqual({
       total: 2,
       lines: [
-        { page_number: 1, line_index: 0, raw_text: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
-        { page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
+        { pageNumber: 1, lineIndex: 0, rawText: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { pageNumber: 1, lineIndex: 1, rawText: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
       ],
     })
     expect(await store.getOcrLinesForChunking(id)).toEqual([
-      { ocr_page_id: pages[0].id, page_number: 1, line_index: 0, raw_text: '첫 줄' },
-      { ocr_page_id: pages[0].id, page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?" },
+      { ocrPageId: pages[0].id, pageNumber: 1, lineIndex: 0, rawText: '첫 줄' },
+      { ocrPageId: pages[0].id, pageNumber: 1, lineIndex: 1, rawText: "둘째 줄 ' ?" },
     ])
     expect(await db.sqlocal.sql('SELECT ocr_completed_at FROM books')).toEqual([
       { ocr_completed_at: expect.any(Number) },
@@ -341,11 +341,11 @@ describe('SQLocal 저장소', () => {
     await db.sqlocal.sql('UPDATE books SET ocr_completed_at = 123 WHERE id = ?', id)
     await store.prepareOcrPagesForRun(id)
     expect(await store.listOcrPages(id)).toEqual([
-      { page_number: 1, status: 'ready', width: null, height: null },
-      { page_number: 2, status: 'pending', width: null, height: null },
+      { pageNumber: 1, status: 'ready', width: null, height: null },
+      { pageNumber: 2, status: 'pending', width: null, height: null },
     ])
     expect(await store.listOcrPages(otherId)).toEqual([
-      { page_number: 1, status: 'processing', width: null, height: null },
+      { pageNumber: 1, status: 'processing', width: null, height: null },
     ])
     await store.acquireNextOcrPage(id)
     expect(
@@ -449,8 +449,8 @@ describe('SQLocal 저장소', () => {
              ('page-1', 0, '첫 줄', 1, 2, 3, 4)`)
 
     expect(await store.listOcrPages(id)).toEqual([
-      { page_number: 1, status: 'pending', width: null, height: null },
-      { page_number: 2, status: 'ready', width: 100, height: 200 },
+      { pageNumber: 1, status: 'pending', width: null, height: null },
+      { pageNumber: 2, status: 'ready', width: 100, height: 200 },
     ])
     expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toBeNull()
     expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 2 })).toEqual({
@@ -464,8 +464,8 @@ describe('SQLocal 저장소', () => {
     expect(await store.listOcrLines({ bookId: id, limit: 2, offset: 1 })).toEqual({
       total: 3,
       lines: [
-        { page_number: 2, line_index: 0, raw_text: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
-        { page_number: 2, line_index: 1, raw_text: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { pageNumber: 2, lineIndex: 0, rawText: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { pageNumber: 2, lineIndex: 1, rawText: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
       ],
     })
     expect(await store.listOcrLines({ bookId: id, limit: 2, offset: 3 })).toEqual({
@@ -473,9 +473,9 @@ describe('SQLocal 저장소', () => {
       lines: [],
     })
     expect(await store.getOcrLinesForChunking(id)).toEqual([
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 줄' },
-      { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '중간 줄' },
-      { ocr_page_id: 'page-2', page_number: 2, line_index: 1, raw_text: '마지막 줄' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '첫 줄' },
+      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 0, rawText: '중간 줄' },
+      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 1, rawText: '마지막 줄' },
     ])
   })
 

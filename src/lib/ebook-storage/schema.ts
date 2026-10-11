@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   check,
   customType,
@@ -252,3 +252,14 @@ export const searchPostings = sqliteTable(
     check('search_postings_term_frequency_check', sql`${table.termFrequency} > 0`),
   ],
 )
+
+export const ocrPagesRelations = relations(ocrPages, ({ many }) => ({
+  lines: many(ocrLines),
+}))
+
+export const ocrLinesRelations = relations(ocrLines, ({ one }) => ({
+  page: one(ocrPages, {
+    fields: [ocrLines.ocrPageId],
+    references: [ocrPages.id],
+  }),
+}))

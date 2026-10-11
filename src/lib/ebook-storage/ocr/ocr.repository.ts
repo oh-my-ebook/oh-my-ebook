@@ -20,10 +20,10 @@ export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
   async function initializeOcrPages(input: InitializeOcrPagesInput): Promise<void> {
-    const [book] = await db
-      .select({ pageCount: books.pageCount })
-      .from(books)
-      .where(eq(books.id, input.bookId))
+    const book = await db.query.books.findFirst({
+      columns: { pageCount: true },
+      where: eq(books.id, input.bookId),
+    })
     if (!book?.pageCount) throw new NotFoundBookError()
 
     const now = Date.now()
@@ -145,18 +145,22 @@ export function createOcrRepository(database: DatabaseConnection) {
   }
 
   async function getStoredOcrPage(input: GetStoredOcrPageInput): Promise<StoredOcrPage | null> {
-    const [page] = await db
-      .select({ id: ocrPages.id, width: ocrPages.width, height: ocrPages.height })
-      .from(ocrPages)
-      .where(
-        and(
-          eq(ocrPages.bookId, input.bookId),
-          eq(ocrPages.pageNumber, input.pageNumber),
-          eq(ocrPages.status, 'ready'),
-        ),
-      )
+    const page = await db.query.ocrPages.findFirst({
+      columns: { id: true, width: true, height: true },
+      where: and(
+        eq(ocrPages.bookId, input.bookId),
+        eq(ocrPages.pageNumber, input.pageNumber),
+        eq(ocrPages.status, 'ready'),
+      ),
+      with: {
+        lines: {
+          columns: { id: false, ocrPageId: false, lineIndex: false },
+          orderBy: [asc(ocrLines.lineIndex)],
+        },
+      },
+    })
     if (!page) return null
-    const { id, width, height } = page
+    const { id, width, height, lines } = page
     if (
       id === null ||
       width === null ||
@@ -168,17 +172,6 @@ export function createOcrRepository(database: DatabaseConnection) {
     ) {
       throw new Error('Invalid stored OCR page')
     }
-    const lines = await db
-      .select({
-        rawText: ocrLines.rawText,
-        x0: ocrLines.x0,
-        y0: ocrLines.y0,
-        x1: ocrLines.x1,
-        y1: ocrLines.y1,
-      })
-      .from(ocrLines)
-      .where(eq(ocrLines.ocrPageId, id))
-      .orderBy(asc(ocrLines.lineIndex))
     return { width, height, lines }
   }
 
@@ -187,16 +180,11 @@ export function createOcrRepository(database: DatabaseConnection) {
   }
 
   async function listOcrPages(bookId: string): Promise<OcrPageRecord[]> {
-    const pages = await db
-      .select({
-        page_number: ocrPages.pageNumber,
-        status: ocrPages.status,
-        width: ocrPages.width,
-        height: ocrPages.height,
-      })
-      .from(ocrPages)
-      .where(eq(ocrPages.bookId, bookId))
-      .orderBy(asc(ocrPages.pageNumber))
+    const pages = await db.query.ocrPages.findMany({
+      columns: { pageNumber: true, status: true, width: true, height: true },
+      where: eq(ocrPages.bookId, bookId),
+      orderBy: [asc(ocrPages.pageNumber)],
+    })
     if (pages.some((page) => !isOcrPageStatus(page.status))) throw new Error('Invalid OCR pages')
     return pages
   }
@@ -210,9 +198,9 @@ export function createOcrRepository(database: DatabaseConnection) {
     if (!result) throw new Error('Invalid OCR line count')
     const lines = await db
       .select({
-        page_number: ocrPages.pageNumber,
-        line_index: ocrLines.lineIndex,
-        raw_text: ocrLines.rawText,
+        pageNumber: ocrPages.pageNumber,
+        lineIndex: ocrLines.lineIndex,
+        rawText: ocrLines.rawText,
         x0: ocrLines.x0,
         y0: ocrLines.y0,
         x1: ocrLines.x1,
@@ -230,19 +218,19 @@ export function createOcrRepository(database: DatabaseConnection) {
   async function getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]> {
     const lines = await db
       .select({
-        ocr_page_id: ocrPages.id,
-        page_number: ocrPages.pageNumber,
-        line_index: ocrLines.lineIndex,
-        raw_text: ocrLines.rawText,
+        ocrPageId: ocrPages.id,
+        pageNumber: ocrPages.pageNumber,
+        lineIndex: ocrLines.lineIndex,
+        rawText: ocrLines.rawText,
       })
       .from(ocrLines)
       .innerJoin(ocrPages, eq(ocrPages.id, ocrLines.ocrPageId))
       .where(eq(ocrPages.bookId, bookId))
       .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
     return lines.map((line) => {
-      const { ocr_page_id } = line
-      if (ocr_page_id === null) throw new Error('Invalid OCR lines for chunking')
-      return { ...line, ocr_page_id }
+      const { ocrPageId } = line
+      if (ocrPageId === null) throw new Error('Invalid OCR lines for chunking')
+      return { ...line, ocrPageId }
     })
   }
 

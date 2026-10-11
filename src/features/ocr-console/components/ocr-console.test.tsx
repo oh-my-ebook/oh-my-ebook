@@ -23,9 +23,9 @@ describe('OcrConsole', () => {
         total: 1,
         lines: [
           {
-            page_number: 1,
-            line_index: 0,
-            raw_text: '저장된 OCR 원문',
+            pageNumber: 1,
+            lineIndex: 0,
+            rawText: '저장된 OCR 원문',
             x0: 1,
             y0: 2,
             x1: 3,
@@ -37,7 +37,7 @@ describe('OcrConsole', () => {
     store.listOcrPages.mockImplementation(async () => {
       return [
         {
-          page_number: 1,
+          pageNumber: 1,
           status: 'pending',
           width: null,
           height: null,

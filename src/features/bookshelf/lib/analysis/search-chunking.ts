@@ -93,7 +93,7 @@ async function createParagraphUnits(
   signal: AbortSignal,
   tokenTarget: number,
 ): Promise<ChunkUnit[]> {
-  const processed = await postprocessWithKiwi(lines.map((line) => line.raw_text).join('\n'), signal)
+  const processed = await postprocessWithKiwi(lines.map((line) => line.rawText).join('\n'), signal)
   const processedLines = processed.split('\n').map((line) => line.trim())
   if (processedLines.length !== lines.length) {
     throw new Error('Kiwi 처리 결과의 줄 수가 OCR 원문과 다릅니다.')
@@ -138,16 +138,16 @@ function createChunkSources(lines: OcrLineForChunking[]) {
     const lastSource = sources.at(-1)
     if (
       lastSource &&
-      lastSource.ocrPageId === line.ocr_page_id &&
-      line.line_index <= lastSource.endLineIndex + 1
+      lastSource.ocrPageId === line.ocrPageId &&
+      line.lineIndex <= lastSource.endLineIndex + 1
     ) {
-      lastSource.endLineIndex = Math.max(lastSource.endLineIndex, line.line_index)
+      lastSource.endLineIndex = Math.max(lastSource.endLineIndex, line.lineIndex)
       return
     }
     sources.push({
-      ocrPageId: line.ocr_page_id,
-      startLineIndex: line.line_index,
-      endLineIndex: line.line_index,
+      ocrPageId: line.ocrPageId,
+      startLineIndex: line.lineIndex,
+      endLineIndex: line.lineIndex,
       sourceOrder: sources.length,
     })
   })
@@ -179,7 +179,7 @@ export async function createSearchChunks(
 
   // 1. 빈 줄이 올 때까지 하나의 문단을 형성하고 빈 줄이 오면 문단 배열에 삽입
   ocrLines.forEach((line) => {
-    if (line.raw_text.trim()) {
+    if (line.rawText.trim()) {
       paragraph.push(line)
       return
     }
