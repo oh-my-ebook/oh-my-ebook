@@ -54,18 +54,18 @@ describe('OcrConsole', () => {
       return { total: 0, sources: [] }
     })
     store.listSearchTerms.mockImplementation(async () => {
-      return { total: 1, terms: [{ id: 1, term: '검색', document_frequency: 2 }] }
+      return { total: 1, terms: [{ id: 1, term: '검색', documentFrequency: 2 }] }
     })
     store.listSearchPostings.mockImplementation(async () => {
       return {
         total: 1,
         postings: [
           {
-            term_id: 1,
-            chunk_id: 'chunk-1',
-            term_frequency: 2,
+            termId: 1,
+            chunkId: 'chunk-1',
+            termFrequency: 2,
             term: '검색',
-            chunk_ordinal: 0,
+            chunkOrdinal: 0,
           },
         ],
       }

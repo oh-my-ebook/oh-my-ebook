@@ -1,3 +1,5 @@
+import type { SearchChunk } from './search-index'
+
 export interface SearchChunkQuery {
   bookId: string
   terms: readonly string[]
@@ -10,11 +12,10 @@ export interface SearchChunkSource {
   endLineIndex: number
 }
 
-export interface SearchChunkResult {
-  id: string
-  ordinal: number
-  text: string
-  tokenCount: number
+export interface ScoredSearchChunk extends SearchChunk {
   score: number
+}
+
+export interface SearchChunkResult extends ScoredSearchChunk {
   sources: readonly SearchChunkSource[]
 }

@@ -1,33 +1,34 @@
-export interface ChunkSourceInput {
-  ocrPageId: string
-  startLineIndex: number
-  endLineIndex: number
-  sourceOrder: number
+import type { chunkSources, ocrPages, searchChunks, searchPostings, searchTerms } from '../schema'
+
+type SearchChunkRow = typeof searchChunks.$inferSelect
+type ChunkSourceRow = typeof chunkSources.$inferSelect
+type SearchTermRow = typeof searchTerms.$inferSelect
+type SearchPostingRow = typeof searchPostings.$inferSelect
+type OcrPageRow = typeof ocrPages.$inferSelect
+
+type SearchChunkFields = Omit<SearchChunkRow, 'bookId' | 'createdAt'>
+
+export type ChunkSourceInput = Omit<ChunkSourceRow, 'id' | 'chunkId'>
+
+export interface SearchChunk extends SearchChunkFields {
+  id: string
 }
 
-export interface SearchChunkInput {
-  id: string
-  ordinal: number
-  text: string
-  tokenCount: number
+export interface SearchChunkInput extends SearchChunk {
   sources: readonly ChunkSourceInput[]
 }
 
 export interface SearchTermFrequencyInput {
-  term: string
-  termFrequency: number
+  term: SearchTermRow['term']
+  termFrequency: SearchPostingRow['termFrequency']
 }
 
 export interface SearchIndexChunkInput extends SearchChunkInput {
   terms: readonly SearchTermFrequencyInput[]
 }
 
-export interface SearchChunkRecord {
-  id: string
-  ordinal: number
-  text: string
-  token_count: number
-  created_at: number
+export interface SearchChunkRecord extends SearchChunk {
+  createdAt: SearchChunkRow['createdAt']
 }
 
 export interface SearchChunkPage {
@@ -35,15 +36,10 @@ export interface SearchChunkPage {
   total: number
 }
 
-export interface ChunkSourceRecord {
+export interface ChunkSourceRecord extends ChunkSourceRow {
   id: number
-  chunk_id: string
-  chunk_ordinal: number
-  ocr_page_id: string
-  page_number: number
-  start_line_index: number
-  end_line_index: number
-  source_order: number
+  chunkOrdinal: SearchChunkRow['ordinal']
+  pageNumber: OcrPageRow['pageNumber']
 }
 
 export interface ChunkSourcePage {
@@ -51,10 +47,8 @@ export interface ChunkSourcePage {
   total: number
 }
 
-export interface SearchTermRecord {
+export interface SearchTermRecord extends SearchTermRow {
   id: number
-  term: string
-  document_frequency: number
 }
 
 export interface SearchTermPage {
@@ -62,12 +56,9 @@ export interface SearchTermPage {
   total: number
 }
 
-export interface SearchPostingRecord {
-  term_id: number
-  chunk_id: string
-  term_frequency: number
-  term: string
-  chunk_ordinal: number
+export interface SearchPostingRecord extends SearchPostingRow {
+  term: SearchTermRow['term']
+  chunkOrdinal: SearchChunkRow['ordinal']
 }
 
 export interface SearchPostingPage {

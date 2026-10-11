@@ -3,14 +3,18 @@ import type { ocrLines, ocrPages } from '../schema'
 type OcrLineRow = typeof ocrLines.$inferSelect
 type OcrPageRow = typeof ocrPages.$inferSelect
 
-export type OcrLineInput = Pick<OcrLineRow, 'rawText' | 'x0' | 'y0' | 'x1' | 'y1'>
+type OcrPagePosition = Pick<OcrPageRow, 'id' | 'pageNumber'>
+type OcrChunkingLine = Pick<OcrLineRow, 'ocrPageId' | 'lineIndex' | 'rawText'>
 
-export interface NextOcrPage extends Pick<OcrPageRow, 'pageNumber'> {
+export type OcrLineInput = Omit<OcrLineRow, 'id' | 'ocrPageId' | 'lineIndex'>
+
+export interface NextOcrPage extends OcrPagePosition {
   id: string
 }
 
-export interface OcrLineRecord extends Omit<OcrLineRow, 'id' | 'ocrPageId'> {
+export interface OcrLineRecord extends OcrLineInput {
   pageNumber: OcrPageRow['pageNumber']
+  lineIndex: OcrLineRow['lineIndex']
 }
 
 export interface OcrLinePage {
@@ -18,10 +22,7 @@ export interface OcrLinePage {
   total: number
 }
 
-export interface OcrLineForChunking extends Pick<
-  OcrLineRow,
-  'ocrPageId' | 'lineIndex' | 'rawText'
-> {
+export interface OcrLineForChunking extends OcrChunkingLine {
   pageNumber: OcrPageRow['pageNumber']
 }
 

@@ -589,11 +589,11 @@ describe('SQLocal 저장소', () => {
     const page = { bookId: id, limit: 1, offset: 0 }
     expect(await store.listSearchTerms(page)).toEqual({
       total: 1,
-      terms: [{ id: expect.any(Number), term: '검색', document_frequency: 2 }],
+      terms: [{ id: expect.any(Number), term: '검색', documentFrequency: 2 }],
     })
     expect(await store.listSearchPostings(page)).toEqual({
       total: 2,
-      postings: [expect.objectContaining({ chunk_id: 'chunk-1', term_frequency: 1 })],
+      postings: [expect.objectContaining({ chunkId: 'chunk-1', termFrequency: 1 })],
     })
     expect(await store.listSearchChunks(page)).toEqual({
       total: 2,
@@ -601,7 +601,7 @@ describe('SQLocal 저장소', () => {
     })
     expect(await store.listChunkSources(page)).toEqual({
       total: 2,
-      sources: [expect.objectContaining({ chunk_id: 'chunk-1', page_number: 1 })],
+      sources: [expect.objectContaining({ chunkId: 'chunk-1', pageNumber: 1 })],
     })
     await store.deleteBookById(id)
     expect(await db.sqlocal.sql('SELECT * FROM search_terms')).toEqual([])
@@ -642,28 +642,36 @@ describe('SQLocal 저장소', () => {
     const page = { bookId: id, limit: 1, offset: 1 }
     expect(await store.listSearchChunks(page)).toEqual({
       total: 2,
-      chunks: [expect.objectContaining({ id: 'late', ordinal: 2 })],
+      chunks: [
+        {
+          id: 'late',
+          ordinal: 2,
+          text: '전자책 검색',
+          tokenCount: 2,
+          createdAt: expect.any(Number),
+        },
+      ],
     })
     expect(await store.listSearchTerms({ ...page, offset: 0, limit: 10 })).toEqual({
       total: 2,
       terms: [
-        { id: expect.any(Number), term: 'alpha', document_frequency: 3 },
-        { id: expect.any(Number), term: 'beta', document_frequency: 1 },
+        { id: expect.any(Number), term: 'alpha', documentFrequency: 3 },
+        { id: expect.any(Number), term: 'beta', documentFrequency: 1 },
       ],
     })
     expect(await store.listSearchTerms(page)).toEqual({
       total: 2,
-      terms: [{ id: expect.any(Number), term: 'beta', document_frequency: 1 }],
+      terms: [{ id: expect.any(Number), term: 'beta', documentFrequency: 1 }],
     })
     expect(await store.listSearchPostings(page)).toEqual({
       total: 3,
       postings: [
         {
-          term_id: expect.any(Number),
-          chunk_id: 'late',
-          term_frequency: 1,
+          termId: expect.any(Number),
+          chunkId: 'late',
+          termFrequency: 1,
           term: 'alpha',
-          chunk_ordinal: 2,
+          chunkOrdinal: 2,
         },
       ],
     })
@@ -672,13 +680,13 @@ describe('SQLocal 저장소', () => {
       sources: [
         {
           id: expect.any(Number),
-          chunk_id: 'early',
-          chunk_ordinal: 0,
-          ocr_page_id: pages[0].id,
-          page_number: 1,
-          start_line_index: 1,
-          end_line_index: 2,
-          source_order: 1,
+          chunkId: 'early',
+          chunkOrdinal: 0,
+          ocrPageId: pages[0].id,
+          pageNumber: 1,
+          startLineIndex: 1,
+          endLineIndex: 2,
+          sourceOrder: 1,
         },
       ],
     })

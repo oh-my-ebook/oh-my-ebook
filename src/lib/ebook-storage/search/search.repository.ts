@@ -2,7 +2,12 @@ import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-
 import type { TransactionHandle } from 'sqlocal'
 import type { DatabaseConnection } from '../database-connection'
 import type { ListOcrLinesInput, StoreSearchIndexInput } from '../types/inputs'
-import type { SearchChunkQuery, SearchChunkResult, SearchChunkSource } from '../types/search'
+import type {
+  ScoredSearchChunk,
+  SearchChunkQuery,
+  SearchChunkResult,
+  SearchChunkSource,
+} from '../types/search'
 import type {
   ChunkSourcePage,
   SearchChunkInput,
@@ -87,7 +92,10 @@ export function createSearchRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
   async function storeSearchIndex(input: StoreSearchIndexInput): Promise<void> {
-    const [book] = await db.select({ id: books.id }).from(books).where(eq(books.id, input.bookId))
+    const book = await db.query.books.findFirst({
+      columns: { id: true },
+      where: eq(books.id, input.bookId),
+    })
     if (!book) throw new NotFoundBookError()
 
     const now = Date.now()
@@ -139,19 +147,13 @@ export function createSearchRepository(database: DatabaseConnection) {
       .from(searchChunksTable)
       .where(eq(searchChunksTable.bookId, input.bookId))
     if (!result) throw new Error('Invalid search chunk count')
-    const rows = await db
-      .select({
-        id: searchChunksTable.id,
-        ordinal: searchChunksTable.ordinal,
-        text: searchChunksTable.text,
-        token_count: searchChunksTable.tokenCount,
-        created_at: searchChunksTable.createdAt,
-      })
-      .from(searchChunksTable)
-      .where(eq(searchChunksTable.bookId, input.bookId))
-      .orderBy(asc(searchChunksTable.ordinal))
-      .limit(input.limit)
-      .offset(input.offset)
+    const rows = await db.query.searchChunks.findMany({
+      columns: { bookId: false },
+      where: eq(searchChunksTable.bookId, input.bookId),
+      orderBy: [asc(searchChunksTable.ordinal)],
+      limit: input.limit,
+      offset: input.offset,
+    })
     const chunks = rows.map((row) => {
       const { id } = row
       if (id === null) throw new Error('Invalid search chunks')
@@ -160,13 +162,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     return { chunks, total: result.total }
   }
 
-  function isSearchChunkResultRow(value: unknown): value is {
-    id: string
-    ordinal: number
-    text: string
-    token_count: number
-    score: number
-  } {
+  function isSearchChunkResultRow(value: unknown): value is ScoredSearchChunk {
     if (typeof value !== 'object' || value === null) return false
     return (
       'id' in value &&
@@ -175,8 +171,8 @@ export function createSearchRepository(database: DatabaseConnection) {
       typeof value.ordinal === 'number' &&
       'text' in value &&
       typeof value.text === 'string' &&
-      'token_count' in value &&
-      typeof value.token_count === 'number' &&
+      'tokenCount' in value &&
+      typeof value.tokenCount === 'number' &&
       'score' in value &&
       typeof value.score === 'number' &&
       Number.isFinite(value.score)
@@ -193,25 +189,19 @@ export function createSearchRepository(database: DatabaseConnection) {
       query.limit,
     )
 
-    const chunks: Omit<SearchChunkResult, 'sources'>[] = []
+    const chunks: ScoredSearchChunk[] = []
     for (const row of rows) {
       if (!isSearchChunkResultRow(row)) throw new Error('Invalid search chunks')
-      chunks.push({
-        id: row.id,
-        ordinal: row.ordinal,
-        text: row.text,
-        tokenCount: row.token_count,
-        score: row.score,
-      })
+      chunks.push(row)
     }
     if (chunks.length === 0) return []
 
     const sourceRows = await db
       .select({
-        chunk_id: chunkSources.chunkId,
-        page_number: ocrPages.pageNumber,
-        start_line_index: chunkSources.startLineIndex,
-        end_line_index: chunkSources.endLineIndex,
+        chunkId: chunkSources.chunkId,
+        pageNumber: ocrPages.pageNumber,
+        startLineIndex: chunkSources.startLineIndex,
+        endLineIndex: chunkSources.endLineIndex,
       })
       .from(chunkSources)
       .innerJoin(ocrPages, eq(ocrPages.id, chunkSources.ocrPageId))
@@ -224,14 +214,10 @@ export function createSearchRepository(database: DatabaseConnection) {
       .orderBy(asc(chunkSources.chunkId), asc(chunkSources.sourceOrder))
 
     const sourcesByChunkId = new Map<string, SearchChunkSource[]>()
-    for (const row of sourceRows) {
-      const sources = sourcesByChunkId.get(row.chunk_id) ?? []
-      sources.push({
-        pageNumber: row.page_number,
-        startLineIndex: row.start_line_index,
-        endLineIndex: row.end_line_index,
-      })
-      sourcesByChunkId.set(row.chunk_id, sources)
+    for (const { chunkId, ...source } of sourceRows) {
+      const sources = sourcesByChunkId.get(chunkId) ?? []
+      sources.push(source)
+      sourcesByChunkId.set(chunkId, sources)
     }
 
     return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
@@ -249,7 +235,7 @@ export function createSearchRepository(database: DatabaseConnection) {
       .select({
         id: searchTerms.id,
         term: searchTerms.term,
-        document_frequency: searchTerms.documentFrequency,
+        documentFrequency: searchTerms.documentFrequency,
       })
       .from(searchTerms)
       .innerJoin(searchPostings, eq(searchPostings.termId, searchTerms.id))
@@ -276,11 +262,11 @@ export function createSearchRepository(database: DatabaseConnection) {
     if (!result) throw new Error('Invalid search posting count')
     const postings = await db
       .select({
-        term_id: searchPostings.termId,
-        chunk_id: searchPostings.chunkId,
-        term_frequency: searchPostings.termFrequency,
+        termId: searchPostings.termId,
+        chunkId: searchPostings.chunkId,
+        termFrequency: searchPostings.termFrequency,
         term: searchTerms.term,
-        chunk_ordinal: searchChunksTable.ordinal,
+        chunkOrdinal: searchChunksTable.ordinal,
       })
       .from(searchPostings)
       .innerJoin(searchTerms, eq(searchTerms.id, searchPostings.termId))
@@ -302,13 +288,13 @@ export function createSearchRepository(database: DatabaseConnection) {
     const rows = await db
       .select({
         id: chunkSources.id,
-        chunk_id: chunkSources.chunkId,
-        chunk_ordinal: searchChunksTable.ordinal,
-        ocr_page_id: chunkSources.ocrPageId,
-        page_number: ocrPages.pageNumber,
-        start_line_index: chunkSources.startLineIndex,
-        end_line_index: chunkSources.endLineIndex,
-        source_order: chunkSources.sourceOrder,
+        chunkId: chunkSources.chunkId,
+        chunkOrdinal: searchChunksTable.ordinal,
+        ocrPageId: chunkSources.ocrPageId,
+        pageNumber: ocrPages.pageNumber,
+        startLineIndex: chunkSources.startLineIndex,
+        endLineIndex: chunkSources.endLineIndex,
+        sourceOrder: chunkSources.sourceOrder,
       })
       .from(chunkSources)
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSources.chunkId))

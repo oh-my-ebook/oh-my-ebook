@@ -372,7 +372,7 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                     {searchChunks?.chunks.map((chunk) => (
                       <TableRow key={chunk.id}>
                         <TableCell>{chunk.ordinal}</TableCell>
-                        <TableCell>{chunk.token_count}</TableCell>
+                        <TableCell>{chunk.tokenCount}</TableCell>
                         <TableCell className="font-mono text-xs">{chunk.id}</TableCell>
                         <TableCell className="whitespace-normal">{chunk.text}</TableCell>
                       </TableRow>
@@ -403,12 +403,12 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                   <TableBody>
                     {chunkSources?.sources.map((source) => (
                       <TableRow key={source.id}>
-                        <TableCell>{source.chunk_ordinal}</TableCell>
-                        <TableCell>{source.source_order}</TableCell>
-                        <TableCell>{source.page_number}</TableCell>
-                        <TableCell>{`${source.start_line_index}–${source.end_line_index}`}</TableCell>
-                        <TableCell className="font-mono text-xs">{source.chunk_id}</TableCell>
-                        <TableCell className="font-mono text-xs">{source.ocr_page_id}</TableCell>
+                        <TableCell>{source.chunkOrdinal}</TableCell>
+                        <TableCell>{source.sourceOrder}</TableCell>
+                        <TableCell>{source.pageNumber}</TableCell>
+                        <TableCell>{`${source.startLineIndex}–${source.endLineIndex}`}</TableCell>
+                        <TableCell className="font-mono text-xs">{source.chunkId}</TableCell>
+                        <TableCell className="font-mono text-xs">{source.ocrPageId}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -436,7 +436,7 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                       <TableRow key={term.id}>
                         <TableCell>{term.id}</TableCell>
                         <TableCell>{term.term}</TableCell>
-                        <TableCell>{term.document_frequency}</TableCell>
+                        <TableCell>{term.documentFrequency}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -463,12 +463,12 @@ export function OcrConsole({ store }: { store: OcrConsoleStore }) {
                   </TableHeader>
                   <TableBody>
                     {searchPostings?.postings.map((posting) => (
-                      <TableRow key={`${posting.term_id}-${posting.chunk_id}`}>
-                        <TableCell>{posting.term_id}</TableCell>
+                      <TableRow key={`${posting.termId}-${posting.chunkId}`}>
+                        <TableCell>{posting.termId}</TableCell>
                         <TableCell>{posting.term}</TableCell>
-                        <TableCell>{posting.chunk_ordinal}</TableCell>
-                        <TableCell>{posting.term_frequency}</TableCell>
-                        <TableCell className="font-mono text-xs">{posting.chunk_id}</TableCell>
+                        <TableCell>{posting.chunkOrdinal}</TableCell>
+                        <TableCell>{posting.termFrequency}</TableCell>
+                        <TableCell className="font-mono text-xs">{posting.chunkId}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

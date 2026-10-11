@@ -2,41 +2,8 @@ import type { books } from '../schema'
 
 type BookRow = typeof books.$inferSelect
 
-export interface BookMetadata {
-  author?: string
-  keywords?: string
-  publisher?: string
-  subject?: string
-  title: string
-}
-
-export type BookAnalysisStatus = BookRow['analysisStatus']
-
-export interface AddBookInput {
-  pdfData: ArrayBuffer
-  contentHash: string
-  fileName: string
-  title: string
-  author: string | null
-  pdfTitle: string | null
-  pdfSubject: string | null
-  pdfKeywords: string | null
-  publisher: string | null
-  pdfSize: number
-  pageCount: number
-  coverData: ArrayBuffer | null
-  coverMime: 'image/webp' | 'image/png' | null
-  coverStatus: 'ready' | 'fallback'
-}
-
-export interface StoredBook extends Omit<BookRow, 'id'> {
-  id: string
-  pdfStatus: 'available' | 'missing'
-}
-
-export interface StoredBookDetail extends Pick<
-  StoredBook,
-  | 'id'
+type BookFields = Pick<
+  BookRow,
   | 'contentHash'
   | 'fileName'
   | 'title'
@@ -47,8 +14,44 @@ export interface StoredBookDetail extends Pick<
   | 'publisher'
   | 'pdfSize'
   | 'pageCount'
-  | 'lastPage'
-  | 'analysisStatus'
-> {
+>
+
+interface StoredBookBase extends BookRow {
+  id: string
+}
+
+type StoredBookMetadata = Omit<
+  StoredBookBase,
+  | 'coverData'
+  | 'coverMime'
+  | 'coverStatus'
+  | 'ocrCompletedAt'
+  | 'indexedAt'
+  | 'createdAt'
+  | 'updatedAt'
+>
+
+export interface BookMetadata {
+  author?: string
+  keywords?: string
+  publisher?: string
+  subject?: string
+  title: string
+}
+
+export type BookAnalysisStatus = BookRow['analysisStatus']
+
+export interface AddBookInput extends BookFields {
+  pdfData: ArrayBuffer
+  coverData: ArrayBuffer | null
+  coverMime: 'image/webp' | 'image/png' | null
+  coverStatus: BookRow['coverStatus']
+}
+
+export interface StoredBook extends StoredBookBase {
+  pdfStatus: 'available' | 'missing'
+}
+
+export interface StoredBookDetail extends StoredBookMetadata {
   pdfData: Uint8Array
 }
