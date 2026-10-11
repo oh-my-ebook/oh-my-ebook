@@ -231,9 +231,9 @@ export function createSearchRepository(database: DatabaseConnection) {
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, searchPostings.chunkId))
       .where(eq(searchChunksTable.bookId, input.bookId))
     if (!result) throw new Error('Invalid search term count')
-    const rows = await db
+    const terms = await db
       .select({
-        id: searchTerms.id,
+        id: searchPostings.termId,
         term: searchTerms.term,
         documentFrequency: searchTerms.documentFrequency,
       })
@@ -245,11 +245,6 @@ export function createSearchRepository(database: DatabaseConnection) {
       .orderBy(asc(searchTerms.term))
       .limit(input.limit)
       .offset(input.offset)
-    const terms = rows.map((row) => {
-      const { id } = row
-      if (id === null) throw new Error('Invalid search terms')
-      return { ...row, id }
-    })
     return { terms, total: result.total }
   }
 
