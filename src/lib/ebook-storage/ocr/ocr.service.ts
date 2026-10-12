@@ -7,19 +7,18 @@ import type {
   OcrPageResult,
   OcrPageQuery,
 } from '../types/ocr'
-import type { BookPageMetadata, BookRecordsQuery } from '../types/book'
+import type { BookRecordsQuery } from '../types/book'
 import type { createOcrRepository } from './ocr.repository'
 import {
   isOcrPageQuery,
   isIdentifier,
-  isBookPageMetadata,
   isBookRecordsQuery,
   isOcrPageResult,
   runValidated,
 } from '../validation'
 
 export interface OcrService {
-  initializeOcrPages(bookMetadata: BookPageMetadata): Promise<void>
+  initializeOcrPages(bookId: string): Promise<void>
   prepareOcrPagesForRun(bookId: string): Promise<void>
   acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null>
   storeOcrPage(ocrPage: OcrPageResult): Promise<boolean>
@@ -39,7 +38,7 @@ export function createOcrService(
         'initializeOcrPages',
         ocrRepository.initializeOcrPages,
         bookMetadata,
-        isBookPageMetadata,
+        isIdentifier,
       ),
     prepareOcrPagesForRun: (bookId) =>
       runValidated(

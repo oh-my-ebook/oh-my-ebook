@@ -8,38 +8,41 @@ import type {
   OcrPageRecord,
   StoredOcrPage,
 } from '../types/ocr'
-import type { BookPageMetadata, BookRecordsQuery } from '../types/book'
+import type { BookRecordsQuery } from '../types/book'
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { books, ocrLines, ocrPages } from '../schema'
 import { NotFoundBookError } from '../storage-errors'
 
+type OcrPageInsert = typeof ocrPages.$inferInsert
+
 export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function initializeOcrPages(bookMetadata: BookPageMetadata): Promise<void> {
+  async function initializeOcrPages(bookid: string): Promise<void> {
     const book = await db.query.books.findFirst({
       columns: { pageCount: true },
-      where: eq(books.id, bookMetadata.bookId),
+      where: eq(books.id, bookid),
     })
     if (!book?.pageCount) throw new NotFoundBookError()
 
     const now = Date.now()
-    await sqlocal.batch(() =>
-      Array.from({ length: bookMetadata.pageCount }, (_, index) =>
-        db
-          .insert(ocrPages)
-          .values({
-            id: crypto.randomUUID(),
-            bookId: bookMetadata.bookId,
-            pageNumber: index + 1,
-            status: 'pending',
-            createdAt: now,
-            updatedAt: now,
-          })
-          .onConflictDoNothing()
-          .toSQL(),
-      ),
+    const pages = Array.from(
+      { length: book.pageCount },
+      (_, index) =>
+        ({
+          id: crypto.randomUUID(),
+          bookId: bookid,
+          pageNumber: index + 1,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+        }) satisfies OcrPageInsert,
     )
+
+    const insertPagesSqlStatements = pages.map((page) =>
+      db.insert(ocrPages).values(page).onConflictDoNothing().toSQL(),
+    )
+    await sqlocal.batch(() => insertPagesSqlStatements)
   }
 
   async function prepareOcrPagesForRun(bookId: string): Promise<void> {
@@ -92,22 +95,19 @@ export function createOcrRepository(database: DatabaseConnection) {
       if (!page) throw new NotFoundBookError()
       const { bookId } = page
 
+      const pageOcrLines = ocrPage.lines.map((line, index) => ({
+        ...line,
+        ocrPageId: ocrPage.pageId,
+        lineIndex: index,
+      }))
+
+      const insertOcrLinesSqlStatements = pageOcrLines.map((ocrLine) =>
+        db.insert(ocrLines).values(ocrLine).toSQL(),
+      )
+
       await tx.batch(() => [
         db.delete(ocrLines).where(eq(ocrLines.ocrPageId, ocrPage.pageId)).toSQL(),
-        ...ocrPage.lines.map((line, lineIndex) =>
-          db
-            .insert(ocrLines)
-            .values({
-              ocrPageId: ocrPage.pageId,
-              lineIndex,
-              rawText: line.rawText,
-              x0: line.x0,
-              y0: line.y0,
-              x1: line.x1,
-              y1: line.y1,
-            })
-            .toSQL(),
-        ),
+        ...insertOcrLinesSqlStatements,
       ])
       const [updated] = await tx.query(
         db

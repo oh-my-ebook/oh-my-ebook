@@ -72,11 +72,6 @@ export interface BookTitle {
   title: Book['title']
 }
 
-export interface BookPageMetadata {
-  bookId: Book['id']
-  pageCount: Book['pageCount']
-}
-
 export interface BookRecordsQuery {
   bookId: Book['id']
   limit: number

@@ -2,7 +2,6 @@ import type { DatabaseConnection } from './database-connection'
 import type {
   ImportedBook,
   BookAnalysisStatus,
-  BookPageMetadata,
   BookRecordsQuery,
   BookCover,
   BookProgress,
@@ -141,16 +140,6 @@ function isOcrLine(value: unknown): value is OcrLine {
     typeof value.y1 === 'number' &&
     Number.isFinite(value.y1) &&
     value.y1 > value.y0
-  )
-}
-
-export function isBookPageMetadata(value: unknown): value is BookPageMetadata {
-  return (
-    isRecord(value) &&
-    isIdentifier(value.bookId) &&
-    typeof value.pageCount === 'number' &&
-    Number.isSafeInteger(value.pageCount) &&
-    value.pageCount > 0
   )
 }
 

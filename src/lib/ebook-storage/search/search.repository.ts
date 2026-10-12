@@ -57,16 +57,9 @@ async function storeSearchChunk(
   chunk: SearchChunkWithSources,
   createdAt: number,
 ): Promise<void> {
-  await tx.query(
-    db.insert(searchChunksTable).values({
-      id: chunk.id,
-      bookId,
-      ordinal: chunk.ordinal,
-      text: chunk.text,
-      tokenCount: chunk.tokenCount,
-      createdAt,
-    }),
-  )
+  const { id, ordinal, text, tokenCount } = chunk
+  const searchChunk = { id, bookId, ordinal, text, tokenCount, createdAt }
+  await tx.query(db.insert(searchChunksTable).values(searchChunk))
   for (const source of chunk.sources) {
     const [sourcePage] = await tx.query(
       db
@@ -77,15 +70,8 @@ async function storeSearchChunk(
     if (sourcePage?.bookId !== bookId) {
       throw new Error('Chunk source does not belong to book')
     }
-    await tx.query(
-      db.insert(chunkSources).values({
-        chunkId: chunk.id,
-        ocrPageId: source.ocrPageId,
-        startLineIndex: source.startLineIndex,
-        endLineIndex: source.endLineIndex,
-        sourceOrder: source.sourceOrder,
-      }),
-    )
+    const chunkSource = { ...source, chunkId: chunk.id }
+    await tx.query(db.insert(chunkSources).values(chunkSource))
   }
 }
 

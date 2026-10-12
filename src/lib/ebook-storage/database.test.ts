@@ -24,7 +24,7 @@ async function setup() {
 
 async function preparePages() {
   const context = await setup()
-  await context.store.initializeOcrPages({ bookId: context.id, pageCount: 2 })
+  await context.store.initializeOcrPages(context.id)
   const pages = await context.db.sqlocal.sql<{ id: string }>(
     'SELECT id FROM ocr_pages ORDER BY page_number',
   )
@@ -202,7 +202,7 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 페이지 초기화는 중복되지 않고 동시 선점은 서로 다른 페이지를 반환한다', async () => {
     const { db, id, store } = await preparePages()
-    await store.initializeOcrPages({ bookId: id, pageCount: 2 })
+    await store.initializeOcrPages(id)
     const claimed = await Promise.all([store.acquireNextOcrPage(id), store.acquireNextOcrPage(id)])
     expect(claimed).toEqual([
       expect.objectContaining({ pageNumber: 1 }),
@@ -221,13 +221,12 @@ describe('SQLocal 저장소', () => {
     const id = await store.addBook(createNewBook({ pageCount: 100 }))
     const batchSpy = vi.spyOn(db.sqlocal, 'batch')
     onTestFinished(() => batchSpy.mockRestore())
-    const bookMetadata = { bookId: id, pageCount: 100 }
-    await store.initializeOcrPages(bookMetadata)
+    await store.initializeOcrPages(id)
     const pages = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
     expect(pages.map((page) => page.page_number)).toEqual(
       Array.from({ length: 100 }, (_, index) => index + 1),
     )
-    await store.initializeOcrPages(bookMetadata)
+    await store.initializeOcrPages(id)
     expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
     expect(batchSpy).toHaveBeenCalledTimes(2)
   })
@@ -236,12 +235,10 @@ describe('SQLocal 저장소', () => {
     const { db, id, store } = await setup()
     await db.sqlocal.sql(`CREATE TRIGGER fail_second_page BEFORE INSERT ON ocr_pages
       WHEN NEW.page_number = 2 BEGIN SELECT RAISE(ABORT, 'page failure'); END`)
-    await expect(store.initializeOcrPages({ bookId: id, pageCount: 2 })).rejects.toThrow(
-      'page failure',
-    )
+    await expect(store.initializeOcrPages(id)).rejects.toThrow('page failure')
     expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
     await db.sqlocal.sql('DROP TRIGGER fail_second_page')
-    await store.initializeOcrPages({ bookId: id, pageCount: 2 })
+    await store.initializeOcrPages(id)
     expect(await db.sqlocal.sql('SELECT page_number FROM ocr_pages ORDER BY page_number')).toEqual([
       { page_number: 1 },
       { page_number: 2 },
@@ -334,7 +331,7 @@ describe('SQLocal 저장소', () => {
   it('OCR 재개는 완료 페이지와 다른 책을 유지하고 최초 완료 시각을 덮어쓰지 않는다', async () => {
     const { db, id, store, pages } = await preparePages()
     const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
-    await store.initializeOcrPages({ bookId: otherId, pageCount: 1 })
+    await store.initializeOcrPages(otherId)
     await store.acquireNextOcrPage(otherId)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'failed' WHERE id = ?", pages[1].id)
@@ -371,9 +368,7 @@ describe('SQLocal 저장소', () => {
     for (const command of ['retryBookAnalysis', 'failBookAnalysis', 'failOcrPage'] as const) {
       await expect(store[command]('missing')).rejects.toBeInstanceOf(NotFoundBookError)
     }
-    await expect(
-      store.initializeOcrPages({ bookId: 'missing', pageCount: 1 }),
-    ).rejects.toBeInstanceOf(NotFoundBookError)
+    await expect(store.initializeOcrPages('missing')).rejects.toBeInstanceOf(NotFoundBookError)
     await expect(
       store.storeOcrPage({
         pageId: 'missing',
