@@ -20,7 +20,7 @@ export function createBookRepository(database: DatabaseConnection) {
   }
 
   async function deleteBookById(bookId: string): Promise<void> {
-    return await sqlocal.transaction(async (tx) => {
+    await sqlocal.transaction(async (tx) => {
       const [deleted] = await tx.query(
         db.delete(books).where(eq(books.id, bookId)).returning({ id: books.id }),
       )
@@ -34,7 +34,7 @@ export function createBookRepository(database: DatabaseConnection) {
     const rows = await db.query.books.findMany({
       orderBy: [desc(books.createdAt), desc(books.id)],
     })
-    return rows.map((book) => {
+    const validatedBooks = rows.map((book) => {
       const { id } = book
       if (id === null) throw new Error('Invalid book ID')
       if (!isBookAnalysisStatus(book.analysisStatus))
@@ -47,6 +47,7 @@ export function createBookRepository(database: DatabaseConnection) {
       }
       return { ...book, id }
     })
+    return validatedBooks
   }
 
   async function hasBook(bookId: string): Promise<void> {
@@ -73,7 +74,8 @@ export function createBookRepository(database: DatabaseConnection) {
     if (!book) throw new NotFoundBookError()
     if (book.id === null) throw new Error('Invalid book ID')
     if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
-    return await normalizeStoredProgress(database, bookId, { ...book, id: book.id })
+    const normalizedBook = await normalizeStoredProgress(database, bookId, { ...book, id: book.id })
+    return normalizedBook
   }
 
   async function updateProgress(bookProgress: BookProgress): Promise<void> {

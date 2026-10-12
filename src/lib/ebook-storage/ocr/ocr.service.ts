@@ -33,7 +33,7 @@ export interface OcrService {
 export function createOcrService(
   ocrRepository: ReturnType<typeof createOcrRepository>,
 ): OcrService {
-  return {
+  const ocrService: OcrService = {
     initializeOcrPages: (bookMetadata) =>
       runValidated(
         'initializeOcrPages',
@@ -73,4 +73,5 @@ export function createOcrService(
         isIdentifier,
       ),
   }
+  return ocrService
 }

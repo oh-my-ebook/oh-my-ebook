@@ -22,7 +22,7 @@ export interface SearchService {
 export function createSearchService(
   searchRepository: ReturnType<typeof createSearchRepository>,
 ): SearchService {
-  return {
+  const searchService: SearchService = {
     storeSearchIndex: (searchIndex) =>
       runValidated(
         'storeSearchIndex',
@@ -61,4 +61,5 @@ export function createSearchService(
         isBookRecordsQuery,
       ),
   }
+  return searchService
 }

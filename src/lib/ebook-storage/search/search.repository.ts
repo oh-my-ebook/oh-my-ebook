@@ -100,7 +100,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     if (!book) throw new NotFoundBookError()
 
     const now = Date.now()
-    return await sqlocal.transaction(async (tx) => {
+    await sqlocal.transaction(async (tx) => {
       await tx.query(
         db.delete(searchChunksTable).where(eq(searchChunksTable.bookId, searchIndex.bookId)),
       )
@@ -223,7 +223,11 @@ export function createSearchRepository(database: DatabaseConnection) {
       sourcesByChunkId.set(chunkId, sources)
     }
 
-    return chunks.map((chunk) => ({ ...chunk, sources: sourcesByChunkId.get(chunk.id) ?? [] }))
+    const searchResults = chunks.map((chunk) => ({
+      ...chunk,
+      sources: sourcesByChunkId.get(chunk.id) ?? [],
+    }))
+    return searchResults
   }
 
   async function listSearchTerms(searchTermQuery: BookRecordsQuery): Promise<SearchTermPage> {
@@ -275,7 +279,8 @@ export function createSearchRepository(database: DatabaseConnection) {
       .orderBy(asc(searchTerms.term), asc(searchChunksTable.ordinal))
       .limit(searchPostingQuery.limit)
       .offset(searchPostingQuery.offset)
-    return { postings, total: result.total }
+    const postingPage: SearchPostingPage = { postings, total: result.total }
+    return postingPage
   }
 
   async function listChunkSources(chunkSourceQuery: BookRecordsQuery): Promise<ChunkSourcePage> {

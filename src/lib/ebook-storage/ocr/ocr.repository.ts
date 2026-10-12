@@ -51,7 +51,7 @@ export function createOcrRepository(database: DatabaseConnection) {
 
   async function acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null> {
     const now = Date.now()
-    return await sqlocal.transaction(async (tx) => {
+    const nextPage = await sqlocal.transaction(async (tx) => {
       const [page] = await tx.query(
         db
           .select({ id: ocrPages.id, pageNumber: ocrPages.pageNumber })
@@ -74,13 +74,15 @@ export function createOcrRepository(database: DatabaseConnection) {
           .returning({ id: ocrPages.id }),
       )
       if (!updated) throw new Error('Unable to claim OCR page')
-      return { id, pageNumber }
+      const claimedPage = { id, pageNumber }
+      return claimedPage
     })
+    return nextPage
   }
 
   async function storeOcrPage(ocrPage: OcrPageResult): Promise<boolean> {
     const now = Date.now()
-    return await sqlocal.transaction(async (tx) => {
+    const isBookOcrComplete = await sqlocal.transaction(async (tx) => {
       const [page] = await tx.query(
         db
           .select({ bookId: ocrPages.bookId })
@@ -133,6 +135,7 @@ export function createOcrRepository(database: DatabaseConnection) {
       )
       return true
     })
+    return isBookOcrComplete
   }
 
   async function failOcrPage(pageId: string): Promise<void> {
@@ -172,7 +175,8 @@ export function createOcrRepository(database: DatabaseConnection) {
     ) {
       throw new Error('Invalid stored OCR page')
     }
-    return { width, height, lines }
+    const storedPage: StoredOcrPage | null = { width, height, lines }
+    return storedPage
   }
 
   function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
@@ -212,7 +216,8 @@ export function createOcrRepository(database: DatabaseConnection) {
       .orderBy(asc(ocrPages.pageNumber), asc(ocrLines.lineIndex))
       .limit(ocrLineQuery.limit)
       .offset(ocrLineQuery.offset)
-    return { lines, total: result.total }
+    const linePage: OcrLinePage = { lines, total: result.total }
+    return linePage
   }
 
   async function getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]> {
@@ -230,7 +235,7 @@ export function createOcrRepository(database: DatabaseConnection) {
     return lines
   }
 
-  return {
+  const repository = {
     initializeOcrPages,
     prepareOcrPagesForRun,
     acquireNextOcrPage,
@@ -241,4 +246,5 @@ export function createOcrRepository(database: DatabaseConnection) {
     listOcrLines,
     getOcrLinesForChunking,
   }
+  return repository
 }

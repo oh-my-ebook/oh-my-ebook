@@ -286,5 +286,6 @@ export async function runValidated<Data, Result>(
   isValid: (value: unknown) => value is Data,
 ): Promise<Result> {
   validateData(data, name, isValid)
-  return await operation(data)
+  const operationResult = await operation(data)
+  return operationResult
 }
