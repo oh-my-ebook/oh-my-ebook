@@ -8,6 +8,7 @@ test-results/
 playwright/.cache/
 .vercel/
 pnpm-lock.yaml
+drizzle/**/snapshot.json
 /vercel.json
 
 # Preserve shadcn CLI output verbatim.

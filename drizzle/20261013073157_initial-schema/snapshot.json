@@ -1,0 +1,1000 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "b9af8866-1262-4c1f-9ad2-dc4193a95442",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "books",
+      "entityType": "tables"
+    },
+    {
+      "name": "chunk_sources",
+      "entityType": "tables"
+    },
+    {
+      "name": "ocr_lines",
+      "entityType": "tables"
+    },
+    {
+      "name": "ocr_pages",
+      "entityType": "tables"
+    },
+    {
+      "name": "search_chunks",
+      "entityType": "tables"
+    },
+    {
+      "name": "search_postings",
+      "entityType": "tables"
+    },
+    {
+      "name": "search_terms",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "content_hash",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_name",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "author",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pdf_title",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pdf_subject",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pdf_keywords",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "publisher",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "pdf_size",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "page_count",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "blob",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cover_data",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cover_mime",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cover_status",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_page",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analysis_status",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ocr_completed_at",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "indexed_at",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "books"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "chunk_id",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ocr_page_id",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "start_line_index",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "end_line_index",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source_order",
+      "entityType": "columns",
+      "table": "chunk_sources"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ocr_page_id",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "line_index",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "raw_text",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "x0",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "y0",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "x1",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "y1",
+      "entityType": "columns",
+      "table": "ocr_lines"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "book_id",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "page_number",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "width",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "height",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'pending'",
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "ocr_pages"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "book_id",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ordinal",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "token_count",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "search_chunks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "term_id",
+      "entityType": "columns",
+      "table": "search_postings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "chunk_id",
+      "entityType": "columns",
+      "table": "search_postings"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "term_frequency",
+      "entityType": "columns",
+      "table": "search_postings"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "search_terms"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "term",
+      "entityType": "columns",
+      "table": "search_terms"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "document_frequency",
+      "entityType": "columns",
+      "table": "search_terms"
+    },
+    {
+      "columns": [
+        "chunk_id"
+      ],
+      "tableTo": "search_chunks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_chunk_sources_chunk_id_search_chunks_id_fk",
+      "entityType": "fks",
+      "table": "chunk_sources"
+    },
+    {
+      "columns": [
+        "ocr_page_id"
+      ],
+      "tableTo": "ocr_pages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_chunk_sources_ocr_page_id_ocr_pages_id_fk",
+      "entityType": "fks",
+      "table": "chunk_sources"
+    },
+    {
+      "columns": [
+        "ocr_page_id"
+      ],
+      "tableTo": "ocr_pages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_ocr_lines_ocr_page_id_ocr_pages_id_fk",
+      "entityType": "fks",
+      "table": "ocr_lines"
+    },
+    {
+      "columns": [
+        "book_id"
+      ],
+      "tableTo": "books",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_ocr_pages_book_id_books_id_fk",
+      "entityType": "fks",
+      "table": "ocr_pages"
+    },
+    {
+      "columns": [
+        "book_id"
+      ],
+      "tableTo": "books",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_search_chunks_book_id_books_id_fk",
+      "entityType": "fks",
+      "table": "search_chunks"
+    },
+    {
+      "columns": [
+        "term_id"
+      ],
+      "tableTo": "search_terms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_search_postings_term_id_search_terms_id_fk",
+      "entityType": "fks",
+      "table": "search_postings"
+    },
+    {
+      "columns": [
+        "chunk_id"
+      ],
+      "tableTo": "search_chunks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_search_postings_chunk_id_search_chunks_id_fk",
+      "entityType": "fks",
+      "table": "search_postings"
+    },
+    {
+      "columns": [
+        "term_id",
+        "chunk_id"
+      ],
+      "nameExplicit": false,
+      "name": "search_postings_pk",
+      "entityType": "pks",
+      "table": "search_postings"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "books_pk",
+      "table": "books",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "chunk_sources_pk",
+      "table": "chunk_sources",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ocr_lines_pk",
+      "table": "ocr_lines",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ocr_pages_pk",
+      "table": "ocr_pages",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "search_chunks_pk",
+      "table": "search_chunks",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "search_terms_pk",
+      "table": "search_terms",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "\"created_at\" DESC",
+          "isExpression": true
+        },
+        {
+          "value": "\"id\" DESC",
+          "isExpression": true
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "books_created_at_idx",
+      "entityType": "indexes",
+      "table": "books"
+    },
+    {
+      "columns": [
+        {
+          "value": "chunk_id",
+          "isExpression": false
+        },
+        {
+          "value": "source_order",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "chunk_sources_chunk_order_idx",
+      "entityType": "indexes",
+      "table": "chunk_sources"
+    },
+    {
+      "columns": [
+        {
+          "value": "ocr_page_id",
+          "isExpression": false
+        },
+        {
+          "value": "start_line_index",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "chunk_sources_page_line_idx",
+      "entityType": "indexes",
+      "table": "chunk_sources"
+    },
+    {
+      "columns": [
+        {
+          "value": "ocr_page_id",
+          "isExpression": false
+        },
+        {
+          "value": "line_index",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "ocr_lines_page_order_idx",
+      "entityType": "indexes",
+      "table": "ocr_lines"
+    },
+    {
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false
+        },
+        {
+          "value": "page_number",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "ocr_pages_book_page_idx",
+      "entityType": "indexes",
+      "table": "ocr_pages"
+    },
+    {
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "page_number",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "ocr_pages_resume_idx",
+      "entityType": "indexes",
+      "table": "ocr_pages"
+    },
+    {
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "search_chunks_book_order_idx",
+      "entityType": "indexes",
+      "table": "search_chunks"
+    },
+    {
+      "columns": [
+        {
+          "value": "chunk_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "search_postings_chunk_idx",
+      "entityType": "indexes",
+      "table": "search_postings"
+    },
+    {
+      "columns": [
+        "content_hash"
+      ],
+      "nameExplicit": false,
+      "name": "books_content_hash_unique",
+      "entityType": "uniques",
+      "table": "books"
+    },
+    {
+      "columns": [
+        "term"
+      ],
+      "nameExplicit": false,
+      "name": "search_terms_term_unique",
+      "entityType": "uniques",
+      "table": "search_terms"
+    },
+    {
+      "value": "\"pdf_size\" >= 0",
+      "name": "books_pdf_size_check",
+      "entityType": "checks",
+      "table": "books"
+    },
+    {
+      "value": "\"page_count\" > 0",
+      "name": "books_page_count_check",
+      "entityType": "checks",
+      "table": "books"
+    },
+    {
+      "value": "\"cover_status\" IN ('ready', 'fallback')",
+      "name": "books_cover_status_check",
+      "entityType": "checks",
+      "table": "books"
+    },
+    {
+      "value": "\"last_page\" IS NULL OR (\"last_page\" >= 1 AND \"last_page\" <= \"page_count\")",
+      "name": "books_last_page_check",
+      "entityType": "checks",
+      "table": "books"
+    },
+    {
+      "value": "\"analysis_status\" IN ('analyzing', 'ready', 'failed')",
+      "name": "books_analysis_status_check",
+      "entityType": "checks",
+      "table": "books"
+    },
+    {
+      "value": "\"end_line_index\" >= \"start_line_index\"",
+      "name": "chunk_sources_line_range_check",
+      "entityType": "checks",
+      "table": "chunk_sources"
+    },
+    {
+      "value": "\"x1\" > \"x0\"",
+      "name": "ocr_lines_x1_check",
+      "entityType": "checks",
+      "table": "ocr_lines"
+    },
+    {
+      "value": "\"y1\" > \"y0\"",
+      "name": "ocr_lines_y1_check",
+      "entityType": "checks",
+      "table": "ocr_lines"
+    },
+    {
+      "value": "\"page_number\" > 0",
+      "name": "ocr_pages_page_number_check",
+      "entityType": "checks",
+      "table": "ocr_pages"
+    },
+    {
+      "value": "\"width\" IS NULL OR \"width\" > 0",
+      "name": "ocr_pages_width_check",
+      "entityType": "checks",
+      "table": "ocr_pages"
+    },
+    {
+      "value": "\"height\" IS NULL OR \"height\" > 0",
+      "name": "ocr_pages_height_check",
+      "entityType": "checks",
+      "table": "ocr_pages"
+    },
+    {
+      "value": "\"status\" IN ('pending', 'processing', 'ready', 'failed')",
+      "name": "ocr_pages_status_check",
+      "entityType": "checks",
+      "table": "ocr_pages"
+    },
+    {
+      "value": "\"token_count\" > 0",
+      "name": "search_chunks_token_count_check",
+      "entityType": "checks",
+      "table": "search_chunks"
+    },
+    {
+      "value": "\"term_frequency\" > 0",
+      "name": "search_postings_term_frequency_check",
+      "entityType": "checks",
+      "table": "search_postings"
+    },
+    {
+      "value": "\"document_frequency\" > 0",
+      "name": "search_terms_document_frequency_check",
+      "entityType": "checks",
+      "table": "search_terms"
+    }
+  ],
+  "renames": []
+}
