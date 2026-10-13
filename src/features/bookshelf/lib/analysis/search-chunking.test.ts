@@ -115,8 +115,8 @@ describe('createSearchChunks', () => {
     const { normalizeText, createSearchChunks } = await createChunkingStub()
     normalizeText.mockResolvedValueOnce('합쳐진 한 줄')
     const lines: OcrLineForChunking[] = [
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 줄' },
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '둘째 줄' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '첫 줄' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 1, rawText: '둘째 줄' },
     ]
 
     await expect(createSearchChunks(lines, new AbortController().signal)).rejects.toThrow(

@@ -8,7 +8,7 @@ function createWorkerStub() {
     readonly url: URL
     readonly requests: KiwiWorkerRequest[] = []
     onmessage: ((event: MessageEvent<KiwiWorkerResponse>) => void) | null = null
-    onerror: ((event: ErrorEvent) => void) | null = null
+    onerror: (() => void) | null = null
     terminate = vi.fn()
 
     constructor(url: URL) {
@@ -25,7 +25,7 @@ function createWorkerStub() {
     }
 
     fail() {
-      this.onerror?.(new ErrorEvent('error'))
+      this.onerror?.()
     }
   }
 
