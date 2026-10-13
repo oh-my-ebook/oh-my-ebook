@@ -66,8 +66,17 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - run: pnpm exec playwright install --with-deps --only-shell chromium
+      - name: Cache OCR and Kiwi models
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            public/kiwi/model
+            public/vendor/ocr/paddleocr
+          key: ocr-models-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'scripts/prepare-ocr-assets.sh') }}
+      - name: Build E2E app
+        run: pnpm build
+      - run: pnpm exec playwright test
         id: e2e-tests
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ failure() && steps.e2e-tests.outcome == 'failure' }}

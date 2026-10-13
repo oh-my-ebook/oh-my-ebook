@@ -115,12 +115,14 @@ pnpm test
 pnpm test:e2e
 ```
 
-E2E 실행 시 Playwright가 `http://127.0.0.1:4173`에서 Vite 개발 서버를 자동으로 시작하고
-Chromium으로 테스트한다. 로컬에서 같은 주소의 서버가 실행 중이면 재사용하며 CI에서는 새로 시작한다.
+`pnpm test:e2e`는 `pnpm build`로 OCR·Kiwi 자산을 준비하고 앱을 빌드한 뒤 Playwright를 실행한다.
+Playwright는 `http://127.0.0.1:4173`에서 Vite preview 서버를 시작해 Chromium으로 테스트한다.
+모델 다운로드와 빌드를 서버 시작 대기 시간에서 분리하고, 개발 서버의 모듈 변환 비용이 초기 화면 검증에 섞이지 않도록
+빌드된 앱을 사용하며, 이전 빌드나 개발 서버를 재사용하지 않는다. 실행 전 해당 포트를 비워 둔다.
 브라우저를 업데이트할 때도 `pnpm exec playwright install chromium`을 실행한다.
 Linux에서 브라우저 시스템 의존성도 필요하면 `pnpm exec playwright install --with-deps chromium`을 사용한다.
 
-- `pnpm test:e2e:ui`: UI Mode에서 테스트를 실행하고 디버깅한다.
+- `pnpm test:e2e:ui`: UI Mode에서 테스트를 실행하고 디버깅한다. 앱 코드를 바꾸면 명령을 다시 실행해 빌드한다.
 - `pnpm test:e2e --headed`: 브라우저 창을 표시하며 실행한다.
 - `pnpm test:e2e:report`: 마지막 HTML 보고서를 연다.
 
@@ -130,9 +132,11 @@ E2E는 `playwright.config.ts`에서 관리하며 현재 Chromium에서 실행한
 
 `pnpm check`는 포맷·린트·타입 검사와 Vitest 테스트를 실행한다. E2E는 `pnpm test:e2e`로 별도 실행하며,
 GitHub CI에서는 포맷·린트·타입 검사, `pnpm test:coverage`, E2E를 독립된 job으로 병렬 실행한다.
+E2E job은 캐시 복원 후 `pnpm build`를 별도 단계에서 실행하고, `pnpm exec playwright test`로 빌드 결과를 검증한다.
+Playwright CLI를 직접 실행할 때도 먼저 `pnpm build`를 실행한다.
 Chromium은 E2E job에서만 설치한다. E2E 테스트가 실패한 경우에만 HTML 보고서를 아티팩트로 업로드하고 7일간 보관한다.
 CI의 첫 실패 재시도에서 trace를 수집한다. 로컬에서 trace가 필요하면 `pnpm test:e2e --trace on`으로 실행한다.
-이 E2E는 개발 서버를 대상으로 한다. Vercel 배포는 `vercel.json`에 설정된 `pnpm check && pnpm build`로 검사하고 빌드한다.
+Vercel 배포는 `vercel.json`에 설정된 `pnpm check && pnpm build`로 검사하고 빌드한다.
 
 설정 근거: Playwright 공식 [설치](https://playwright.dev/docs/intro),
 [서버 실행](https://playwright.dev/docs/test-webserver), [CI](https://playwright.dev/docs/ci-intro) 문서.

@@ -16,24 +16,20 @@ test('책장에서 책을 열고 저장된 읽기 위치를 복원한다', async
 
   const progress = await page.getByText(/읽지 않음 · 전체 \d+페이지/).textContent()
   const pageCount = Number(progress?.match(/(\d+)페이지/)?.[1])
-  expect(pageCount).toBeGreaterThan(0)
+  expect(pageCount).toBeGreaterThan(1)
 
   await page.getByRole('button', { name: 'The Local Library 열기' }).click()
   await expect(page).toHaveURL(/\/books\//)
   await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`1 / ${pageCount}`)
 
-  if (pageCount > 1) {
-    await page.getByRole('button', { name: '다음 페이지' }).click()
-    await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
-    await page.goBack()
-    await expect(page).toHaveURL('/library')
-    await expect(page.getByText(`2 / ${pageCount}페이지`)).toBeVisible()
-    await page.getByRole('button', { name: 'The Local Library 열기' }).click()
-    await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
-  }
+  await page.getByRole('button', { name: '다음 페이지' }).click()
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
+  await page.goBack()
+  await expect(page).toHaveURL('/library')
+  await expect(page.getByText(`2 / ${pageCount}페이지`)).toBeVisible()
+  await page.getByRole('button', { name: 'The Local Library 열기' }).click()
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
 
   await page.reload()
-  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(
-    `${pageCount > 1 ? 2 : 1} / ${pageCount}`,
-  )
+  await expect(page.getByRole('status', { name: '페이지 위치' })).toHaveText(`2 / ${pageCount}`)
 })

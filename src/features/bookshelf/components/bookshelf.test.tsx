@@ -8,6 +8,7 @@ import * as pdfImport from '../lib/pdf-import'
 import * as ocrAnalysis from '../lib/analysis/ocr-analysis'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { createPromiseController } from '@/test/promise-controller'
+import { createBookInput } from '@/test/sqlocal'
 import { toast, Toaster } from '@/components/ui/toast'
 import { Bookshelf } from './bookshelf'
 
@@ -88,6 +89,129 @@ describe('Bookshelf', () => {
 
     expect(document.documentElement).not.toHaveClass('dark')
     expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
+  })
+
+  it.each([
+    { saved: null, systemDark: true, dark: true },
+    { saved: 'invalid', systemDark: true, dark: true },
+    { saved: 'invalid', systemDark: false, dark: false },
+    { saved: 'light', systemDark: true, dark: false },
+    { saved: 'dark', systemDark: false, dark: true },
+  ])(
+    '저장된 테마와 시스템 설정으로 시작한다: $saved / $systemDark',
+    async ({ saved, systemDark, dark }) => {
+      if (saved !== null) localStorage.setItem('theme', saved)
+      const media = window.matchMedia('(prefers-color-scheme: dark)')
+      vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: systemDark })
+
+      render(<Bookshelf store={createStore()} />, { wrapper: TestRouter })
+
+      await screen.findByRole('button', { name: '책 추가' })
+      expect(document.documentElement.classList.contains('dark')).toBe(dark)
+      expect(localStorage.getItem('theme')).toBe(saved)
+    },
+  )
+
+  it('localStorage 접근이 차단되어도 시스템 테마에서 시작하고 전환한다', async () => {
+    const user = userEvent.setup()
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true })
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new DOMException('Storage is blocked', 'SecurityError')
+    })
+
+    render(<Bookshelf store={createStore()} />, { wrapper: TestRouter })
+    await screen.findByRole('button', { name: '책 추가' })
+    expect(document.documentElement).toHaveClass('dark')
+
+    await user.click(screen.getByRole('button', { name: '라이트 모드로 전환' }))
+
+    expect(document.documentElement).not.toHaveClass('dark')
+    expect(screen.getByRole('button', { name: '다크 모드로 전환' })).toBeEnabled()
+  })
+
+  it('저장이 실패하면 오류를 알리고 불완전한 책을 표시하지 않는다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    store.saveBook.mockRejectedValueOnce(new EbookStoreError('storage-failed'))
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue(createBookInput())
+    render(
+      <TestRouter>
+        <Toaster>
+          <Bookshelf store={store} />
+        </Toaster>
+      </TestRouter>,
+    )
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.upload(
+      screen.getByLabelText('PDF 파일 선택'),
+      new File(['pdf'], 'book.pdf', { type: 'application/pdf' }),
+    )
+
+    expect(await screen.findByText('PDF 저장에 실패했습니다. 다시 시도해 주세요.')).toBeVisible()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: '책 추가' })).toBeEnabled()
+  })
+
+  it('손상·암호 PDF를 안내하고 다음 유효한 파일을 추가한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    const book = { ...createStoredBook('정상 책'), analysis_status: 'ready' as const }
+    vi.spyOn(pdfImport, 'analyzePdf')
+      .mockRejectedValueOnce(new pdfImport.PdfImportError('invalid-document'))
+      .mockRejectedValueOnce(new pdfImport.PdfImportError('password-required'))
+      .mockResolvedValueOnce(createBookInput({ title: book.title }))
+    store.saveBook.mockImplementation(async () => {
+      store.listBooks.mockResolvedValue([book])
+      return book.id
+    })
+    vi.spyOn(ocrAnalysis, 'runOcrAnalysis').mockResolvedValue('completed')
+    render(
+      <TestRouter>
+        <Toaster>
+          <Bookshelf store={store} />
+        </Toaster>
+      </TestRouter>,
+    )
+    await screen.findByRole('button', { name: '책 추가' })
+
+    await user.upload(
+      screen.getByLabelText('PDF 파일 선택'),
+      ['broken.pdf', 'locked.pdf', 'valid.pdf'].map(
+        (name) => new File(['pdf'], name, { type: 'application/pdf' }),
+      ),
+    )
+
+    expect(await screen.findByText('손상되었거나 페이지가 없는 PDF입니다.')).toBeVisible()
+    expect(screen.getByText('암호가 필요한 PDF는 추가할 수 없습니다.')).toBeVisible()
+    expect(await screen.findByRole('article', { name: book.title })).toBeVisible()
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+  })
+
+  it('삭제 저장이 실패하면 책을 유지하고 다이얼로그에서 다시 삭제한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    const book = { ...createStoredBook('삭제할 책'), analysis_status: 'ready' as const }
+    store.listBooks.mockResolvedValue([book])
+    store.deleteBook
+      .mockRejectedValueOnce(new Error('delete failed'))
+      .mockImplementationOnce(async () => {
+        store.listBooks.mockResolvedValue([])
+      })
+    render(<Bookshelf store={store} />, { wrapper: TestRouter })
+    await user.click(await screen.findByRole('button', { name: '삭제할 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '책 삭제' }))
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('책을 삭제하지 못했습니다.')
+    expect(screen.getByText(book.title, { exact: true })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    await waitFor(() =>
+      expect(screen.queryByText(book.title, { exact: true })).not.toBeInTheDocument(),
+    )
+    expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
   it('목록 조회 중 책장 조작을 비활성화하고 완료 후 책 추가 카드만 있는 빈 서재를 보여준다', async () => {
