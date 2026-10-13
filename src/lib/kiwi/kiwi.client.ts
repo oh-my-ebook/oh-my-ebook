@@ -31,7 +31,7 @@ export class KiwiClient {
     const message: KiwiWorkerRequest = { id, type, text }
 
     const pendingRequest = await new Promise<Result>((resolve, reject) => {
-      const removeAbortListener = this.addAbortListener(signal)
+      const removeAbortListener = this.addAbortListener(id, signal)
 
       this.pendingRequests.set(id, {
         type,
@@ -70,8 +70,7 @@ export class KiwiClient {
     const request = this.pendingRequests.get(data.id)
     if (!request) return
 
-    this.pendingRequests.delete(data.id)
-    request.removeAbortListener()
+    this.removeAbortListener(data.id)
 
     if (data.ok === false) {
       request.reject(new Error(data.error))
@@ -93,12 +92,27 @@ export class KiwiClient {
     }
   }
 
-  private addAbortListener(signal: AbortSignal): () => void {
-    const abort = () => this.stopWorker(this.getAbortError(signal))
+  private addAbortListener(id: number, signal: AbortSignal): () => void {
+    const abort = () => {
+      const request = this.pendingRequests.get(id)
+      if (!request) return
+
+      this.removeAbortListener(id)
+
+      request.reject(this.getAbortError(signal))
+    }
 
     signal.addEventListener('abort', abort, { once: true })
 
     return () => signal.removeEventListener('abort', abort)
+  }
+
+  private removeAbortListener(id: number): void {
+    const request = this.pendingRequests.get(id)
+    if (!request) return
+
+    this.pendingRequests.delete(id)
+    request.removeAbortListener()
   }
 
   private stopWorker(error: Error): void {

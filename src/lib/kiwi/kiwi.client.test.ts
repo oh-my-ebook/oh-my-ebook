@@ -85,27 +85,51 @@ describe('KiwiClient', () => {
     expect(workers).toHaveLength(0)
   })
 
-  it('중단하면 모든 대기 요청을 거부하고 다음 요청에서 Worker를 다시 생성한다', async () => {
-    const { getWorker } = createWorkerStub()
+  it('취소된 signal의 요청만 거부하고 다른 요청은 같은 Worker에서 처리한다', async () => {
+    const { workers, getWorker } = createWorkerStub()
     const { kiwiClient } = await import('./kiwi.client')
     const controller = new AbortController()
-    const secondController = new AbortController()
     const first = kiwiClient.normalizeText('첫 문장', controller.signal)
-    const second = kiwiClient.extractSearchTerms('둘째 문장', secondController.signal)
+    const second = kiwiClient.extractSearchTerms('검색어', controller.signal)
+    const other = kiwiClient.normalizeText('다른 문장', new AbortController().signal)
     const firstRejection = first.catch((error: unknown) => error)
     const secondRejection = second.catch((error: unknown) => error)
+    const otherResult = other.catch((error: unknown) => error)
+    const worker = getWorker()
 
     controller.abort()
+    worker.respond({ id: 3, ok: true, type: 'normalize-text', text: '다른 문장' })
 
     await expect(firstRejection).resolves.toBe(controller.signal.reason)
     await expect(secondRejection).resolves.toBe(controller.signal.reason)
-    expect(getWorker().terminate).toHaveBeenCalledOnce()
+    await expect(otherResult).resolves.toBe('다른 문장')
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(workers).toHaveLength(1)
+  })
 
-    const next = kiwiClient.normalizeText('새 문장', new AbortController().signal)
-    secondController.abort()
-    getWorker(1).respond({ id: 3, ok: true, type: 'normalize-text', text: '새 문장' })
-    await expect(next).resolves.toBe('새 문장')
-    expect(getWorker(1).terminate).not.toHaveBeenCalled()
+  it('취소된 요청의 늦은 응답을 무시하고 이후 요청을 처리한다', async () => {
+    const { getWorker } = createWorkerStub()
+    const { kiwiClient } = await import('./kiwi.client')
+    const controller = new AbortController()
+    const cancelled = kiwiClient.normalizeText('취소할 문장', controller.signal)
+    const cancellation = cancelled.catch((error: unknown) => error)
+    const worker = getWorker()
+
+    controller.abort()
+
+    await expect(cancellation).resolves.toBe(controller.signal.reason)
+    expect(worker.terminate).not.toHaveBeenCalled()
+
+    const next = kiwiClient.extractSearchTerms('검색어', new AbortController().signal)
+    worker.respond({ id: 1, ok: true, type: 'normalize-text', text: '늦은 응답' })
+    worker.respond({
+      id: 2,
+      ok: true,
+      type: 'extract-search-terms',
+      terms: [{ term: '검색어', frequency: 1 }],
+    })
+
+    await expect(next).resolves.toEqual([{ term: '검색어', frequency: 1 }])
   })
 
   it('완료된 요청의 취소 신호는 다른 요청을 중단하지 않는다', async () => {
