@@ -57,10 +57,10 @@ describe('searchBookChunks', () => {
       },
     ])
     extractSearchTerms.mockResolvedValue([
-      { term: ' 전자책 ', frequency: 1 },
-      { term: '검색', frequency: 2 },
-      { term: '전자책', frequency: 1 },
-      { term: '   ', frequency: 1 },
+      { term: ' 전자책 ', termFrequency: 1 },
+      { term: '검색', termFrequency: 2 },
+      { term: '전자책', termFrequency: 1 },
+      { term: '   ', termFrequency: 1 },
     ])
     const signal = new AbortController().signal
 

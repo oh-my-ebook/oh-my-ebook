@@ -59,12 +59,12 @@ describe('KiwiClient', () => {
       id: 2,
       ok: true,
       type: 'extract-search-terms',
-      terms: [{ term: '검색', frequency: 2 }],
+      terms: [{ term: '검색', termFrequency: 2 }],
     })
     worker.respond({ id: 1, ok: true, type: 'normalize-text', text: '정규화한 문장' })
 
     await expect(normalization).resolves.toBe('정규화한 문장')
-    await expect(extraction).resolves.toEqual([{ term: '검색', frequency: 2 }])
+    await expect(extraction).resolves.toEqual([{ term: '검색', termFrequency: 2 }])
     expect(workers).toHaveLength(1)
     expect(String(worker.url)).toContain('/lib/kiwi/kiwi.worker.ts')
     expect(worker.requests).toEqual([
@@ -126,10 +126,10 @@ describe('KiwiClient', () => {
       id: 2,
       ok: true,
       type: 'extract-search-terms',
-      terms: [{ term: '검색어', frequency: 1 }],
+      terms: [{ term: '검색어', termFrequency: 1 }],
     })
 
-    await expect(next).resolves.toEqual([{ term: '검색어', frequency: 1 }])
+    await expect(next).resolves.toEqual([{ term: '검색어', termFrequency: 1 }])
   })
 
   it('완료된 요청의 취소 신호는 다른 요청을 중단하지 않는다', async () => {
@@ -223,10 +223,10 @@ describe('KiwiClient', () => {
       id: 2,
       ok: true,
       type: 'extract-search-terms',
-      terms: [{ term: '검색어', frequency: 2 }],
+      terms: [{ term: '검색어', termFrequency: 2 }],
     })
 
-    await expect(pending).resolves.toEqual([{ term: '검색어', frequency: 2 }])
+    await expect(pending).resolves.toEqual([{ term: '검색어', termFrequency: 2 }])
   })
 
   it('분석 오류를 전달하고 실패한 요청의 취소 신호가 다음 요청에 영향을 주지 않는다', async () => {
