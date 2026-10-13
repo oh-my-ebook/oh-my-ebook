@@ -23,5 +23,5 @@ export function extractSearchTerms(tool: KiwiTools, text: string): KiwiSearchTer
     frequencies.set(term, (frequencies.get(term) ?? 0) + 1)
   })
 
-  return Array.from(frequencies, ([term, frequency]) => ({ term, frequency }))
+  return Array.from(frequencies, ([term, termFrequency]) => ({ term, termFrequency }))
 }

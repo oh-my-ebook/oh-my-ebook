@@ -55,7 +55,7 @@ export async function runOcrAnalysis(
           const terms = await kiwiClient.extractSearchTerms(chunk.text, controller.signal)
           indexedChunks.push({
             ...chunk,
-            terms: terms.map(({ term, frequency }) => ({ term, termFrequency: frequency })),
+            terms,
           })
         }
         await store.storeSearchIndex({ bookId, chunks: indexedChunks })

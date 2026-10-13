@@ -7,7 +7,7 @@ export interface KiwiTools {
 
 export interface KiwiSearchTerm {
   term: string
-  frequency: number
+  termFrequency: number
 }
 
 export interface KiwiWorkerRequest {

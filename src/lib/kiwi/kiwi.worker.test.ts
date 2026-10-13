@@ -69,7 +69,7 @@ describe('Kiwi Worker', () => {
           id: 2,
           ok: true,
           type: KIWI_REQUEST.EXTRACT_SEARCH_TERMS,
-          terms: [{ term: '검색', frequency: 2 }],
+          terms: [{ term: '검색', termFrequency: 2 }],
         },
         { id: 3, ok: true, type: KIWI_REQUEST.NORMALIZE_TEXT, text: '다음·문장' },
       ]),

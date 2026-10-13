@@ -39,11 +39,11 @@ describe('extractSearchTerms', () => {
     }
 
     expect(extractSearchTerms(kiwi, '전자책은 검색 검색이 편리하다. PDF 2026')).toEqual([
-      { term: '전자책', frequency: 1 },
-      { term: '검색', frequency: 3 },
-      { term: '편리하다', frequency: 1 },
-      { term: 'PDF', frequency: 1 },
-      { term: '2026', frequency: 1 },
+      { term: '전자책', termFrequency: 1 },
+      { term: '검색', termFrequency: 3 },
+      { term: '편리하다', termFrequency: 1 },
+      { term: 'PDF', termFrequency: 1 },
+      { term: '2026', termFrequency: 1 },
     ])
   })
 })

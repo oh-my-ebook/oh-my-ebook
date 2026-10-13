@@ -53,7 +53,7 @@ describe('runOcrAnalysis', () => {
     createSearchChunks.mockResolvedValue([
       { id: 'chunk-1', ordinal: 0, text: '검색 청크', tokenCount: 2, sources: [] },
     ])
-    extractSearchTerms.mockResolvedValue([{ term: '검색', frequency: 3 }])
+    extractSearchTerms.mockResolvedValue([{ term: '검색', termFrequency: 3 }])
     const store = createStoreMock()
     store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
@@ -194,7 +194,7 @@ describe('runOcrAnalysis', () => {
     createSearchChunks.mockResolvedValueOnce([
       { id: 'chunk-1', ordinal: 0, text: '검색 청크', tokenCount: 2, sources: [] },
     ])
-    extractSearchTerms.mockResolvedValueOnce([{ term: '검색', frequency: 1 }])
+    extractSearchTerms.mockResolvedValueOnce([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
     store.getBook.mockImplementation(async () => {
       return createStoredBookDetail({ pdfData: new Uint8Array([1]) })
