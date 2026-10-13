@@ -191,6 +191,32 @@ describe('SQLocal 저장소', () => {
     expect(await store.getBookMetadata(id)).toMatchObject({ id })
   })
 
+  it('책을 삭제하면 OCR·검색 데이터와 사용하지 않는 검색어도 삭제한다', async () => {
+    const { db, id, store, pages } = await preparePages()
+    await store.acquireNextOcrPage(id)
+    await store.storeOcrPage({
+      pageId: pages[0].id,
+      width: 100,
+      height: 200,
+      lines: [{ rawText: '전자책 검색', x0: 0, y0: 0, x1: 10, y1: 10 }],
+    })
+    await store.storeSearchIndex({ bookId: id, chunks: [chunk('chunk-1', pages[0].id)] })
+
+    await store.deleteBookById(id)
+
+    for (const table of [
+      'books',
+      'ocr_pages',
+      'ocr_lines',
+      'search_chunks',
+      'chunk_sources',
+      'search_terms',
+      'search_postings',
+    ]) {
+      expect(await db.sqlocal.sql(`SELECT * FROM ${table}`)).toEqual([])
+    }
+  })
+
   it('동일 PDF의 동시 저장은 하나만 성공하고 중복 오류 뒤에도 저장할 수 있다', async () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
@@ -559,7 +585,7 @@ describe('SQLocal 저장소', () => {
   )
 
   it('검색 색인·출처·용어·빈도를 저장하고 BM25 순위와 페이지 출처를 반환한다', async () => {
-    const { db, id, store, pages } = await preparePages()
+    const { id, store, pages } = await preparePages()
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -605,10 +631,6 @@ describe('SQLocal 저장소', () => {
       total: 2,
       sources: [expect.objectContaining({ chunkId: 'chunk-1', pageNumber: 1 })],
     })
-    await store.deleteBookById(id)
-    expect(await db.sqlocal.sql('SELECT * FROM search_terms')).toEqual([])
-    expect(await db.sqlocal.sql('SELECT * FROM search_postings')).toEqual([])
-    expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
   })
 
   it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
