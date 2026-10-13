@@ -102,7 +102,7 @@ export function useBookshelf(store: BookshelfStore) {
   // 분석이 완료되지 않은 책에 대해 OCR 분석을 재개한다.
   useEffect(() => {
     if (state.status !== 'ready') return
-    const pendingBooks = state.books.filter((book) => book.analysis_status === 'analyzing')
+    const pendingBooks = state.books.filter((book) => book.analysisStatus === 'analyzing')
 
     async function resumeOcrAnalysis() {
       for (const book of pendingBooks) {
@@ -114,7 +114,7 @@ export function useBookshelf(store: BookshelfStore) {
             status: 'ready',
             books: current.books.map((currentBook) =>
               currentBook.id === book.id
-                ? { ...currentBook, analysis_status: 'failed' }
+                ? { ...currentBook, analysisStatus: 'failed' }
                 : currentBook,
             ),
           }
@@ -147,7 +147,7 @@ export function useBookshelf(store: BookshelfStore) {
 
   async function renameBook(bookId: string, title: string) {
     try {
-      await store.updateTitle({ id: bookId, title })
+      await store.updateTitle({ bookId, title })
     } catch {
       toast.add({ title: '책 제목을 수정하지 못했습니다.', type: 'error' })
       return

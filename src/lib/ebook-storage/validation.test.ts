@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isSearchChunkQuery, isStoreSearchIndexInput } from './validation'
+import { isSearchChunkQuery, isSearchIndex } from './validation'
 
 describe('BM25 검색 요청 검증', () => {
   it('중복이 제거된 검색어와 최대 5개 결과를 허용한다', () => {
@@ -25,7 +25,7 @@ describe('BM25 검색 요청 검증', () => {
 describe('검색 역색인 저장 입력 검증', () => {
   it('청크별 term 빈도를 허용한다', () => {
     expect(
-      isStoreSearchIndexInput({
+      isSearchIndex({
         bookId: 'book-id',
         chunks: [
           {
@@ -68,7 +68,7 @@ describe('검색 역색인 저장 입력 검증', () => {
     },
   ])('잘못된 청크·원본 범위·term 빈도를 거부한다', ({ terms, ...chunk }) => {
     expect(
-      isStoreSearchIndexInput({
+      isSearchIndex({
         bookId: 'book-id',
         chunks: [
           {

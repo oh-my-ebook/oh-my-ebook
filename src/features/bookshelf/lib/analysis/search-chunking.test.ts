@@ -20,8 +20,8 @@ describe('createSearchChunks', () => {
     const { normalizeText, createSearchChunks } = await createChunkingStub()
     const chunks = await createSearchChunks(
       [
-        { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '' },
-        { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '   ' },
+        { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '' },
+        { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 1, rawText: '   ' },
       ],
       new AbortController().signal,
     )
@@ -33,10 +33,10 @@ describe('createSearchChunks', () => {
   it('빈 줄로 문단을 나누고 짧은 문단을 합치며 페이지별 줄 범위를 남긴다', async () => {
     const { normalizeText, createSearchChunks } = await createChunkingStub()
     const lines: OcrLineForChunking[] = [
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 문장' },
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '둘째 문장' },
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 2, raw_text: '' },
-      { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '셋째 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '첫 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 1, rawText: '둘째 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 2, rawText: '' },
+      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 0, rawText: '셋째 문장' },
     ]
     normalizeText.mockImplementation(async (text: string) => text)
 
@@ -62,10 +62,10 @@ describe('createSearchChunks', () => {
     const { normalizeText, createSearchChunks } = await createChunkingStub()
     const lines: OcrLineForChunking[] = [
       {
-        ocr_page_id: 'page-1',
-        page_number: 1,
-        line_index: 0,
-        raw_text: '하나 둘 셋 넷 다섯',
+        ocrPageId: 'page-1',
+        pageNumber: 1,
+        lineIndex: 0,
+        rawText: '하나 둘 셋 넷 다섯',
       },
     ]
     normalizeText.mockImplementation(async (text: string) => text)
@@ -87,12 +87,12 @@ describe('createSearchChunks', () => {
   it('긴 문단에서 OCR 줄을 넘는 문장을 문장 경계로 분할하고 관련 줄 범위를 연결한다', async () => {
     const { normalizeText, createSearchChunks } = await createChunkingStub()
     const lines: OcrLineForChunking[] = [
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '하나 둘 셋' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '하나 둘 셋' },
       {
-        ocr_page_id: 'page-1',
-        page_number: 1,
-        line_index: 1,
-        raw_text: '넷 다섯. 여섯 일곱 여덟 아홉.',
+        ocrPageId: 'page-1',
+        pageNumber: 1,
+        lineIndex: 1,
+        rawText: '넷 다섯. 여섯 일곱 여덟 아홉.',
       },
     ]
     normalizeText.mockImplementation(async (text: string) => text)

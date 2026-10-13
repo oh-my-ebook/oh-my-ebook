@@ -1,19 +1,18 @@
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
-import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
+import { createDrizzleDatabase } from './drizzle-database'
 import { UnsupportedStorageError } from './storage-errors'
 import { ENABLE_FOREIGN_KEYS_SQL, GET_SCHEMA_VERSION_SQL, INITIAL_SCHEMA_SQL } from './schema-sql'
 
 export interface DatabaseConnection {
   sqlocal: SQLocalDrizzle
-  db: SqliteRemoteDatabase
+  db: ReturnType<typeof createDrizzleDatabase>
 }
 
 export const sqlocal = new SQLocalDrizzle({
   databasePath: '/ebook-library.sqlite3',
   onInit: (sql) => [sql(ENABLE_FOREIGN_KEYS_SQL)],
 })
-const { driver, batchDriver } = sqlocal
-export const db = drizzle(driver, batchDriver)
+export const db = createDrizzleDatabase(sqlocal)
 
 let initializationPromise: Promise<void> | undefined
 

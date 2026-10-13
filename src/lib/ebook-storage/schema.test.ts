@@ -79,12 +79,12 @@ describe('Drizzle 스키마', () => {
   it('표지 BLOB을 Uint8Array로 저장하고 복원한다', async () => {
     const database = await createSeededDatabase(baselineSql)
     const coverData = new Uint8Array([0, 128, 255])
-    const driverValue = schema.books.coverData.mapToDriverValue(coverData)
+    const driverValue = schema.booksTable.coverData.mapToDriverValue(coverData)
     if (!(driverValue instanceof Uint8Array)) throw new Error('표지 바인딩 값이 아닙니다.')
     await database.sql('UPDATE books SET cover_data = ?', driverValue)
     const storedValue = await selectValue(database, 'SELECT cover_data FROM books')
     if (!(storedValue instanceof Uint8Array)) throw new Error('표지 BLOB이 아닙니다.')
-    expect(schema.books.coverData.mapFromDriverValue(storedValue)).toEqual(coverData)
+    expect(schema.booksTable.coverData.mapFromDriverValue(storedValue)).toEqual(coverData)
   })
 })
 

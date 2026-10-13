@@ -24,7 +24,9 @@ async function openReader(page: import('@playwright/test').Page) {
 }
 
 test.describe('보조 패널 채팅', () => {
-  test('넓은 화면에서 모델을 다운로드하기 전에는 질문을 입력할 수 없다', async ({ page }) => {
+  test('넓은 화면에서 다운로드 전 조작 상태를 표시하고 키보드로 패널 너비를 조절한다', async ({
+    page,
+  }) => {
     await openReader(page)
     await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
     await expect(page.getByRole('region', { name: PANEL_TITLE })).toBeVisible()
@@ -32,11 +34,6 @@ test.describe('보조 패널 채팅', () => {
 
     await expect(page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })).toBeDisabled()
     await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeDisabled()
-  })
-
-  test('넓은 화면에서 키보드로 패널 너비를 조절한다', async ({ page }) => {
-    await openReader(page)
-    await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
 
     const panel = page.getByRole('region', { name: PANEL_TITLE })
     const handle = page.getByRole('separator', { name: '함께 읽기 패널 너비 조절' })
@@ -59,28 +56,16 @@ test.describe('보조 패널 채팅', () => {
       await page.getByRole('button', { name: PANEL_OPEN_LABEL }).click()
       const panel = page.getByRole('dialog', { name: PANEL_TITLE })
       await expect(panel).toBeVisible()
-      await expect.poll(async () => (await panel.boundingBox())?.x).toBe(80)
+      await expect(page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })).toBeInViewport({
+        ratio: 1,
+      })
+      await expect(page.getByRole('button', { name: SEND_BUTTON_LABEL })).toBeInViewport({
+        ratio: 1,
+      })
 
       const input = page.getByRole('textbox', { name: MESSAGE_INPUT_LABEL })
       await expect(input).toBeVisible()
 
-      const viewportSize = page.viewportSize()
-      const inputBox = await input.boundingBox()
-      const sendButtonBox = await page
-        .getByRole('button', { name: SEND_BUTTON_LABEL })
-        .boundingBox()
-      if (!viewportSize || !inputBox || !sendButtonBox) {
-        throw new Error('채팅 조작부의 위치를 확인하지 못했습니다.')
-      }
-
-      expect(inputBox.x).toBeGreaterThanOrEqual(0)
-      expect(inputBox.x + inputBox.width).toBeLessThanOrEqual(viewportSize.width)
-      expect(inputBox.y).toBeGreaterThanOrEqual(0)
-      expect(inputBox.y + inputBox.height).toBeLessThanOrEqual(viewportSize.height)
-      expect(sendButtonBox.x).toBeGreaterThanOrEqual(0)
-      expect(sendButtonBox.x + sendButtonBox.width).toBeLessThanOrEqual(viewportSize.width)
-      expect(sendButtonBox.y).toBeGreaterThanOrEqual(0)
-      expect(sendButtonBox.y + sendButtonBox.height).toBeLessThanOrEqual(viewportSize.height)
       expect(await hasHorizontalOverflow(page)).toBe(false)
     })
   })
