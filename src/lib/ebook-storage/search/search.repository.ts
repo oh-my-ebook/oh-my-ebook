@@ -106,12 +106,7 @@ export function createSearchRepository(database: DatabaseConnection) {
               .returning({ id: searchTermsTable.id }),
           )
           const termId = storedTerm?.id
-          if (
-            termId === undefined ||
-            termId === null ||
-            !Number.isSafeInteger(termId) ||
-            termId <= 0
-          ) {
+          if (termId === undefined || !Number.isSafeInteger(termId) || termId <= 0) {
             throw new Error('Unable to store search term')
           }
           await tx.query(
@@ -130,23 +125,22 @@ export function createSearchRepository(database: DatabaseConnection) {
     })
   }
 
-  async function listSearchChunks(searchChunkQuery: BookRecordsQuery): Promise<SearchChunkPage> {
+  async function listSearchChunks({
+    bookId,
+    limit,
+    offset,
+  }: BookRecordsQuery): Promise<SearchChunkPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchChunksTable)
-      .where(eq(searchChunksTable.bookId, searchChunkQuery.bookId))
+      .where(eq(searchChunksTable.bookId, bookId))
     if (!result) throw new Error('Invalid search chunk count')
-    const rows = await db.query.searchChunksTable.findMany({
+    const chunks = await db.query.searchChunksTable.findMany({
       columns: { bookId: false },
-      where: { bookId: searchChunkQuery.bookId },
+      where: { bookId },
       orderBy: { ordinal: 'asc' },
-      limit: searchChunkQuery.limit,
-      offset: searchChunkQuery.offset,
-    })
-    const chunks = rows.map((row) => {
-      const { id } = row
-      if (id === null) throw new Error('Invalid search chunks')
-      return { ...row, id }
+      limit: limit,
+      offset: offset,
     })
     return { chunks, total: result.total }
   }
@@ -276,7 +270,7 @@ export function createSearchRepository(database: DatabaseConnection) {
       .innerJoin(searchChunksTable, eq(searchChunksTable.id, chunkSourcesTable.chunkId))
       .where(eq(searchChunksTable.bookId, chunkSourceQuery.bookId))
     if (!result) throw new Error('Invalid chunk source count')
-    const rows = await db
+    const sources = await db
       .select({
         id: chunkSourcesTable.id,
         chunkId: chunkSourcesTable.chunkId,
@@ -294,11 +288,6 @@ export function createSearchRepository(database: DatabaseConnection) {
       .orderBy(asc(searchChunksTable.ordinal), asc(chunkSourcesTable.sourceOrder))
       .limit(chunkSourceQuery.limit)
       .offset(chunkSourceQuery.offset)
-    const sources = rows.map((row) => {
-      const { id } = row
-      if (id === null) throw new Error('Invalid chunk sources')
-      return { ...row, id }
-    })
     return { sources, total: result.total }
   }
 

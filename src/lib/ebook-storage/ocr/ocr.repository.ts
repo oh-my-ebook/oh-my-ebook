@@ -73,7 +73,6 @@ export function createOcrRepository(database: DatabaseConnection) {
       }
 
       const { id, pageNumber } = page
-      if (id === null) throw new Error('Invalid OCR page')
       const [updated] = await tx.query(
         db
           .update(ocrPagesTable)
@@ -154,7 +153,7 @@ export function createOcrRepository(database: DatabaseConnection) {
 
   async function getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null> {
     const page = await db.query.ocrPagesTable.findFirst({
-      columns: { id: true, width: true, height: true },
+      columns: { width: true, height: true },
       where: {
         bookId: ocrPageQuery.bookId,
         pageNumber: ocrPageQuery.pageNumber,
@@ -168,9 +167,8 @@ export function createOcrRepository(database: DatabaseConnection) {
       },
     })
     if (!page) return null
-    const { id, width, height, lines } = page
+    const { width, height, lines } = page
     if (
-      id === null ||
       width === null ||
       height === null ||
       !Number.isSafeInteger(width) ||

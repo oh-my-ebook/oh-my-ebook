@@ -737,17 +737,6 @@ describe('SQLocal 저장소', () => {
     }
   })
 
-  it('식별자가 NULL인 검색 청크는 조회 결과로 반환하지 않는다', async () => {
-    const { db, id, store } = await setup()
-    await db.sqlocal.sql(
-      "INSERT INTO search_chunks (book_id, ordinal, text, token_count, created_at) VALUES (?, 0, '청크', 1, 0)",
-      id,
-    )
-    await expect(store.listSearchChunks({ bookId: id, limit: 10, offset: 0 })).rejects.toThrow(
-      'Invalid search chunks',
-    )
-  })
-
   it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {
     const { db, id, store, pages } = await preparePages()
     const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))

@@ -35,8 +35,6 @@ export function createBookRepository(database: DatabaseConnection) {
       orderBy: { createdAt: 'desc', id: 'desc' },
     })
     const validatedBooks = rows.map((book) => {
-      const { id } = book
-      if (id === null) throw new Error('Invalid book ID')
       if (!isBookAnalysisStatus(book.analysisStatus))
         throw new Error('Invalid book analysis status')
       if (book.coverStatus !== 'ready' && book.coverStatus !== 'fallback')
@@ -45,7 +43,7 @@ export function createBookRepository(database: DatabaseConnection) {
         if (timestamp !== null && !Number.isSafeInteger(timestamp))
           throw new Error('Invalid analysis timestamp')
       }
-      return { ...book, id }
+      return book
     })
     return validatedBooks
   }
@@ -72,9 +70,8 @@ export function createBookRepository(database: DatabaseConnection) {
       where: { id: bookId },
     })
     if (!book) throw new NotFoundBookError()
-    if (book.id === null) throw new Error('Invalid book ID')
     if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
-    return { ...book, id: book.id }
+    return book
   }
 
   async function updateProgress({ bookId, page }: { bookId: string; page: number }): Promise<void> {

@@ -42,7 +42,7 @@ const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
 export const booksTable = sqliteTable(
   'books',
   {
-    id: text('id'),
+    id: text('id').primaryKey().notNull(),
     contentHash: text('content_hash').notNull().unique(),
     fileName: text('file_name').notNull(),
     title: text('title').notNull(),
@@ -64,7 +64,6 @@ export const booksTable = sqliteTable(
     updatedAt: integer('updated_at').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.id] }),
     index('books_created_at_idx').on(sql`${table.createdAt} DESC`, sql`${table.id} DESC`),
     check('books_pdf_size_check', sql`${table.pdfSize} >= 0`),
     check('books_page_count_check', sql`${table.pageCount} > 0`),
@@ -92,7 +91,7 @@ export const booksTable = sqliteTable(
 export const ocrPagesTable = sqliteTable(
   'ocr_pages',
   {
-    id: text('id'),
+    id: text('id').primaryKey().notNull(),
     bookId: text('book_id')
       .notNull()
       .references(() => booksTable.id, { onDelete: 'cascade' }),
@@ -106,7 +105,6 @@ export const ocrPagesTable = sqliteTable(
     updatedAt: integer('updated_at').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.id] }),
     uniqueIndex('ocr_pages_book_page_idx').on(table.bookId, table.pageNumber),
     index('ocr_pages_resume_idx').on(table.bookId, table.status, table.pageNumber),
     check('ocr_pages_page_number_check', sql`${table.pageNumber} > 0`),
@@ -132,7 +130,7 @@ export const ocrPagesTable = sqliteTable(
 export const ocrLinesTable = sqliteTable(
   'ocr_lines',
   {
-    id: integer('id'),
+    id: integer('id').primaryKey(),
     ocrPageId: text('ocr_page_id')
       .notNull()
       .references(() => ocrPagesTable.id, { onDelete: 'cascade' }),
@@ -144,7 +142,6 @@ export const ocrLinesTable = sqliteTable(
     y1: real('y1').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.id] }),
     uniqueIndex('ocr_lines_page_order_idx').on(table.ocrPageId, table.lineIndex),
     check('ocr_lines_x1_check', sql`${table.x1} > ${table.x0}`),
     check('ocr_lines_y1_check', sql`${table.y1} > ${table.y0}`),
@@ -163,7 +160,7 @@ export const ocrLinesTable = sqliteTable(
 export const searchChunksTable = sqliteTable(
   'search_chunks',
   {
-    id: text('id'),
+    id: text('id').primaryKey().notNull(),
     bookId: text('book_id')
       .notNull()
       .references(() => booksTable.id, { onDelete: 'cascade' }),
@@ -173,7 +170,6 @@ export const searchChunksTable = sqliteTable(
     createdAt: integer('created_at').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.id] }),
     uniqueIndex('search_chunks_book_order_idx').on(table.bookId, table.ordinal),
     check('search_chunks_token_count_check', sql`${table.tokenCount} > 0`),
   ],
@@ -190,7 +186,7 @@ export const searchChunksTable = sqliteTable(
 export const chunkSourcesTable = sqliteTable(
   'chunk_sources',
   {
-    id: integer('id'),
+    id: integer('id').primaryKey(),
     chunkId: text('chunk_id')
       .notNull()
       .references(() => searchChunksTable.id, { onDelete: 'cascade' }),
@@ -202,7 +198,6 @@ export const chunkSourcesTable = sqliteTable(
     sourceOrder: integer('source_order').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.id] }),
     uniqueIndex('chunk_sources_chunk_order_idx').on(table.chunkId, table.sourceOrder),
     index('chunk_sources_page_line_idx').on(table.ocrPageId, table.startLineIndex),
     check('chunk_sources_line_range_check', sql`${table.endLineIndex} >= ${table.startLineIndex}`),
@@ -219,14 +214,11 @@ export const chunkSourcesTable = sqliteTable(
 export const searchTermsTable = sqliteTable(
   'search_terms',
   {
-    id: integer('id'),
+    id: integer('id').primaryKey(),
     term: text('term').notNull().unique(),
     documentFrequency: integer('document_frequency').notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.id] }),
-    check('search_terms_document_frequency_check', sql`${table.documentFrequency} > 0`),
-  ],
+  (table) => [check('search_terms_document_frequency_check', sql`${table.documentFrequency} > 0`)],
 )
 
 /**
