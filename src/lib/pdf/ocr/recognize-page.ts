@@ -1,5 +1,5 @@
 import type { PdfPageHandle, PdfPageViewport } from '../document'
-import { postprocessWithKiwi } from '@/lib/kiwi/client'
+import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import { sortInReadingOrder } from './reading-order'
 import {
   createTextMeasurer,
@@ -125,7 +125,7 @@ function getPaddle() {
 }
 
 export async function prepareOcr() {
-  await Promise.all([getPaddle(), postprocessWithKiwi('', new AbortController().signal)])
+  await Promise.all([getPaddle(), kiwiClient.normalizeText('', new AbortController().signal)])
 }
 
 // Reader의 실시간 인식과 백그라운드 분석 파이프라인이 같은 인스턴스를 함께 쓸 수 있어,
@@ -214,7 +214,7 @@ async function recognizeWithPaddleOcr(
 
 async function postprocessOcrLines(sourceLines: readonly TextBox[], signal: AbortSignal) {
   // 줄 순서를 유지해 Kiwi 결과를 원래 OCR 좌표와 다시 연결한다.
-  const processed = await postprocessWithKiwi(
+  const processed = await kiwiClient.normalizeText(
     sourceLines.map(({ text }) => text).join('\n'),
     signal,
   )

@@ -1,4 +1,4 @@
-import { postprocessWithKiwi } from '@/lib/kiwi/client'
+import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
 import type { SearchChunkInput } from '@/lib/ebook-storage/types/search-index'
 
@@ -93,7 +93,10 @@ async function createParagraphUnits(
   signal: AbortSignal,
   tokenTarget: number,
 ): Promise<ChunkUnit[]> {
-  const processed = await postprocessWithKiwi(lines.map((line) => line.raw_text).join('\n'), signal)
+  const processed = await kiwiClient.normalizeText(
+    lines.map((line) => line.raw_text).join('\n'),
+    signal,
+  )
   const processedLines = processed.split('\n').map((line) => line.trim())
   if (processedLines.length !== lines.length) {
     throw new Error('Kiwi 처리 결과의 줄 수가 OCR 원문과 다릅니다.')

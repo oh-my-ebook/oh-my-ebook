@@ -1,4 +1,4 @@
-import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
+import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import { loadPdfDocument } from '@/lib/pdf/load-document'
 import { recognizePdfPageRaw } from '@/lib/pdf/ocr/recognize-page'
 import type { BookshelfStore } from '../bookshelf-store'
@@ -52,9 +52,10 @@ export async function runOcrAnalysis(
         const chunks = await createSearchChunks(ocrLines, controller.signal)
         const indexedChunks = []
         for (const chunk of chunks) {
+          const terms = await kiwiClient.extractSearchTerms(chunk.text, controller.signal)
           indexedChunks.push({
             ...chunk,
-            terms: await extractSearchTermsWithKiwi(chunk.text, controller.signal),
+            terms: terms.map(({ term, frequency }) => ({ term, termFrequency: frequency })),
           })
         }
         await store.storeSearchIndex({ bookId, chunks: indexedChunks })
