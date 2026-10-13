@@ -21,7 +21,7 @@ export function createOcrRepository(database: DatabaseConnection) {
   async function initializeOcrPages(bookid: string): Promise<void> {
     const book = await db.query.booksTable.findFirst({
       columns: { pageCount: true },
-      where: eq(booksTable.id, bookid),
+      where: { id: bookid },
     })
     if (!book?.pageCount) throw new NotFoundBookError()
 
@@ -155,15 +155,15 @@ export function createOcrRepository(database: DatabaseConnection) {
   async function getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null> {
     const page = await db.query.ocrPagesTable.findFirst({
       columns: { id: true, width: true, height: true },
-      where: and(
-        eq(ocrPagesTable.bookId, ocrPageQuery.bookId),
-        eq(ocrPagesTable.pageNumber, ocrPageQuery.pageNumber),
-        eq(ocrPagesTable.status, 'ready'),
-      ),
+      where: {
+        bookId: ocrPageQuery.bookId,
+        pageNumber: ocrPageQuery.pageNumber,
+        status: 'ready',
+      },
       with: {
         lines: {
           columns: { id: false, ocrPageId: false, lineIndex: false },
-          orderBy: [asc(ocrLinesTable.lineIndex)],
+          orderBy: { lineIndex: 'asc' },
         },
       },
     })
@@ -191,8 +191,8 @@ export function createOcrRepository(database: DatabaseConnection) {
   async function listOcrPages(bookId: string): Promise<OcrPageRecord[]> {
     const pages = await db.query.ocrPagesTable.findMany({
       columns: { pageNumber: true, status: true, width: true, height: true },
-      where: eq(ocrPagesTable.bookId, bookId),
-      orderBy: [asc(ocrPagesTable.pageNumber)],
+      where: { bookId },
+      orderBy: { pageNumber: 'asc' },
     })
     if (pages.some((page) => !isOcrPageStatus(page.status))) throw new Error('Invalid OCR pages')
     return pages

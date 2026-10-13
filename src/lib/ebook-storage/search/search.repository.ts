@@ -81,7 +81,7 @@ export function createSearchRepository(database: DatabaseConnection) {
   async function storeSearchIndex(searchIndex: SearchIndex): Promise<void> {
     const book = await db.query.booksTable.findFirst({
       columns: { id: true },
-      where: eq(booksTable.id, searchIndex.bookId),
+      where: { id: searchIndex.bookId },
     })
     if (!book) throw new NotFoundBookError()
 
@@ -138,8 +138,8 @@ export function createSearchRepository(database: DatabaseConnection) {
     if (!result) throw new Error('Invalid search chunk count')
     const rows = await db.query.searchChunksTable.findMany({
       columns: { bookId: false },
-      where: eq(searchChunksTable.bookId, searchChunkQuery.bookId),
-      orderBy: [asc(searchChunksTable.ordinal)],
+      where: { bookId: searchChunkQuery.bookId },
+      orderBy: { ordinal: 'asc' },
       limit: searchChunkQuery.limit,
       offset: searchChunkQuery.offset,
     })

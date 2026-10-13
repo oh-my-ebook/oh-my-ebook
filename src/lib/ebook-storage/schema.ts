@@ -1,4 +1,4 @@
-import { relations, sql } from 'drizzle-orm'
+import { defineRelations, sql } from 'drizzle-orm'
 import {
   check,
   customType,
@@ -253,13 +253,28 @@ export const searchPostingsTable = sqliteTable(
   ],
 )
 
-export const ocrPagesRelations = relations(ocrPagesTable, ({ many }) => ({
-  lines: many(ocrLinesTable),
-}))
-
-export const ocrLinesRelations = relations(ocrLinesTable, ({ one }) => ({
-  page: one(ocrPagesTable, {
-    fields: [ocrLinesTable.ocrPageId],
-    references: [ocrPagesTable.id],
+export const relations = defineRelations(
+  {
+    booksTable,
+    ocrPagesTable,
+    ocrLinesTable,
+    searchChunksTable,
+    chunkSourcesTable,
+    searchTermsTable,
+    searchPostingsTable,
+  },
+  (r) => ({
+    ocrPagesTable: {
+      lines: r.many.ocrLinesTable({
+        from: r.ocrPagesTable.id,
+        to: r.ocrLinesTable.ocrPageId,
+      }),
+    },
+    ocrLinesTable: {
+      page: r.one.ocrPagesTable({
+        from: r.ocrLinesTable.ocrPageId,
+        to: r.ocrPagesTable.id,
+      }),
+    },
   }),
-}))
+)

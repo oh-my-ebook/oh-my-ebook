@@ -1,6 +1,6 @@
 import type { DatabaseConnection } from '../database-connection'
 import type { Book, BookAnalysisStatus, BookCoverData } from '../types/book'
-import { and, desc, eq, gte } from 'drizzle-orm'
+import { and, eq, gte } from 'drizzle-orm'
 import { booksTable } from '../schema'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
 import { refreshSearchTerms } from '../search/search.repository'
@@ -32,7 +32,7 @@ export function createBookRepository(database: DatabaseConnection) {
 
   async function listBooks(): Promise<Book[]> {
     const rows = await db.query.booksTable.findMany({
-      orderBy: [desc(booksTable.createdAt), desc(booksTable.id)],
+      orderBy: { createdAt: 'desc', id: 'desc' },
     })
     const validatedBooks = rows.map((book) => {
       const { id } = book
@@ -53,7 +53,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function hasBook(bookId: string): Promise<void> {
     const book = await db.query.booksTable.findFirst({
       columns: { id: true },
-      where: eq(booksTable.id, bookId),
+      where: { id: bookId },
     })
     if (!book) throw new DeletedBookError()
   }
@@ -69,7 +69,7 @@ export function createBookRepository(database: DatabaseConnection) {
         createdAt: false,
         updatedAt: false,
       },
-      where: eq(booksTable.id, bookId),
+      where: { id: bookId },
     })
     if (!book) throw new NotFoundBookError()
     if (book.id === null) throw new Error('Invalid book ID')
@@ -128,7 +128,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus> {
     const result = await db.query.booksTable.findFirst({
       columns: { analysisStatus: true },
-      where: eq(booksTable.id, bookId),
+      where: { id: bookId },
     })
     if (!result) throw new NotFoundBookError()
     if (!isBookAnalysisStatus(result.analysisStatus))

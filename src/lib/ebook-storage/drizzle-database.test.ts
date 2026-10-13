@@ -8,6 +8,7 @@ describe('Drizzle 관계 조회 연결', () => {
 
     expect(await db.query.booksTable.findFirst()).toBeUndefined()
     expect(await db.query.booksTable.findMany()).toEqual([])
+    expect(await db.select().from(booksTable).get()).toBeUndefined()
   })
 
   it('스키마 필드명과 선택 컬럼, BLOB을 보존한다', async () => {
@@ -29,7 +30,7 @@ describe('Drizzle 관계 조회 연결', () => {
 
     expect(
       await db.query.booksTable.findFirst({
-        where: (book, { eq }) => eq(book.id, 'book'),
+        where: { id: 'book' },
         columns: { id: true, pageCount: true, coverData: true },
       }),
     ).toEqual({ id: 'book', pageCount: 2, coverData })
@@ -44,7 +45,7 @@ describe('Drizzle 관계 조회 연결', () => {
 
     const results = await db.batch([
       db.query.searchTermsTable.findFirst({ columns: { term: true, documentFrequency: true } }),
-      db.query.searchTermsTable.findFirst({ where: (term, { eq }) => eq(term.term, '없는 용어') }),
+      db.query.searchTermsTable.findFirst({ where: { term: '없는 용어' } }),
       db.query.searchTermsTable.findMany({ columns: { term: true } }),
     ])
 
