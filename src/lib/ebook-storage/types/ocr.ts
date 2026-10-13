@@ -1,20 +1,24 @@
-import type { ocrLinesTable, ocrPagesTable } from '../schema'
-
-type OcrLineRow = typeof ocrLinesTable.$inferSelect
-type OcrPageRow = typeof ocrPagesTable.$inferSelect
-
-type OcrPagePosition = Pick<OcrPageRow, 'id' | 'pageNumber'>
-type OcrChunkingLine = Pick<OcrLineRow, 'ocrPageId' | 'lineIndex' | 'rawText'>
-
-export type OcrLine = Omit<OcrLineRow, 'id' | 'ocrPageId' | 'lineIndex'>
-
-export interface NextOcrPage extends OcrPagePosition {
-  id: string
+export interface OcrLineInput {
+  rawText: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
 }
 
-export interface OcrLineRecord extends OcrLine {
-  pageNumber: OcrPageRow['pageNumber']
-  lineIndex: OcrLineRow['lineIndex']
+export interface NextOcrPage {
+  id: string
+  pageNumber: number
+}
+
+export interface OcrLineRecord {
+  page_number: number
+  line_index: number
+  raw_text: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
 }
 
 export interface OcrLinePage {
@@ -22,26 +26,22 @@ export interface OcrLinePage {
   total: number
 }
 
-export interface OcrLineForChunking extends OcrChunkingLine {
-  pageNumber: OcrPageRow['pageNumber']
+export interface OcrLineForChunking {
+  ocr_page_id: string
+  page_number: number
+  line_index: number
+  raw_text: string
 }
 
 export interface StoredOcrPage {
   width: number
   height: number
-  lines: OcrLine[]
+  lines: OcrLineInput[]
 }
 
-export type OcrPageRecord = Pick<OcrPageRow, 'pageNumber' | 'status' | 'width' | 'height'>
-
-export interface OcrPageResult {
-  pageId: string
-  width: number
-  height: number
-  lines: readonly OcrLine[]
-}
-
-export interface OcrPageQuery {
-  bookId: string
-  pageNumber: number
+export interface OcrPageRecord {
+  page_number: number
+  status: 'pending' | 'processing' | 'ready' | 'failed'
+  width: number | null
+  height: number | null
 }

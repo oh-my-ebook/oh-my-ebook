@@ -9,11 +9,11 @@ it('저장소 메서드는 인수와 반환 타입을 연결한다', () => {
   expectTypeOf<EbookStore['saveBook']>().returns.toEqualTypeOf<Promise<string>>()
   expectTypeOf<EbookStore['updateProgress']>().returns.toEqualTypeOf<Promise<void>>()
   expectTypeOf<EbookStore['updateProgress']>().parameters.toEqualTypeOf<
-    [{ bookId: string; page: number }]
+    [{ id: string; page: number }]
   >()
   expectTypeOf<EbookStore['searchChunks']>().parameters.toEqualTypeOf<[SearchChunkQuery]>()
   expectTypeOf<EbookStore['searchChunks']>().returns.toEqualTypeOf<Promise<SearchChunkResult[]>>()
-  expectTypeOf<{ bookId: string; page: string }>().not.toExtend<
+  expectTypeOf<{ id: string; page: string }>().not.toExtend<
     Parameters<EbookStore['updateProgress']>[0]
   >()
   expectTypeOf<Promise<number>>().not.toExtend<ReturnType<EbookStore['saveBook']>>()

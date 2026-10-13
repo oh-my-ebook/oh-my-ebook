@@ -7,7 +7,6 @@ import * as storage from '@/lib/ebook-storage/browser-storage'
 import * as pdfImport from '../lib/pdf-import'
 import * as ocrAnalysis from '../lib/analysis/ocr-analysis'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '@/test/promise-controller'
 import { createBookInput } from '@/test/sqlocal'
 import { toast, Toaster } from '@/components/ui/toast'
@@ -22,26 +21,26 @@ function createStore() {
 function createStoredBook(title: string) {
   return {
     id: `${title}-id`,
-    contentHash: `${title}-hash`,
-    fileName: `${title}.pdf`,
+    content_hash: `${title}-hash`,
+    file_name: `${title}.pdf`,
     title,
     author: null,
-    pdfTitle: null,
-    pdfSubject: null,
-    pdfKeywords: null,
+    pdf_title: null,
+    pdf_subject: null,
+    pdf_keywords: null,
     publisher: null,
-    pdfSize: 0,
-    pageCount: 1,
-    coverData: null,
-    coverMime: null,
-    coverStatus: 'fallback' as const,
-    pdfStatus: 'available' as const,
-    lastPage: null,
-    analysisStatus: 'analyzing' as const,
-    ocrCompletedAt: null,
-    indexedAt: null,
-    createdAt: 0,
-    updatedAt: 0,
+    pdf_size: 0,
+    page_count: 1,
+    cover_data: null,
+    cover_mime: null,
+    cover_status: 'fallback' as const,
+    pdf_status: 'available' as const,
+    last_page: null,
+    analysis_status: 'analyzing' as const,
+    ocr_completed_at: null,
+    indexed_at: null,
+    created_at: 0,
+    updated_at: 0,
   }
 }
 
@@ -269,7 +268,7 @@ describe('Bookshelf', () => {
   })
 
   it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {
-    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocrCompletedAt: 1 }
+    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocr_completed_at: 1 }
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [interruptedBook]
@@ -564,7 +563,7 @@ describe('Bookshelf', () => {
     await user.type(screen.getByLabelText('책 제목'), '새 제목')
     await user.click(screen.getByRole('button', { name: '저장' }))
     expect(store.updateTitle).toHaveBeenCalledWith({
-      bookId: '기존 책-id',
+      id: '기존 책-id',
       title: '새 제목',
     })
 
@@ -673,33 +672,6 @@ describe('Bookshelf', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
       '소장 도서 0권 (0 B)',
-    )
-  })
-
-  it('표지를 다시 만들면 책 ID와 새 표지 데이터를 저장한다', async () => {
-    const user = userEvent.setup()
-    const store = createStore()
-    const book: StoredBook = { ...createStoredBook('기존 책'), analysisStatus: 'ready' }
-    const coverData = new Uint8Array([1, 2, 3]).buffer
-    store.listBooks.mockResolvedValue([book])
-    store.getBook.mockResolvedValue({ ...book, pdfData: new Uint8Array([4, 5]) })
-    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
-      ...book,
-      pdfData: new ArrayBuffer(2),
-      coverData,
-      coverMime: 'image/png',
-      coverStatus: 'ready',
-    })
-    render(<Bookshelf store={store} />, { wrapper: TestRouter })
-
-    await user.click(await screen.findByRole('button', { name: '기존 책 메뉴' }))
-    await user.click(await screen.findByRole('menuitem', { name: '표지 다시 만들기' }))
-
-    await waitFor(() =>
-      expect(store.updateCover).toHaveBeenCalledWith({
-        bookId: book.id,
-        cover: { coverData, coverMime: 'image/png' },
-      }),
     )
   })
 

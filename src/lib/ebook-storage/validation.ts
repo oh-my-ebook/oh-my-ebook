@@ -1,14 +1,27 @@
-import type { ImportedBook, BookAnalysisStatus, BookRecordsQuery } from './types/book'
-import type { OcrLine, OcrPageQuery, OcrPageResult } from './types/ocr'
+import { eq } from 'drizzle-orm'
+import type { DatabaseConnection } from './database-connection'
+import type { AddBookInput, BookAnalysisStatus } from './types/book'
+import type { OcrLineInput } from './types/ocr'
 import type { SearchChunkQuery } from './types/search'
 import type {
-  ChunkSource,
-  SearchChunkWithSources,
-  IndexedSearchChunk,
-  SearchTermFrequency,
-  SearchIndex,
+  ChunkSourceInput,
+  SearchChunkInput,
+  SearchIndexChunkInput,
+  SearchTermFrequencyInput,
 } from './types/search-index'
-import { InvalidDataError } from './storage-errors'
+import { books } from './schema'
+import { InvalidInputError } from './storage-errors'
+
+import type {
+  GetStoredOcrPageInput,
+  InitializeOcrPagesInput,
+  ListOcrLinesInput,
+  StoreOcrPageInput,
+  StoreSearchIndexInput,
+  UpdateCoverInput,
+  UpdateProgressInput,
+  UpdateTitleInput,
+} from './types/inputs'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
 
@@ -20,47 +33,92 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
-export function isImportedBook(value: unknown): value is ImportedBook {
+export function isAddBookInput(value: unknown): value is AddBookInput {
   if (!isRecord(value)) return false
-  const book = value
+  const input = value
 
-  if (!(book.pdfData instanceof ArrayBuffer) || book.pdfData.byteLength === 0) return false
-  if (!isContentHash(book.contentHash)) return false
-  if (typeof book.fileName !== 'string' || typeof book.title !== 'string') return false
+  if (!(input.pdfData instanceof ArrayBuffer) || input.pdfData.byteLength === 0) return false
+  if (!isContentHash(input.contentHash)) return false
+  if (typeof input.fileName !== 'string' || typeof input.title !== 'string') return false
   if (
-    !isNullableString(book.author) ||
-    !isNullableString(book.pdfTitle) ||
-    !isNullableString(book.pdfSubject) ||
-    !isNullableString(book.pdfKeywords) ||
-    !isNullableString(book.publisher)
+    !isNullableString(input.author) ||
+    !isNullableString(input.pdfTitle) ||
+    !isNullableString(input.pdfSubject) ||
+    !isNullableString(input.pdfKeywords) ||
+    !isNullableString(input.publisher)
   ) {
     return false
   }
-  if (typeof book.pdfSize !== 'number' || !Number.isSafeInteger(book.pdfSize) || book.pdfSize < 0) {
-    return false
-  }
   if (
-    typeof book.pageCount !== 'number' ||
-    !Number.isSafeInteger(book.pageCount) ||
-    book.pageCount <= 0
+    typeof input.pdfSize !== 'number' ||
+    !Number.isSafeInteger(input.pdfSize) ||
+    input.pdfSize < 0
   ) {
     return false
   }
-  if (!(book.coverData === null || book.coverData instanceof ArrayBuffer)) return false
+  if (
+    typeof input.pageCount !== 'number' ||
+    !Number.isSafeInteger(input.pageCount) ||
+    input.pageCount <= 0
+  ) {
+    return false
+  }
+  if (!(input.coverData === null || input.coverData instanceof ArrayBuffer)) return false
   if (!(
-    book.coverMime === null ||
-    book.coverMime === 'image/webp' ||
-    book.coverMime === 'image/png'
+    input.coverMime === null ||
+    input.coverMime === 'image/webp' ||
+    input.coverMime === 'image/png'
   )) {
     return false
   }
-  if (!(book.coverStatus === 'ready' || book.coverStatus === 'fallback')) return false
+  if (!(input.coverStatus === 'ready' || input.coverStatus === 'fallback')) return false
 
   return true
 }
 
 export function isContentHash(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
+}
+
+export function isUpdateCoverInput(value: unknown): value is UpdateCoverInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'coverData' in value &&
+    value.coverData instanceof ArrayBuffer &&
+    'coverMime' in value &&
+    (value.coverMime === 'image/webp' || value.coverMime === 'image/png')
+  )
+}
+
+export function isUpdateProgressInput(value: unknown): value is UpdateProgressInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'page' in value &&
+    typeof value.page === 'number' &&
+    Number.isSafeInteger(value.page) &&
+    value.page > 0
+  )
+}
+
+export function isUpdateTitleInput(value: unknown): value is UpdateTitleInput {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    'title' in value &&
+    typeof value.title === 'string' &&
+    value.title.trim().length > 0
+  )
 }
 
 export function isIdentifier(value: unknown): value is string {
@@ -75,7 +133,7 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-function isOcrLine(value: unknown): value is OcrLine {
+function isOcrLineInput(value: unknown): value is OcrLineInput {
   if (!isRecord(value)) return false
   return (
     typeof value.rawText === 'string' &&
@@ -92,18 +150,28 @@ function isOcrLine(value: unknown): value is OcrLine {
   )
 }
 
-export function isOcrPageResult(value: unknown): value is OcrPageResult {
+export function isInitializeOcrPagesInput(value: unknown): value is InitializeOcrPagesInput {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.bookId) &&
+    typeof value.pageCount === 'number' &&
+    Number.isSafeInteger(value.pageCount) &&
+    value.pageCount > 0
+  )
+}
+
+export function isStoreOcrPageInput(value: unknown): value is StoreOcrPageInput {
   return (
     isRecord(value) &&
     isIdentifier(value.pageId) &&
     isPositiveInteger(value.width) &&
     isPositiveInteger(value.height) &&
     Array.isArray(value.lines) &&
-    value.lines.every(isOcrLine)
+    value.lines.every(isOcrLineInput)
   )
 }
 
-function isChunkSource(value: unknown): value is ChunkSource {
+function isChunkSourceInput(value: unknown): value is ChunkSourceInput {
   return (
     isRecord(value) &&
     isIdentifier(value.ocrPageId) &&
@@ -114,7 +182,7 @@ function isChunkSource(value: unknown): value is ChunkSource {
   )
 }
 
-function isSearchChunkWithSources(value: unknown): value is SearchChunkWithSources {
+function isSearchChunkInput(value: unknown): value is SearchChunkInput {
   return (
     isRecord(value) &&
     isIdentifier(value.id) &&
@@ -123,11 +191,11 @@ function isSearchChunkWithSources(value: unknown): value is SearchChunkWithSourc
     value.text.trim().length > 0 &&
     isPositiveInteger(value.tokenCount) &&
     Array.isArray(value.sources) &&
-    value.sources.every(isChunkSource)
+    value.sources.every(isChunkSourceInput)
   )
 }
 
-function isSearchTermFrequency(value: unknown): value is SearchTermFrequency {
+function isSearchTermFrequencyInput(value: unknown): value is SearchTermFrequencyInput {
   return (
     isRecord(value) &&
     typeof value.term === 'string' &&
@@ -136,19 +204,18 @@ function isSearchTermFrequency(value: unknown): value is SearchTermFrequency {
   )
 }
 
-function isIndexedSearchChunk(value: unknown): value is IndexedSearchChunk {
-  if (!isSearchChunkWithSources(value) || !('terms' in value) || !Array.isArray(value.terms))
-    return false
-  if (!value.terms.every(isSearchTermFrequency)) return false
+function isSearchIndexChunkInput(value: unknown): value is SearchIndexChunkInput {
+  if (!isSearchChunkInput(value) || !('terms' in value) || !Array.isArray(value.terms)) return false
+  if (!value.terms.every(isSearchTermFrequencyInput)) return false
   return new Set(value.terms.map(({ term }) => term)).size === value.terms.length
 }
 
-export function isSearchIndex(value: unknown): value is SearchIndex {
+export function isStoreSearchIndexInput(value: unknown): value is StoreSearchIndexInput {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
     Array.isArray(value.chunks) &&
-    value.chunks.every(isIndexedSearchChunk)
+    value.chunks.every(isSearchIndexChunkInput)
   )
 }
 
@@ -165,7 +232,7 @@ export function isSearchChunkQuery(value: unknown): value is SearchChunkQuery {
   return isPositiveInteger(value.limit) && value.limit <= MAX_SEARCH_CHUNK_RESULTS
 }
 
-export function isBookRecordsQuery(value: unknown): value is BookRecordsQuery {
+export function isListOcrLinesInput(value: unknown): value is ListOcrLinesInput {
   return (
     isRecord(value) &&
     isIdentifier(value.bookId) &&
@@ -176,29 +243,53 @@ export function isBookRecordsQuery(value: unknown): value is BookRecordsQuery {
   )
 }
 
-export function isOcrPageQuery(value: unknown): value is OcrPageQuery {
+export function isGetStoredOcrPageInput(value: unknown): value is GetStoredOcrPageInput {
   return isRecord(value) && isIdentifier(value.bookId) && isPositiveInteger(value.pageNumber)
 }
 
-export function validateData<T>(
-  data: T,
+export function validateInput<T>(
+  input: T,
   operation: string,
   isValid: (value: unknown) => value is T,
 ): void {
-  if (!isValid(data)) throw new InvalidDataError(operation)
+  if (!isValid(input)) throw new InvalidInputError(operation)
 }
 
 export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
   return value === 'analyzing' || value === 'ready' || value === 'failed'
 }
 
-export async function runValidated<Data, Result>(
+export async function normalizeStoredProgress<
+  T extends { page_count: number; last_page: number | null },
+>(database: Pick<DatabaseConnection, 'db'>, id: string, book: T): Promise<T> {
+  const pageCount = book.page_count
+  const lastPage = book.last_page
+  if (
+    lastPage === null ||
+    (typeof pageCount === 'number' &&
+      Number.isSafeInteger(pageCount) &&
+      pageCount > 0 &&
+      typeof lastPage === 'number' &&
+      Number.isSafeInteger(lastPage) &&
+      lastPage >= 1 &&
+      lastPage <= pageCount)
+  ) {
+    return book
+  }
+
+  await database.db
+    .update(books)
+    .set({ lastPage: 1, updatedAt: Date.now() })
+    .where(eq(books.id, id))
+  return { ...book, last_page: 1 }
+}
+
+export async function runValidated<Input, Result>(
   name: string,
-  operation: (data: Data) => Promise<Result>,
-  data: Data,
-  isValid: (value: unknown) => value is Data,
+  operation: (input: Input) => Promise<Result>,
+  input: Input,
+  isValid: (value: unknown) => value is Input,
 ): Promise<Result> {
-  validateData(data, name, isValid)
-  const operationResult = await operation(data)
-  return operationResult
+  validateInput(input, name, isValid)
+  return await operation(input)
 }

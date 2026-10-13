@@ -23,16 +23,16 @@ type EbookReaderState =
 
 function toReaderBook(book: StoredBookDetail): ReaderBook {
   return {
-    analysisStatus: book.analysisStatus,
-    lastPage: book.lastPage,
+    analysisStatus: book.analysis_status,
+    lastPage: book.last_page,
     metadata: {
       title: book.title,
       author: book.author ?? undefined,
-      subject: book.pdfSubject ?? undefined,
-      keywords: book.pdfKeywords ?? undefined,
+      subject: book.pdf_subject ?? undefined,
+      keywords: book.pdf_keywords ?? undefined,
       publisher: book.publisher ?? undefined,
     },
-    pdfData: book.pdfData,
+    pdfData: book.pdf_data,
   }
 }
 
@@ -50,7 +50,7 @@ export function useEbookReadingSession(bookId: string, store: EbookReaderStore) 
     let saved = false
 
     try {
-      await store.updateProgress({ bookId: bookId, page })
+      await store.updateProgress({ id: bookId, page })
       saved = true
     } catch {
       pendingPageRef.current ??= page

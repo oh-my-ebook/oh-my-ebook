@@ -17,8 +17,7 @@ function isNotFoundError(error: unknown): boolean {
 
 async function getPdfDirectory(create: boolean): Promise<FileSystemDirectoryHandle> {
   const root = await navigator.storage.getDirectory()
-  const directory = await root.getDirectoryHandle(PDF_DIRECTORY_NAME, { create })
-  return directory
+  return await root.getDirectoryHandle(PDF_DIRECTORY_NAME, { create })
 }
 
 export async function writePdf(contentHash: string, pdfData: ArrayBuffer): Promise<void> {
@@ -40,10 +39,7 @@ export async function readPdf(contentHash: string): Promise<Uint8Array> {
   const fileName = getPdfFileName(contentHash)
   const directory = await getPdfDirectory(false)
   const file = await directory.getFileHandle(fileName)
-  const pdfFile = await file.getFile()
-  const buffer = await pdfFile.arrayBuffer()
-  const pdfData = new Uint8Array(buffer)
-  return pdfData
+  return new Uint8Array(await (await file.getFile()).arrayBuffer())
 }
 
 export async function hasPdf(contentHash: string): Promise<boolean> {

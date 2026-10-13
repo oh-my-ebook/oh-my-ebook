@@ -1,4 +1,4 @@
-import { relations, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import {
   check,
   customType,
@@ -39,7 +39,7 @@ const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
  * - createdAt / updatedAt: 책 등록 시각 / 저장 정보 갱신 시각.
  * 시각은 모두 Unix epoch 기준 밀리초이며 앱에서 기록한다.
  */
-export const booksTable = sqliteTable(
+export const books = sqliteTable(
   'books',
   {
     id: text('id'),
@@ -89,13 +89,13 @@ export const booksTable = sqliteTable(
  * - status: 대기(pending), 처리 중(processing), 완료(ready), 실패(failed).
  * - createdAt / updatedAt: OCR 작업 등록 시각 / 상태·결과 갱신 시각(Unix epoch 밀리초).
  */
-export const ocrPagesTable = sqliteTable(
+export const ocrPages = sqliteTable(
   'ocr_pages',
   {
     id: text('id'),
     bookId: text('book_id')
       .notNull()
-      .references(() => booksTable.id, { onDelete: 'cascade' }),
+      .references(() => books.id, { onDelete: 'cascade' }),
     pageNumber: integer('page_number').notNull(),
     width: integer('width'),
     height: integer('height'),
@@ -129,13 +129,13 @@ export const ocrPagesTable = sqliteTable(
  * - x1 / y1: 줄 영역의 오른쪽 아래 좌표.
  * 좌표는 OCR 이미지의 왼쪽 위를 원점으로 한 픽셀 단위다.
  */
-export const ocrLinesTable = sqliteTable(
+export const ocrLines = sqliteTable(
   'ocr_lines',
   {
     id: integer('id'),
     ocrPageId: text('ocr_page_id')
       .notNull()
-      .references(() => ocrPagesTable.id, { onDelete: 'cascade' }),
+      .references(() => ocrPages.id, { onDelete: 'cascade' }),
     lineIndex: integer('line_index').notNull(),
     rawText: text('raw_text').notNull(),
     x0: real('x0').notNull(),
@@ -160,13 +160,13 @@ export const ocrLinesTable = sqliteTable(
  * - tokenCount: 공백으로 구분한 토큰 수. 청크 분할과 BM25 길이 보정에 사용한다.
  * - createdAt: 청크 저장 시각(Unix epoch 밀리초).
  */
-export const searchChunksTable = sqliteTable(
+export const searchChunks = sqliteTable(
   'search_chunks',
   {
     id: text('id'),
     bookId: text('book_id')
       .notNull()
-      .references(() => booksTable.id, { onDelete: 'cascade' }),
+      .references(() => books.id, { onDelete: 'cascade' }),
     ordinal: integer('ordinal').notNull(),
     text: text('text').notNull(),
     tokenCount: integer('token_count').notNull(),
@@ -187,16 +187,16 @@ export const searchChunksTable = sqliteTable(
  * - startLineIndex / endLineIndex: 원본 줄 범위의 시작 / 끝. 0부터 시작하며 양 끝을 포함한다.
  * - sourceOrder: 청크 안에서 출처 범위가 등장하는 순서(0부터 시작).
  */
-export const chunkSourcesTable = sqliteTable(
+export const chunkSources = sqliteTable(
   'chunk_sources',
   {
     id: integer('id'),
     chunkId: text('chunk_id')
       .notNull()
-      .references(() => searchChunksTable.id, { onDelete: 'cascade' }),
+      .references(() => searchChunks.id, { onDelete: 'cascade' }),
     ocrPageId: text('ocr_page_id')
       .notNull()
-      .references(() => ocrPagesTable.id, { onDelete: 'cascade' }),
+      .references(() => ocrPages.id, { onDelete: 'cascade' }),
     startLineIndex: integer('start_line_index').notNull(),
     endLineIndex: integer('end_line_index').notNull(),
     sourceOrder: integer('source_order').notNull(),
@@ -216,7 +216,7 @@ export const chunkSourcesTable = sqliteTable(
  * - documentFrequency: 이 검색어를 포함한 전체 청크 수. 책의 개수가 아니다.
  * 현재 책의 BM25 검색에서는 해당 책의 청크만 대상으로 빈도를 다시 계산한다.
  */
-export const searchTermsTable = sqliteTable(
+export const searchTerms = sqliteTable(
   'search_terms',
   {
     id: integer('id'),
@@ -235,15 +235,15 @@ export const searchTermsTable = sqliteTable(
  * - chunkId: 해당 검색어가 등장하는 청크의 id.
  * - termFrequency: 해당 청크 안에서 검색어가 등장한 횟수. BM25 점수 계산에 사용한다.
  */
-export const searchPostingsTable = sqliteTable(
+export const searchPostings = sqliteTable(
   'search_postings',
   {
     termId: integer('term_id')
       .notNull()
-      .references(() => searchTermsTable.id),
+      .references(() => searchTerms.id),
     chunkId: text('chunk_id')
       .notNull()
-      .references(() => searchChunksTable.id, { onDelete: 'cascade' }),
+      .references(() => searchChunks.id, { onDelete: 'cascade' }),
     termFrequency: integer('term_frequency').notNull(),
   },
   (table) => [
@@ -252,14 +252,3 @@ export const searchPostingsTable = sqliteTable(
     check('search_postings_term_frequency_check', sql`${table.termFrequency} > 0`),
   ],
 )
-
-export const ocrPagesRelations = relations(ocrPagesTable, ({ many }) => ({
-  lines: many(ocrLinesTable),
-}))
-
-export const ocrLinesRelations = relations(ocrLinesTable, ({ one }) => ({
-  page: one(ocrPagesTable, {
-    fields: [ocrLinesTable.ocrPageId],
-    references: [ocrPagesTable.id],
-  }),
-}))

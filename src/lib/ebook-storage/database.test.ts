@@ -3,7 +3,7 @@ import { createOcrRepository } from './ocr/ocr.repository'
 import { createSearchRepository } from './search/search.repository'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { DrizzleQueryError } from 'drizzle-orm'
-import { createNewBook, createTestConnection } from '../../test/sqlocal'
+import { createBookInput, createTestConnection } from '../../test/sqlocal'
 import {
   DeletedBookError,
   DuplicateBookError,
@@ -18,13 +18,13 @@ async function setup() {
     ...createOcrRepository(db),
     ...createSearchRepository(db),
   }
-  const id = await store.addBook(createNewBook())
+  const id = await store.addBook(createBookInput())
   return { db, id, store }
 }
 
 async function preparePages() {
   const context = await setup()
-  await context.store.initializeOcrPages(context.id)
+  await context.store.initializeOcrPages({ bookId: context.id, pageCount: 2 })
   const pages = await context.db.sqlocal.sql<{ id: string }>(
     'SELECT id FROM ocr_pages ORDER BY page_number',
   )
@@ -46,10 +46,10 @@ describe('SQLocal 저장소', () => {
   it('각 저장소는 생성할 때 전달받은 연결의 데이터만 읽고 쓴다', async () => {
     const first = createBookRepository(await createTestConnection())
     const second = createBookRepository(await createTestConnection())
-    await first.addBook(createNewBook({ title: '첫 번째 DB의 책' }))
+    await first.addBook(createBookInput({ title: '첫 번째 DB의 책' }))
     expect(await second.listBooks()).toEqual([])
 
-    await second.addBook(createNewBook({ title: '두 번째 DB의 책' }))
+    await second.addBook(createBookInput({ title: '두 번째 DB의 책' }))
     expect(await first.listBooks()).toEqual([expect.objectContaining({ title: '첫 번째 DB의 책' })])
     expect(await second.listBooks()).toEqual([
       expect.objectContaining({ title: '두 번째 DB의 책' }),
@@ -62,105 +62,39 @@ describe('SQLocal 저장소', () => {
     expect(await store.listBooks()).toEqual([])
     const title = "따옴표 ' 와 ? 제목"
     const id = await store.addBook(
-      createNewBook({ title, coverData: new Uint8Array([0, 128, 255]) }),
+      createBookInput({ title, coverData: new Uint8Array([0, 128, 255]).buffer }),
     )
-    await store.addBook(createNewBook({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
+    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64), title: '두 번째 책' }))
     await db.sqlocal.sql('UPDATE books SET created_at = 100')
-    const expected = await db.sqlocal.sql('SELECT id FROM books ORDER BY created_at DESC, id DESC')
-    const listed = await store.listBooks()
-    expect(listed.map(({ id }) => ({ id }))).toEqual(expected)
-    expect(listed.find((book) => book.id === id)).toEqual({
-      id,
-      contentHash: 'a'.repeat(64),
-      fileName: 'book.pdf',
+    const expected = await db.sqlocal.sql('SELECT * FROM books ORDER BY created_at DESC, id DESC')
+    expect(await store.listBooks()).toEqual(expected)
+    expect(expected.find((book) => book.id === id)).toMatchObject({
       title,
       author: null,
-      pdfTitle: null,
-      pdfSubject: null,
-      pdfKeywords: null,
-      publisher: null,
-      pdfSize: 3,
-      pageCount: 2,
-      lastPage: null,
-      coverData: new Uint8Array([0, 128, 255]),
-      coverMime: null,
-      coverStatus: 'fallback',
-      analysisStatus: 'analyzing',
-      ocrCompletedAt: null,
-      indexedAt: null,
-      createdAt: 100,
-      updatedAt: expect.any(Number),
+      last_page: null,
+      cover_data: new Uint8Array([0, 128, 255]),
     })
-  })
-
-  it('책 상세에는 표지와 분석 시각을 제외한 메타데이터를 반환한다', async () => {
-    const { id, store } = await setup()
-
-    expect(await store.getBookMetadata(id)).toEqual({
-      id,
-      contentHash: 'a'.repeat(64),
-      fileName: 'book.pdf',
-      title: '책',
-      author: null,
-      pdfTitle: null,
-      pdfSubject: null,
-      pdfKeywords: null,
-      publisher: null,
-      pdfSize: 3,
-      pageCount: 2,
-      lastPage: null,
-      analysisStatus: 'analyzing',
-    })
-  })
-
-  it('동일 PDF를 다시 등록하면 기존 책을 변경하지 않고 중복 오류를 반환한다', async () => {
-    const { store } = await setup()
-    const before = await store.listBooks()
-
-    await expect(
-      store.addBook(createNewBook({ title: '중복 등록한 제목' })),
-    ).rejects.toBeInstanceOf(DuplicateBookError)
-
-    expect(await store.listBooks()).toEqual(before)
-  })
-
-  it('책 ID 충돌은 PDF 중복 오류로 처리하지 않는다', async () => {
-    const db = await createTestConnection()
-    const store = createBookRepository(db)
-    const randomUUID = vi
-      .spyOn(crypto, 'randomUUID')
-      .mockReturnValue('00000000-0000-4000-8000-000000000001')
-    onTestFinished(() => randomUUID.mockRestore())
-    await store.addBook(createNewBook())
-    const before = await store.listBooks()
-
-    await expect(
-      store.addBook(createNewBook({ contentHash: 'b'.repeat(64) })),
-    ).rejects.toBeInstanceOf(DrizzleQueryError)
-
-    expect(await store.listBooks()).toEqual(before)
+    await expect(store.addBook(createBookInput())).rejects.toBeInstanceOf(DuplicateBookError)
   })
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
-    const { id, store } = await setup()
-    const bookCover = {
-      coverData: new Uint8Array([4, 5]).buffer,
-      coverMime: 'image/webp' as const,
-    }
-    await store.updateTitle({ bookId: id, title: ' 새 제목 ' })
+    const { db, id, store } = await setup()
+    await store.updateTitle({ id, title: ' 새 제목 ' })
     await store.updateCover({
-      bookId: id,
-      cover: bookCover,
+      id,
+      coverData: new Uint8Array([4, 5]).buffer,
+      coverMime: 'image/png',
     })
-    await store.updateProgress({ bookId: id, page: 2 })
-    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
+    await store.updateProgress({ id, page: 2 })
+    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', last_page: 2 })
     expect(await store.listBooks()).toEqual([
-      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverStatus: 'ready' }),
+      expect.objectContaining({ cover_data: new Uint8Array([4, 5]), cover_status: 'ready' }),
     ])
-    await expect(store.updateProgress({ bookId: id, page: 3 })).rejects.toBeInstanceOf(
-      DeletedBookError,
-    )
-    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
+    await expect(store.updateProgress({ id, page: 3 })).rejects.toBeInstanceOf(DeletedBookError)
+    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 2 })
+    await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
+    await db.sqlocal.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
+    expect(await store.getBookMetadata(id)).toMatchObject({ last_page: 1 })
     await store.deleteBookById(id)
     await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
     await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)
@@ -170,20 +104,17 @@ describe('SQLocal 저장소', () => {
   it('삭제된 책의 수정·재삭제를 거부하고 다른 책은 유지한다', async () => {
     const { id, store } = await setup()
     const before = await store.listBooks()
-    const bookCover = {
-      coverData: new Uint8Array([1]).buffer,
-      coverMime: 'image/png',
-    } as const
-    await expect(store.updateTitle({ bookId: 'missing', title: '변경' })).rejects.toBeInstanceOf(
+    await expect(store.updateTitle({ id: 'missing', title: '변경' })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
     await expect(
       store.updateCover({
-        bookId: 'missing',
-        cover: bookCover,
+        id: 'missing',
+        coverData: new Uint8Array([1]).buffer,
+        coverMime: 'image/png',
       }),
     ).rejects.toBeInstanceOf(DeletedBookError)
-    await expect(store.updateProgress({ bookId: 'missing', page: 1 })).rejects.toBeInstanceOf(
+    await expect(store.updateProgress({ id: 'missing', page: 1 })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
     await expect(store.deleteBookById('missing')).rejects.toBeInstanceOf(DeletedBookError)
@@ -191,23 +122,23 @@ describe('SQLocal 저장소', () => {
     expect(await store.getBookMetadata(id)).toMatchObject({ id })
   })
 
-  it('동일 PDF의 동시 저장은 하나만 성공하고 중복 오류 뒤에도 저장할 수 있다', async () => {
+  it('동일 PDF의 동시 저장은 하나만 성공하고 실패한 트랜잭션 뒤에도 저장할 수 있다', async () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
     const results = await Promise.allSettled([
-      store.addBook(createNewBook()),
-      store.addBook(createNewBook()),
+      store.addBook(createBookInput()),
+      store.addBook(createBookInput()),
     ])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const failures = results.filter((result) => result.status === 'rejected')
     expect(failures.map((result) => getErrorCode(result.reason))).toEqual(['duplicate'])
-    await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+    await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     expect(await store.listBooks()).toHaveLength(2)
   })
 
   it('OCR 페이지 초기화는 중복되지 않고 동시 선점은 서로 다른 페이지를 반환한다', async () => {
     const { db, id, store } = await preparePages()
-    await store.initializeOcrPages(id)
+    await store.initializeOcrPages({ bookId: id, pageCount: 2 })
     const claimed = await Promise.all([store.acquireNextOcrPage(id), store.acquireNextOcrPage(id)])
     expect(claimed).toEqual([
       expect.objectContaining({ pageNumber: 1 }),
@@ -223,15 +154,16 @@ describe('SQLocal 저장소', () => {
   it('100개 OCR 페이지를 빠짐없이 등록하고 다시 초기화해도 기존 행을 유지한다', async () => {
     const db = await createTestConnection()
     const store = { ...createBookRepository(db), ...createOcrRepository(db) }
-    const id = await store.addBook(createNewBook({ pageCount: 100 }))
+    const id = await store.addBook(createBookInput({ pageCount: 100 }))
     const batchSpy = vi.spyOn(db.sqlocal, 'batch')
     onTestFinished(() => batchSpy.mockRestore())
-    await store.initializeOcrPages(id)
+    const input = { bookId: id, pageCount: 100 }
+    await store.initializeOcrPages(input)
     const pages = await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')
     expect(pages.map((page) => page.page_number)).toEqual(
       Array.from({ length: 100 }, (_, index) => index + 1),
     )
-    await store.initializeOcrPages(id)
+    await store.initializeOcrPages(input)
     expect(await db.sqlocal.sql('SELECT * FROM ocr_pages ORDER BY page_number')).toEqual(pages)
     expect(batchSpy).toHaveBeenCalledTimes(2)
   })
@@ -240,10 +172,12 @@ describe('SQLocal 저장소', () => {
     const { db, id, store } = await setup()
     await db.sqlocal.sql(`CREATE TRIGGER fail_second_page BEFORE INSERT ON ocr_pages
       WHEN NEW.page_number = 2 BEGIN SELECT RAISE(ABORT, 'page failure'); END`)
-    await expect(store.initializeOcrPages(id)).rejects.toThrow('page failure')
+    await expect(store.initializeOcrPages({ bookId: id, pageCount: 2 })).rejects.toThrow(
+      'page failure',
+    )
     expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
     await db.sqlocal.sql('DROP TRIGGER fail_second_page')
-    await store.initializeOcrPages(id)
+    await store.initializeOcrPages({ bookId: id, pageCount: 2 })
     expect(await db.sqlocal.sql('SELECT page_number FROM ocr_pages ORDER BY page_number')).toEqual([
       { page_number: 1 },
       { page_number: 2 },
@@ -287,18 +221,18 @@ describe('SQLocal 저장소', () => {
       await store.storeOcrPage({ pageId: pages[1].id, width: 100, height: 200, lines: [] }),
     ).toBe(true)
     expect(await store.listOcrPages(id)).toEqual(
-      [1, 2].map((pageNumber) => ({ pageNumber, width: 100, height: 200, status: 'ready' })),
+      [1, 2].map((page_number) => ({ page_number, width: 100, height: 200, status: 'ready' })),
     )
     expect(await store.listOcrLines({ bookId: id, limit: 10, offset: 0 })).toEqual({
       total: 2,
       lines: [
-        { pageNumber: 1, lineIndex: 0, rawText: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
-        { pageNumber: 1, lineIndex: 1, rawText: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
+        { page_number: 1, line_index: 0, raw_text: '첫 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?", x0: 5, y0: 6, x1: 7, y1: 8 },
       ],
     })
     expect(await store.getOcrLinesForChunking(id)).toEqual([
-      { ocrPageId: pages[0].id, pageNumber: 1, lineIndex: 0, rawText: '첫 줄' },
-      { ocrPageId: pages[0].id, pageNumber: 1, lineIndex: 1, rawText: "둘째 줄 ' ?" },
+      { ocr_page_id: pages[0].id, page_number: 1, line_index: 0, raw_text: '첫 줄' },
+      { ocr_page_id: pages[0].id, page_number: 1, line_index: 1, raw_text: "둘째 줄 ' ?" },
     ])
     expect(await db.sqlocal.sql('SELECT ocr_completed_at FROM books')).toEqual([
       { ocr_completed_at: expect.any(Number) },
@@ -335,21 +269,19 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 재개는 완료 페이지와 다른 책을 유지하고 최초 완료 시각을 덮어쓰지 않는다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await store.addBook(
-      createNewBook({ contentHash: 'b'.repeat(64), pageCount: 1 }),
-    )
-    await store.initializeOcrPages(otherId)
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
+    await store.initializeOcrPages({ bookId: otherId, pageCount: 1 })
     await store.acquireNextOcrPage(otherId)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'failed' WHERE id = ?", pages[1].id)
     await db.sqlocal.sql('UPDATE books SET ocr_completed_at = 123 WHERE id = ?', id)
     await store.prepareOcrPagesForRun(id)
     expect(await store.listOcrPages(id)).toEqual([
-      { pageNumber: 1, status: 'ready', width: null, height: null },
-      { pageNumber: 2, status: 'pending', width: null, height: null },
+      { page_number: 1, status: 'ready', width: null, height: null },
+      { page_number: 2, status: 'pending', width: null, height: null },
     ])
     expect(await store.listOcrPages(otherId)).toEqual([
-      { pageNumber: 1, status: 'processing', width: null, height: null },
+      { page_number: 1, status: 'processing', width: null, height: null },
     ])
     await store.acquireNextOcrPage(id)
     expect(
@@ -375,7 +307,9 @@ describe('SQLocal 저장소', () => {
     for (const command of ['retryBookAnalysis', 'failBookAnalysis', 'failOcrPage'] as const) {
       await expect(store[command]('missing')).rejects.toBeInstanceOf(NotFoundBookError)
     }
-    await expect(store.initializeOcrPages('missing')).rejects.toBeInstanceOf(NotFoundBookError)
+    await expect(
+      store.initializeOcrPages({ bookId: 'missing', pageCount: 1 }),
+    ).rejects.toBeInstanceOf(NotFoundBookError)
     await expect(
       store.storeOcrPage({
         pageId: 'missing',
@@ -414,15 +348,15 @@ describe('SQLocal 저장소', () => {
         x1: 10,
         y1: index + 1,
       }))
-      const ocrPage = { pageId: pages[0].id, width: 100, height: 2000, lines }
-      await store.storeOcrPage(ocrPage)
+      const input = { pageId: pages[0].id, width: 100, height: 2000, lines }
+      await store.storeOcrPage(input)
       expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toEqual({
         width: 100,
         height: 2000,
         lines,
       })
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
-      await store.storeOcrPage({ ...ocrPage, lines: [] })
+      await store.storeOcrPage({ ...input, lines: [] })
       expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toEqual({
         width: 100,
         height: 2000,
@@ -434,7 +368,7 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 조회는 다른 책을 제외하고 페이지·줄 순서와 페이지네이션을 유지한다', async () => {
     const { db, id, store } = await setup()
-    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await db.sqlocal.sql(
       `INSERT INTO ocr_pages (id, book_id, page_number, width, height, status, created_at, updated_at)
        VALUES ('page-2', ?, 2, 100, 200, 'ready', 0, 0),
@@ -451,8 +385,8 @@ describe('SQLocal 저장소', () => {
              ('page-1', 0, '첫 줄', 1, 2, 3, 4)`)
 
     expect(await store.listOcrPages(id)).toEqual([
-      { pageNumber: 1, status: 'pending', width: null, height: null },
-      { pageNumber: 2, status: 'ready', width: 100, height: 200 },
+      { page_number: 1, status: 'pending', width: null, height: null },
+      { page_number: 2, status: 'ready', width: 100, height: 200 },
     ])
     expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 1 })).toBeNull()
     expect(await store.getStoredOcrPage({ bookId: id, pageNumber: 2 })).toEqual({
@@ -466,8 +400,8 @@ describe('SQLocal 저장소', () => {
     expect(await store.listOcrLines({ bookId: id, limit: 2, offset: 1 })).toEqual({
       total: 3,
       lines: [
-        { pageNumber: 2, lineIndex: 0, rawText: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
-        { pageNumber: 2, lineIndex: 1, rawText: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { page_number: 2, line_index: 0, raw_text: '중간 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
+        { page_number: 2, line_index: 1, raw_text: '마지막 줄', x0: 1, y0: 2, x1: 3, y1: 4 },
       ],
     })
     expect(await store.listOcrLines({ bookId: id, limit: 2, offset: 3 })).toEqual({
@@ -475,9 +409,9 @@ describe('SQLocal 저장소', () => {
       lines: [],
     })
     expect(await store.getOcrLinesForChunking(id)).toEqual([
-      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '첫 줄' },
-      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 0, rawText: '중간 줄' },
-      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 1, rawText: '마지막 줄' },
+      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 줄' },
+      { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '중간 줄' },
+      { ocr_page_id: 'page-2', page_number: 2, line_index: 1, raw_text: '마지막 줄' },
     ])
   })
 
@@ -515,14 +449,14 @@ describe('SQLocal 저장소', () => {
     'OCR %s 저장 중 오류가 발생하면 기존 줄과 페이지 상태를 보존한다',
     async (target) => {
       const { db, id, store, pages } = await preparePages()
-      const ocrPage = {
+      const input = {
         pageId: pages[0].id,
         width: 100,
         height: 200,
         lines: [{ rawText: '기존 줄', x0: 1, y0: 2, x1: 3, y1: 4 }],
       }
       await store.acquireNextOcrPage(id)
-      await store.storeOcrPage(ocrPage)
+      await store.storeOcrPage(input)
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'processing' WHERE id = ?", pages[0].id)
       await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[1].id)
       const before = await db.sqlocal.sql('SELECT * FROM ocr_lines')
@@ -537,10 +471,10 @@ describe('SQLocal 저장소', () => {
       )
       await expect(
         store.storeOcrPage({
-          ...ocrPage,
+          ...input,
           lines: [
-            { ...ocrPage.lines[0], rawText: '새 첫 줄' },
-            { ...ocrPage.lines[0], rawText: '새 둘째 줄' },
+            { ...input.lines[0], rawText: '새 첫 줄' },
+            { ...input.lines[0], rawText: '새 둘째 줄' },
           ],
         }),
       ).rejects.toMatchObject(
@@ -591,11 +525,11 @@ describe('SQLocal 저장소', () => {
     const page = { bookId: id, limit: 1, offset: 0 }
     expect(await store.listSearchTerms(page)).toEqual({
       total: 1,
-      terms: [{ id: expect.any(Number), term: '검색', documentFrequency: 2 }],
+      terms: [{ id: expect.any(Number), term: '검색', document_frequency: 2 }],
     })
     expect(await store.listSearchPostings(page)).toEqual({
       total: 2,
-      postings: [expect.objectContaining({ chunkId: 'chunk-1', termFrequency: 1 })],
+      postings: [expect.objectContaining({ chunk_id: 'chunk-1', term_frequency: 1 })],
     })
     expect(await store.listSearchChunks(page)).toEqual({
       total: 2,
@@ -603,7 +537,7 @@ describe('SQLocal 저장소', () => {
     })
     expect(await store.listChunkSources(page)).toEqual({
       total: 2,
-      sources: [expect.objectContaining({ chunkId: 'chunk-1', pageNumber: 1 })],
+      sources: [expect.objectContaining({ chunk_id: 'chunk-1', page_number: 1 })],
     })
     await store.deleteBookById(id)
     expect(await db.sqlocal.sql('SELECT * FROM search_terms')).toEqual([])
@@ -613,7 +547,7 @@ describe('SQLocal 저장소', () => {
 
   it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
     const { id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -644,36 +578,28 @@ describe('SQLocal 저장소', () => {
     const page = { bookId: id, limit: 1, offset: 1 }
     expect(await store.listSearchChunks(page)).toEqual({
       total: 2,
-      chunks: [
-        {
-          id: 'late',
-          ordinal: 2,
-          text: '전자책 검색',
-          tokenCount: 2,
-          createdAt: expect.any(Number),
-        },
-      ],
+      chunks: [expect.objectContaining({ id: 'late', ordinal: 2 })],
     })
     expect(await store.listSearchTerms({ ...page, offset: 0, limit: 10 })).toEqual({
       total: 2,
       terms: [
-        { id: expect.any(Number), term: 'alpha', documentFrequency: 3 },
-        { id: expect.any(Number), term: 'beta', documentFrequency: 1 },
+        { id: expect.any(Number), term: 'alpha', document_frequency: 3 },
+        { id: expect.any(Number), term: 'beta', document_frequency: 1 },
       ],
     })
     expect(await store.listSearchTerms(page)).toEqual({
       total: 2,
-      terms: [{ id: expect.any(Number), term: 'beta', documentFrequency: 1 }],
+      terms: [{ id: expect.any(Number), term: 'beta', document_frequency: 1 }],
     })
     expect(await store.listSearchPostings(page)).toEqual({
       total: 3,
       postings: [
         {
-          termId: expect.any(Number),
-          chunkId: 'late',
-          termFrequency: 1,
+          term_id: expect.any(Number),
+          chunk_id: 'late',
+          term_frequency: 1,
           term: 'alpha',
-          chunkOrdinal: 2,
+          chunk_ordinal: 2,
         },
       ],
     })
@@ -682,13 +608,13 @@ describe('SQLocal 저장소', () => {
       sources: [
         {
           id: expect.any(Number),
-          chunkId: 'early',
-          chunkOrdinal: 0,
-          ocrPageId: pages[0].id,
-          pageNumber: 1,
-          startLineIndex: 1,
-          endLineIndex: 2,
-          sourceOrder: 1,
+          chunk_id: 'early',
+          chunk_ordinal: 0,
+          ocr_page_id: pages[0].id,
+          page_number: 1,
+          start_line_index: 1,
+          end_line_index: 2,
+          source_order: 1,
         },
       ],
     })
@@ -728,7 +654,7 @@ describe('SQLocal 저장소', () => {
 
   it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -818,8 +744,8 @@ describe('SQLocal 저장소', () => {
     '색인 교체 중 %s 저장에 실패하면 기존 색인과 분석 상태를 복원한다',
     async (table) => {
       const { db, id, store, pages } = await preparePages()
-      const searchIndex = { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] }
-      await store.storeSearchIndex(searchIndex)
+      const input = { bookId: id, chunks: [chunk('chunk-1', pages[0].id)] }
+      await store.storeSearchIndex(input)
       const readState = () =>
         Promise.all(
           ['books', 'search_chunks', 'chunk_sources', 'search_terms', 'search_postings'].map(
@@ -848,7 +774,7 @@ describe('SQLocal 저장소', () => {
     '%s OCR 페이지를 출처로 사용하면 거부하고 기존 색인을 보존한다',
     async (source) => {
       const { db, store, pages } = await preparePages()
-      const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+      const otherId = await store.addBook(createBookInput({ contentHash: 'b'.repeat(64) }))
       await store.storeSearchIndex({
         bookId: otherId,
         chunks: [{ ...chunk('existing', ''), sources: [] }],

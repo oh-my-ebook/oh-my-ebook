@@ -6,26 +6,26 @@ import { BookCard } from './book-card'
 
 const book: StoredBook = {
   id: 'book-id',
-  contentHash: 'hash',
-  fileName: 'local-library.pdf',
+  content_hash: 'hash',
+  file_name: 'local-library.pdf',
   title: '지역 도서관의 아주 긴 책 제목',
   author: null,
-  pdfTitle: null,
-  pdfSubject: null,
-  pdfKeywords: null,
+  pdf_title: null,
+  pdf_subject: null,
+  pdf_keywords: null,
   publisher: null,
-  pdfSize: 0,
-  pageCount: 100,
-  coverData: new Uint8Array([1, 2, 3]),
-  coverMime: 'image/png',
-  coverStatus: 'ready',
-  pdfStatus: 'available',
-  lastPage: null,
-  analysisStatus: 'analyzing',
-  ocrCompletedAt: null,
-  indexedAt: null,
-  createdAt: 0,
-  updatedAt: 0,
+  pdf_size: 0,
+  page_count: 100,
+  cover_data: new Uint8Array([1, 2, 3]),
+  cover_mime: 'image/png',
+  cover_status: 'ready',
+  pdf_status: 'available',
+  last_page: null,
+  analysis_status: 'analyzing',
+  ocr_completed_at: null,
+  indexed_at: null,
+  created_at: 0,
+  updated_at: 0,
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -54,7 +54,7 @@ describe('BookCard', () => {
   })
 
   it('마지막 읽은 페이지를 전체 페이지와 함께 표시한다', () => {
-    render(<BookCard book={{ ...book, lastPage: 12 }} onOpen={vi.fn()} />)
+    render(<BookCard book={{ ...book, last_page: 12 }} onOpen={vi.fn()} />)
 
     expect(screen.getByText('12 / 100페이지')).toBeVisible()
   })
@@ -64,10 +64,10 @@ describe('BookCard', () => {
 
     expect(screen.getByText('분석 중')).toHaveAttribute('data-variant', 'secondary')
 
-    rerender(<BookCard book={{ ...book, analysisStatus: 'ready' }} onOpen={vi.fn()} />)
+    rerender(<BookCard book={{ ...book, analysis_status: 'ready' }} onOpen={vi.fn()} />)
     expect(screen.getByText('분석 완료')).toHaveAttribute('data-variant', 'default')
 
-    rerender(<BookCard book={{ ...book, analysisStatus: 'failed' }} onOpen={vi.fn()} />)
+    rerender(<BookCard book={{ ...book, analysis_status: 'failed' }} onOpen={vi.fn()} />)
     expect(screen.getByText('분석 실패')).toHaveAttribute('data-variant', 'destructive')
   })
 
@@ -76,7 +76,7 @@ describe('BookCard', () => {
     const onRetryAnalysis = vi.fn()
     render(
       <BookCard
-        book={{ ...book, analysisStatus: 'failed' }}
+        book={{ ...book, analysis_status: 'failed' }}
         onOpen={vi.fn()}
         onRetryAnalysis={onRetryAnalysis}
       />,
@@ -138,7 +138,7 @@ describe('BookCard', () => {
     const onOpen = vi.fn()
     render(
       <BookCard
-        book={{ ...book, pdfStatus: 'missing' }}
+        book={{ ...book, pdf_status: 'missing' }}
         onDelete={vi.fn(async () => undefined)}
         onOpen={onOpen}
       />,

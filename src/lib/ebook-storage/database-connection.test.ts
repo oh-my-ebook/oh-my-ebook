@@ -2,7 +2,7 @@ import { locks } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { createTestDatabase } from '../../test/sqlocal'
-import { searchTermsTable } from './schema'
+import { searchTerms } from './schema'
 
 vi.mock('sqlocal/drizzle', () => ({ SQLocalDrizzle: vi.fn() }))
 afterEach(() => {
@@ -91,14 +91,11 @@ describe('SQLocal 연결', () => {
     const { initializeDatabase, db } = await import('./database-connection')
     await initializeDatabase()
     await db.batch([
-      db.insert(searchTermsTable).values({ term: '검색', documentFrequency: 1 }),
-      db.insert(searchTermsTable).values({ term: '독서', documentFrequency: 2 }),
+      db.insert(searchTerms).values({ term: '검색', documentFrequency: 1 }),
+      db.insert(searchTerms).values({ term: '독서', documentFrequency: 2 }),
     ])
     expect(
-      await db
-        .select({ term: searchTermsTable.term })
-        .from(searchTermsTable)
-        .orderBy(searchTermsTable.term),
+      await db.select({ term: searchTerms.term }).from(searchTerms).orderBy(searchTerms.term),
     ).toEqual([{ term: '검색' }, { term: '독서' }])
     expect(await database.sql('SELECT COUNT(*) AS total FROM search_terms')).toEqual([{ total: 2 }])
   })
@@ -109,13 +106,13 @@ describe('SQLocal 연결', () => {
     reportOpfs(database)
     const { initializeDatabase, resetDatabase, db } = await import('./database-connection')
     await initializeDatabase()
-    await db.insert(searchTermsTable).values({ term: '삭제할 용어', documentFrequency: 1 })
+    await db.insert(searchTerms).values({ term: '삭제할 용어', documentFrequency: 1 })
     await resetDatabase()
-    expect(await db.select().from(searchTermsTable)).toEqual([])
+    expect(await db.select().from(searchTerms)).toEqual([])
     expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
     expect(await database.sql('PRAGMA foreign_keys')).toEqual([{ foreign_keys: 1 }])
-    await db.insert(searchTermsTable).values({ term: '새 용어', documentFrequency: 1 })
-    expect(await db.select({ term: searchTermsTable.term }).from(searchTermsTable)).toEqual([
+    await db.insert(searchTerms).values({ term: '새 용어', documentFrequency: 1 })
+    expect(await db.select({ term: searchTerms.term }).from(searchTerms)).toEqual([
       { term: '새 용어' },
     ])
     expect(database.destroy).not.toHaveBeenCalled()
@@ -136,7 +133,7 @@ describe('SQLocal 연결', () => {
     await expect(resetDatabase()).rejects.toThrow('missing_table')
     expect(await database.sql("SELECT name FROM sqlite_master WHERE type = 'table'")).toEqual([])
     await initializeDatabase()
-    expect(await db.select().from(searchTermsTable)).toEqual([])
+    expect(await db.select().from(searchTerms)).toEqual([])
     expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
   })
 })

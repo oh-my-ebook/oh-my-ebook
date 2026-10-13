@@ -9,9 +9,9 @@ interface LibrarySummaryProps {
 
 export function LibrarySummary({ books, usage }: LibrarySummaryProps) {
   const readingCount = books.filter(
-    (book) => book.lastPage !== null && book.lastPage < book.pageCount,
+    (book) => book.last_page !== null && book.last_page < book.page_count,
   ).length
-  const completedCount = books.filter((book) => book.lastPage === book.pageCount).length
+  const completedCount = books.filter((book) => book.last_page === book.page_count).length
   const usageText = usage === null ? '확인 불가' : formatBytes(usage)
 
   return (

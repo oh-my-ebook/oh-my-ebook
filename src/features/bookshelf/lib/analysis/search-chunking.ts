@@ -1,6 +1,6 @@
 import { postprocessWithKiwi } from '@/lib/kiwi/client'
 import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
-import type { SearchChunkWithSources } from '@/lib/ebook-storage/types/search-index'
+import type { SearchChunkInput } from '@/lib/ebook-storage/types/search-index'
 
 export const DEFAULT_SEARCH_CHUNK_TOKEN_TARGET = 300
 
@@ -93,7 +93,7 @@ async function createParagraphUnits(
   signal: AbortSignal,
   tokenTarget: number,
 ): Promise<ChunkUnit[]> {
-  const processed = await postprocessWithKiwi(lines.map((line) => line.rawText).join('\n'), signal)
+  const processed = await postprocessWithKiwi(lines.map((line) => line.raw_text).join('\n'), signal)
   const processedLines = processed.split('\n').map((line) => line.trim())
   if (processedLines.length !== lines.length) {
     throw new Error('Kiwi 처리 결과의 줄 수가 OCR 원문과 다릅니다.')
@@ -133,21 +133,21 @@ async function createParagraphUnits(
 }
 
 function createChunkSources(lines: OcrLineForChunking[]) {
-  const sources: SearchChunkWithSources['sources'][number][] = []
+  const sources: SearchChunkInput['sources'][number][] = []
   lines.forEach((line) => {
     const lastSource = sources.at(-1)
     if (
       lastSource &&
-      lastSource.ocrPageId === line.ocrPageId &&
-      line.lineIndex <= lastSource.endLineIndex + 1
+      lastSource.ocrPageId === line.ocr_page_id &&
+      line.line_index <= lastSource.endLineIndex + 1
     ) {
-      lastSource.endLineIndex = Math.max(lastSource.endLineIndex, line.lineIndex)
+      lastSource.endLineIndex = Math.max(lastSource.endLineIndex, line.line_index)
       return
     }
     sources.push({
-      ocrPageId: line.ocrPageId,
-      startLineIndex: line.lineIndex,
-      endLineIndex: line.lineIndex,
+      ocrPageId: line.ocr_page_id,
+      startLineIndex: line.line_index,
+      endLineIndex: line.line_index,
       sourceOrder: sources.length,
     })
   })
@@ -169,7 +169,7 @@ export async function createSearchChunks(
   ocrLines: OcrLineForChunking[],
   signal: AbortSignal,
   tokenTarget = DEFAULT_SEARCH_CHUNK_TOKEN_TARGET,
-): Promise<SearchChunkWithSources[]> {
+): Promise<SearchChunkInput[]> {
   if (!Number.isSafeInteger(tokenTarget) || tokenTarget <= 0) {
     throw new RangeError('검색 청크 목표 토큰 수는 양의 정수여야 합니다.')
   }
@@ -179,7 +179,7 @@ export async function createSearchChunks(
 
   // 1. 빈 줄이 올 때까지 하나의 문단을 형성하고 빈 줄이 오면 문단 배열에 삽입
   ocrLines.forEach((line) => {
-    if (line.rawText.trim()) {
+    if (line.raw_text.trim()) {
       paragraph.push(line)
       return
     }

@@ -32,15 +32,15 @@ vi.mock('./reader-page', () => ({
 function createBook(overrides: Partial<StoredBookDetail> = {}) {
   return createStoredBookDetail({
     id: 'book-id',
-    fileName: 'book.pdf',
+    file_name: 'book.pdf',
     title: '저장한 책',
     author: '저자',
-    pdfSubject: '주제',
-    pdfKeywords: null,
+    pdf_subject: '주제',
+    pdf_keywords: null,
     publisher: '출판사',
-    pdfData: new Uint8Array([1, 2, 3]),
-    lastPage: 12,
-    analysisStatus: 'ready',
+    pdf_data: new Uint8Array([1, 2, 3]),
+    last_page: 12,
+    analysis_status: 'ready',
     ...overrides,
   })
 }
@@ -125,11 +125,11 @@ describe('EbookReaderPage', () => {
 
     await user.click(screen.getByRole('button', { name: '2페이지' }))
     await user.click(screen.getByRole('button', { name: '3페이지' }))
-    expect(store.updateProgress).toHaveBeenLastCalledWith({ bookId: 'book-id', page: 2 })
+    expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 2 })
 
     firstWrite.resolve(undefined)
     await waitFor(() => {
-      expect(store.updateProgress).toHaveBeenLastCalledWith({ bookId: 'book-id', page: 3 })
+      expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 3 })
     })
   })
 
@@ -148,7 +148,7 @@ describe('EbookReaderPage', () => {
     firstWrite.resolve(undefined)
 
     await waitFor(() => {
-      expect(store.updateProgress).toHaveBeenLastCalledWith({ bookId: 'book-id', page: 3 })
+      expect(store.updateProgress).toHaveBeenLastCalledWith({ id: 'book-id', page: 3 })
     })
   })
 
@@ -162,7 +162,7 @@ describe('EbookReaderPage', () => {
     await user.click(screen.getByRole('button', { name: '2페이지' }))
 
     await waitFor(() =>
-      expect(store.updateProgress).toHaveBeenCalledWith({ bookId: 'book-id', page: 2 }),
+      expect(store.updateProgress).toHaveBeenCalledWith({ id: 'book-id', page: 2 }),
     )
     expect(screen.getByRole('main', { name: '독서 화면' })).toBeInTheDocument()
   })

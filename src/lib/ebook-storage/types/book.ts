@@ -1,37 +1,3 @@
-import type { booksTable } from '../schema'
-
-type BookRow = typeof booksTable.$inferSelect
-
-export interface Book extends BookRow {
-  id: string
-}
-
-type ImportedBookFields = Pick<
-  Book,
-  | 'contentHash'
-  | 'fileName'
-  | 'title'
-  | 'author'
-  | 'pdfTitle'
-  | 'pdfSubject'
-  | 'pdfKeywords'
-  | 'publisher'
-  | 'pdfSize'
-  | 'pageCount'
-  | 'coverStatus'
->
-
-type StoredBookMetadata = Omit<
-  Book,
-  | 'coverData'
-  | 'coverMime'
-  | 'coverStatus'
-  | 'ocrCompletedAt'
-  | 'indexedAt'
-  | 'createdAt'
-  | 'updatedAt'
->
-
 export interface BookMetadata {
   author?: string
   keywords?: string
@@ -40,29 +6,64 @@ export interface BookMetadata {
   title: string
 }
 
-export type BookAnalysisStatus = Book['analysisStatus']
+export type BookAnalysisStatus = 'analyzing' | 'ready' | 'failed'
 
-export interface BookCoverData {
-  coverData: ArrayBuffer
-  coverMime: 'image/webp' | 'image/png'
-}
-
-export interface ImportedBook extends ImportedBookFields {
+export interface AddBookInput {
   pdfData: ArrayBuffer
+  contentHash: string
+  fileName: string
+  title: string
+  author: string | null
+  pdfTitle: string | null
+  pdfSubject: string | null
+  pdfKeywords: string | null
+  publisher: string | null
+  pdfSize: number
+  pageCount: number
   coverData: ArrayBuffer | null
   coverMime: 'image/webp' | 'image/png' | null
+  coverStatus: 'ready' | 'fallback'
 }
 
-export interface StoredBook extends Book {
-  pdfStatus: 'available' | 'missing'
+export interface StoredBook {
+  id: string
+  content_hash: string
+  file_name: string
+  title: string
+  author: string | null
+  pdf_title: string | null
+  pdf_subject: string | null
+  pdf_keywords: string | null
+  publisher: string | null
+  pdf_size: number
+  page_count: number
+  cover_data: Uint8Array | null
+  cover_mime: string | null
+  cover_status: 'ready' | 'fallback'
+  pdf_status: 'available' | 'missing'
+  last_page: number | null
+  analysis_status: BookAnalysisStatus
+  ocr_completed_at: number | null
+  indexed_at: number | null
+  created_at: number
+  updated_at: number
 }
 
-export interface StoredBookDetail extends StoredBookMetadata {
-  pdfData: Uint8Array
-}
-
-export interface BookRecordsQuery {
-  bookId: Book['id']
-  limit: number
-  offset: number
+export interface StoredBookDetail extends Pick<
+  StoredBook,
+  | 'id'
+  | 'content_hash'
+  | 'file_name'
+  | 'title'
+  | 'author'
+  | 'pdf_title'
+  | 'pdf_subject'
+  | 'pdf_keywords'
+  | 'publisher'
+  | 'pdf_size'
+  | 'page_count'
+  | 'last_page'
+  | 'analysis_status'
+> {
+  pdf_data: Uint8Array
 }

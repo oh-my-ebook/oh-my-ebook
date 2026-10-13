@@ -24,7 +24,7 @@ export function createSearchChunksSql(termCount: number): string {
     JOIN query_terms ON query_terms.term = search_terms.term
     GROUP BY search_postings.term_id
   )
-  SELECT book_chunks.id, book_chunks.ordinal, book_chunks.text, book_chunks.token_count AS tokenCount,
+  SELECT book_chunks.id, book_chunks.ordinal, book_chunks.text, book_chunks.token_count,
     SUM(
       ln(
         (corpus.document_count - term_document_frequencies.document_frequency + 0.5) /

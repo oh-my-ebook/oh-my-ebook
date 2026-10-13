@@ -5,26 +5,26 @@ import type { StoredBook, StoredBookDetail } from '@/lib/ebook-storage/types/boo
 export function createStoredBook(overrides: Partial<StoredBook> = {}): StoredBook {
   return {
     id: 'book-id',
-    contentHash: 'a'.repeat(64),
-    fileName: 'book.pdf',
+    content_hash: 'a'.repeat(64),
+    file_name: 'book.pdf',
     title: '책',
     author: null,
-    pdfTitle: null,
-    pdfSubject: null,
-    pdfKeywords: null,
+    pdf_title: null,
+    pdf_subject: null,
+    pdf_keywords: null,
     publisher: null,
-    pdfSize: 3,
-    pageCount: 2,
-    coverData: null,
-    coverMime: null,
-    coverStatus: 'fallback',
-    pdfStatus: 'available',
-    lastPage: null,
-    analysisStatus: 'ready',
-    ocrCompletedAt: null,
-    indexedAt: null,
-    createdAt: 0,
-    updatedAt: 0,
+    pdf_size: 3,
+    page_count: 2,
+    cover_data: null,
+    cover_mime: null,
+    cover_status: 'fallback',
+    pdf_status: 'available',
+    last_page: null,
+    analysis_status: 'ready',
+    ocr_completed_at: null,
+    indexed_at: null,
+    created_at: 0,
+    updated_at: 0,
     ...overrides,
   }
 }
@@ -32,7 +32,7 @@ export function createStoredBook(overrides: Partial<StoredBook> = {}): StoredBoo
 export function createStoredBookDetail(
   overrides: Partial<StoredBookDetail> = {},
 ): StoredBookDetail {
-  return { ...createStoredBook(), pdfData: new Uint8Array([1, 2, 3]), ...overrides }
+  return { ...createStoredBook(), pdf_data: new Uint8Array([1, 2, 3]), ...overrides }
 }
 
 export function createStoreMock() {

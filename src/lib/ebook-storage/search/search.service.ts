@@ -3,63 +3,61 @@ import type {
   SearchTermPage,
   SearchPostingPage,
   ChunkSourcePage,
-  SearchIndex,
 } from '../types/search-index'
 import type { SearchChunkQuery, SearchChunkResult } from '../types/search'
-import type { BookRecordsQuery } from '../types/book'
+import type { StoreSearchIndexInput, ListOcrLinesInput } from '../types/inputs'
 import type { createSearchRepository } from './search.repository'
-import { isBookRecordsQuery, isSearchChunkQuery, isSearchIndex, runValidated } from '../validation'
+import {
+  isListOcrLinesInput,
+  isSearchChunkQuery,
+  isStoreSearchIndexInput,
+  runValidated,
+} from '../validation'
 
 export interface SearchService {
-  storeSearchIndex(searchIndex: SearchIndex): Promise<void>
-  listSearchChunks(searchChunkQuery: BookRecordsQuery): Promise<SearchChunkPage>
+  storeSearchIndex(input: StoreSearchIndexInput): Promise<void>
+  listSearchChunks(input: ListOcrLinesInput): Promise<SearchChunkPage>
   searchChunks(query: SearchChunkQuery): Promise<SearchChunkResult[]>
-  listSearchTerms(searchTermQuery: BookRecordsQuery): Promise<SearchTermPage>
-  listSearchPostings(searchPostingQuery: BookRecordsQuery): Promise<SearchPostingPage>
-  listChunkSources(chunkSourceQuery: BookRecordsQuery): Promise<ChunkSourcePage>
+  listSearchTerms(input: ListOcrLinesInput): Promise<SearchTermPage>
+  listSearchPostings(input: ListOcrLinesInput): Promise<SearchPostingPage>
+  listChunkSources(input: ListOcrLinesInput): Promise<ChunkSourcePage>
 }
 
 export function createSearchService(
   searchRepository: ReturnType<typeof createSearchRepository>,
 ): SearchService {
-  const searchService: SearchService = {
-    storeSearchIndex: (searchIndex) =>
+  return {
+    storeSearchIndex: (input) =>
       runValidated(
         'storeSearchIndex',
         searchRepository.storeSearchIndex,
-        searchIndex,
-        isSearchIndex,
+        input,
+        isStoreSearchIndexInput,
       ),
-    listSearchChunks: (searchChunkQuery) =>
+    listSearchChunks: (input) =>
       runValidated(
         'listSearchChunks',
         searchRepository.listSearchChunks,
-        searchChunkQuery,
-        isBookRecordsQuery,
+        input,
+        isListOcrLinesInput,
       ),
     searchChunks: (query) =>
       runValidated('searchChunks', searchRepository.searchChunks, query, isSearchChunkQuery),
-    listSearchTerms: (searchTermQuery) =>
-      runValidated(
-        'listSearchTerms',
-        searchRepository.listSearchTerms,
-        searchTermQuery,
-        isBookRecordsQuery,
-      ),
-    listSearchPostings: (searchPostingQuery) =>
+    listSearchTerms: (input) =>
+      runValidated('listSearchTerms', searchRepository.listSearchTerms, input, isListOcrLinesInput),
+    listSearchPostings: (input) =>
       runValidated(
         'listSearchPostings',
         searchRepository.listSearchPostings,
-        searchPostingQuery,
-        isBookRecordsQuery,
+        input,
+        isListOcrLinesInput,
       ),
-    listChunkSources: (chunkSourceQuery) =>
+    listChunkSources: (input) =>
       runValidated(
         'listChunkSources',
         searchRepository.listChunkSources,
-        chunkSourceQuery,
-        isBookRecordsQuery,
+        input,
+        isListOcrLinesInput,
       ),
   }
-  return searchService
 }
