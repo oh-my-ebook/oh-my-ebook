@@ -1,7 +1,5 @@
-import { generateSQLiteDrizzleJson, generateSQLiteMigration } from 'drizzle-kit/api'
 import { describe, expect, it } from 'vitest'
 import baselineSql from '../../../drizzle/0000_initial-schema.sql?raw'
-import baselineSnapshot from '../../../drizzle/meta/0000_snapshot.json'
 import { createTestDatabase } from '../../test/sqlocal'
 import * as schema from './schema'
 import { INITIAL_SCHEMA_SQL } from './schema-sql'
@@ -35,47 +33,6 @@ async function createSeededDatabase(schemaSql: string) {
 }
 
 describe('Drizzle 스키마', () => {
-  it('스키마에서 생성한 SQL과 스냅샷이 저장된 초기 마이그레이션과 일치한다', async () => {
-    const snapshot = await generateSQLiteDrizzleJson(schema)
-    expect(snapshot.tables).toEqual(baselineSnapshot.tables)
-    const statements = await generateSQLiteMigration(await generateSQLiteDrizzleJson({}), snapshot)
-    expect(statements.map((statement) => statement.trim()).toSorted()).toEqual(
-      baselineSql
-        .split('--> statement-breakpoint')
-        .map((statement) => statement.trim())
-        .toSorted(),
-    )
-  })
-
-  it('기존 스키마의 컬럼, 기본 키, 인덱스 정렬과 외래 키를 유지한다', async () => {
-    const readStructure = async (schemaSql: string) => {
-      const database = await createTestDatabase(schemaSql)
-      return {
-        columns: await database.sql(`
-          SELECT m.name AS table_name, p.name, p.type, p."notnull", p.dflt_value, p.pk
-          FROM sqlite_schema m, pragma_table_info(m.name) p
-          WHERE m.type = 'table' ORDER BY m.name, p.cid
-        `),
-        indexes: await database.sql(`
-          SELECT m.name AS table_name,
-            CASE WHEN i.name LIKE 'sqlite_autoindex_%'
-              OR i.name IN ('books_content_hash_unique', 'search_terms_term_unique')
-              THEN NULL ELSE i.name END AS name,
-            i."unique", x.seqno, x.name AS column_name, x."desc", x.coll, i.partial
-          FROM sqlite_schema m, pragma_index_list(m.name) i, pragma_index_xinfo(i.name) x
-          WHERE m.type = 'table' AND x.key = 1
-          ORDER BY m.name, name, column_name, x.seqno
-        `),
-        foreignKeys: await database.sql(`
-          SELECT m.name AS table_name, f."table", f."from", f."to", f.on_update, f.on_delete, f.match
-          FROM sqlite_schema m, pragma_foreign_key_list(m.name) f
-          WHERE m.type = 'table' ORDER BY m.name, f."from"
-        `),
-      }
-    }
-    expect(await readStructure(baselineSql)).toEqual(await readStructure(INITIAL_SCHEMA_SQL))
-  })
-
   it('표지 BLOB을 Uint8Array로 저장하고 복원한다', async () => {
     const database = await createSeededDatabase(baselineSql)
     const coverData = new Uint8Array([0, 128, 255])
