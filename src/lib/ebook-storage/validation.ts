@@ -1,12 +1,5 @@
 import type { DatabaseConnection } from './database-connection'
-import type {
-  ImportedBook,
-  BookAnalysisStatus,
-  BookRecordsQuery,
-  BookCover,
-  BookProgress,
-  BookTitle,
-} from './types/book'
+import type { ImportedBook, BookAnalysisStatus, BookRecordsQuery } from './types/book'
 import type { OcrLine, OcrPageQuery, OcrPageResult } from './types/ocr'
 import type { SearchChunkQuery } from './types/search'
 import type {
@@ -17,7 +10,7 @@ import type {
   SearchIndex,
 } from './types/search-index'
 import { eq } from 'drizzle-orm'
-import { books } from './schema'
+import { booksTable } from './schema'
 import { InvalidDataError } from './storage-errors'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
@@ -71,47 +64,6 @@ export function isImportedBook(value: unknown): value is ImportedBook {
 
 export function isContentHash(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-}
-
-export function isBookCover(value: unknown): value is BookCover {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    value.id.length > 0 &&
-    'coverData' in value &&
-    value.coverData instanceof ArrayBuffer &&
-    'coverMime' in value &&
-    (value.coverMime === 'image/webp' || value.coverMime === 'image/png')
-  )
-}
-
-export function isBookProgress(value: unknown): value is BookProgress {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    value.id.length > 0 &&
-    'page' in value &&
-    typeof value.page === 'number' &&
-    Number.isSafeInteger(value.page) &&
-    value.page > 0
-  )
-}
-
-export function isBookTitle(value: unknown): value is BookTitle {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    value.id.length > 0 &&
-    'title' in value &&
-    typeof value.title === 'string' &&
-    value.title.trim().length > 0
-  )
 }
 
 export function isIdentifier(value: unknown): value is string {
@@ -262,9 +214,9 @@ export async function normalizeStoredProgress<
   }
 
   await database.db
-    .update(books)
+    .update(booksTable)
     .set({ lastPage: 1, updatedAt: Date.now() })
-    .where(eq(books.id, id))
+    .where(eq(booksTable.id, id))
   return { ...book, lastPage: 1 }
 }
 

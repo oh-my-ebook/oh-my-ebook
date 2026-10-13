@@ -7,6 +7,7 @@ import * as storage from '@/lib/ebook-storage/browser-storage'
 import * as pdfImport from '../lib/pdf-import'
 import * as ocrAnalysis from '../lib/analysis/ocr-analysis'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
+import type { StoredBook } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '@/test/promise-controller'
 import { toast, Toaster } from '@/components/ui/toast'
 import { Bookshelf } from './bookshelf'
@@ -439,7 +440,7 @@ describe('Bookshelf', () => {
     await user.type(screen.getByLabelText('책 제목'), '새 제목')
     await user.click(screen.getByRole('button', { name: '저장' }))
     expect(store.updateTitle).toHaveBeenCalledWith({
-      id: '기존 책-id',
+      bookId: '기존 책-id',
       title: '새 제목',
     })
 
@@ -548,6 +549,33 @@ describe('Bookshelf', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getByRole('group', { name: '서재 현황' })).toHaveTextContent(
       '소장 도서 0권 (0 B)',
+    )
+  })
+
+  it('표지를 다시 만들면 책 ID와 새 표지 데이터를 저장한다', async () => {
+    const user = userEvent.setup()
+    const store = createStore()
+    const book: StoredBook = { ...createStoredBook('기존 책'), analysisStatus: 'ready' }
+    const coverData = new Uint8Array([1, 2, 3]).buffer
+    store.listBooks.mockResolvedValue([book])
+    store.getBook.mockResolvedValue({ ...book, pdfData: new Uint8Array([4, 5]) })
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue({
+      ...book,
+      pdfData: new ArrayBuffer(2),
+      coverData,
+      coverMime: 'image/png',
+      coverStatus: 'ready',
+    })
+    render(<Bookshelf store={store} />, { wrapper: TestRouter })
+
+    await user.click(await screen.findByRole('button', { name: '기존 책 메뉴' }))
+    await user.click(await screen.findByRole('menuitem', { name: '표지 다시 만들기' }))
+
+    await waitFor(() =>
+      expect(store.updateCover).toHaveBeenCalledWith({
+        bookId: book.id,
+        cover: { coverData, coverMime: 'image/png' },
+      }),
     )
   })
 

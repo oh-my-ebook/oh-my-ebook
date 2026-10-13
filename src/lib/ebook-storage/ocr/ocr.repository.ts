@@ -10,7 +10,7 @@ import type {
 } from '../types/ocr'
 import type { BookRecordsQuery } from '../types/book'
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
-import { books, ocrLines, ocrPages } from '../schema'
+import { booksTable, ocrLines, ocrPages } from '../schema'
 import { NotFoundBookError } from '../storage-errors'
 
 type OcrPageInsert = typeof ocrPages.$inferInsert
@@ -19,9 +19,9 @@ export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
   async function initializeOcrPages(bookid: string): Promise<void> {
-    const book = await db.query.books.findFirst({
+    const book = await db.query.booksTable.findFirst({
       columns: { pageCount: true },
-      where: eq(books.id, bookid),
+      where: eq(booksTable.id, bookid),
     })
     if (!book?.pageCount) throw new NotFoundBookError()
 
@@ -129,9 +129,9 @@ export function createOcrRepository(database: DatabaseConnection) {
       }
       await tx.query(
         db
-          .update(books)
+          .update(booksTable)
           .set({ ocrCompletedAt: now, updatedAt: now })
-          .where(and(eq(books.id, bookId), isNull(books.ocrCompletedAt))),
+          .where(and(eq(booksTable.id, bookId), isNull(booksTable.ocrCompletedAt))),
       )
       return true
     })

@@ -177,15 +177,22 @@ describe('책 저장 작업', () => {
     expect(deletePdf).toHaveBeenCalledWith('a'.repeat(64))
   })
 
-  it('저장소 메서드의 입력 검증과 없는 책 오류를 유지한다', async () => {
+  it('빈 ID로 제목·표지를 수정하거나 없는 책을 조회하면 오류를 반환한다', async () => {
     const { storageService } = await setup()
+    const { DeletedBookError } = await import('./storage-errors')
+    const bookCover = {
+      coverData: new Uint8Array([1]).buffer,
+      coverMime: 'image/png',
+    } as const
+    await expect(storageService.updateTitle({ bookId: '', title: '제목' })).rejects.toBeInstanceOf(
+      DeletedBookError,
+    )
     await expect(
       storageService.updateCover({
-        id: '',
-        coverData: new ArrayBuffer(1),
-        coverMime: 'image/png',
+        bookId: '',
+        cover: bookCover,
       }),
-    ).rejects.toThrow('Invalid data for updateCover')
+    ).rejects.toBeInstanceOf(DeletedBookError)
     await expect(storageService.hasBook('missing')).rejects.toThrow()
     await expect(storageService.getBook('missing')).rejects.toThrow()
   })
@@ -193,8 +200,12 @@ describe('책 저장 작업', () => {
   it('범위를 벗어난 입력은 DB에 전달하지 않는다', async () => {
     const { storageService } = await setup()
     const id = 'book'
-    await expect(storageService.updateProgress({ id: id, page: 0 })).rejects.toThrow('Invalid data')
-    await expect(storageService.updateTitle({ id: id, title: ' ' })).rejects.toThrow('Invalid data')
+    await expect(storageService.updateProgress({ bookId: id, page: 0 })).rejects.toThrow(
+      'Invalid data',
+    )
+    await expect(storageService.updateTitle({ bookId: id, title: ' ' })).rejects.toThrow(
+      'Invalid data',
+    )
     await expect(storageService.initializeOcrPages('')).rejects.toThrow('Invalid data')
     await expect(
       storageService.storeOcrPage({ pageId: 'page', width: 0, height: 100, lines: [] }),

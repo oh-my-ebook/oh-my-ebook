@@ -35,22 +35,25 @@ export class EbookStoreClient implements EbookStore {
     return this.enqueue('hasBook', (store) => store.hasBook(bookId))
   }
 
-  updateProgress(
-    bookProgress: Parameters<EbookStore['updateProgress']>[0],
-  ): ReturnType<EbookStore['updateProgress']> {
-    return this.enqueue('updateProgress', (store) => store.updateProgress(bookProgress))
+  updateProgress({
+    bookId,
+    page,
+  }: Parameters<EbookStore['updateProgress']>[0]): ReturnType<EbookStore['updateProgress']> {
+    return this.enqueue('updateProgress', (store) => store.updateProgress({ bookId, page }))
   }
 
-  updateTitle(
-    bookTitle: Parameters<EbookStore['updateTitle']>[0],
-  ): ReturnType<EbookStore['updateTitle']> {
-    return this.enqueue('updateTitle', (store) => store.updateTitle(bookTitle))
+  updateTitle({
+    bookId,
+    title,
+  }: Parameters<EbookStore['updateTitle']>[0]): ReturnType<EbookStore['updateTitle']> {
+    return this.enqueue('updateTitle', (store) => store.updateTitle({ bookId, title }))
   }
 
-  updateCover(
-    bookCover: Parameters<EbookStore['updateCover']>[0],
-  ): ReturnType<EbookStore['updateCover']> {
-    return this.enqueue('updateCover', (store) => store.updateCover(bookCover))
+  updateCover({
+    bookId,
+    cover,
+  }: Parameters<EbookStore['updateCover']>[0]): ReturnType<EbookStore['updateCover']> {
+    return this.enqueue('updateCover', (store) => store.updateCover({ bookId, cover }))
   }
 
   initializeOcrPages(

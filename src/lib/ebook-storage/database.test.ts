@@ -143,18 +143,23 @@ describe('SQLocal 저장소', () => {
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
     const { db, id, store } = await setup()
-    await store.updateTitle({ id, title: ' 새 제목 ' })
-    await store.updateCover({
-      id,
+    const bookCover = {
       coverData: new Uint8Array([4, 5]).buffer,
-      coverMime: 'image/png',
+      coverMime: 'image/webp' as const,
+    }
+    await store.updateTitle({ bookId: id, title: ' 새 제목 ' })
+    await store.updateCover({
+      bookId: id,
+      cover: bookCover,
     })
-    await store.updateProgress({ id, page: 2 })
+    await store.updateProgress({ bookId: id, page: 2 })
     expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
     expect(await store.listBooks()).toEqual([
       expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverStatus: 'ready' }),
     ])
-    await expect(store.updateProgress({ id, page: 3 })).rejects.toBeInstanceOf(DeletedBookError)
+    await expect(store.updateProgress({ bookId: id, page: 3 })).rejects.toBeInstanceOf(
+      DeletedBookError,
+    )
     expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
     await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
     await db.sqlocal.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
@@ -168,17 +173,20 @@ describe('SQLocal 저장소', () => {
   it('삭제된 책의 수정·재삭제를 거부하고 다른 책은 유지한다', async () => {
     const { id, store } = await setup()
     const before = await store.listBooks()
-    await expect(store.updateTitle({ id: 'missing', title: '변경' })).rejects.toBeInstanceOf(
+    const bookCover = {
+      coverData: new Uint8Array([1]).buffer,
+      coverMime: 'image/png',
+    } as const
+    await expect(store.updateTitle({ bookId: 'missing', title: '변경' })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
     await expect(
       store.updateCover({
-        id: 'missing',
-        coverData: new Uint8Array([1]).buffer,
-        coverMime: 'image/png',
+        bookId: 'missing',
+        cover: bookCover,
       }),
     ).rejects.toBeInstanceOf(DeletedBookError)
-    await expect(store.updateProgress({ id: 'missing', page: 1 })).rejects.toBeInstanceOf(
+    await expect(store.updateProgress({ bookId: 'missing', page: 1 })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
     await expect(store.deleteBookById('missing')).rejects.toBeInstanceOf(DeletedBookError)
@@ -330,7 +338,9 @@ describe('SQLocal 저장소', () => {
 
   it('OCR 재개는 완료 페이지와 다른 책을 유지하고 최초 완료 시각을 덮어쓰지 않는다', async () => {
     const { db, id, store, pages } = await preparePages()
-    const otherId = await store.addBook(createNewBook({ contentHash: 'b'.repeat(64) }))
+    const otherId = await store.addBook(
+      createNewBook({ contentHash: 'b'.repeat(64), pageCount: 1 }),
+    )
     await store.initializeOcrPages(otherId)
     await store.acquireNextOcrPage(otherId)
     await db.sqlocal.sql("UPDATE ocr_pages SET status = 'ready' WHERE id = ?", pages[0].id)

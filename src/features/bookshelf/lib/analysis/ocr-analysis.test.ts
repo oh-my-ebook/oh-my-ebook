@@ -53,10 +53,7 @@ describe('runOcrAnalysis', () => {
 
     await runOcrAnalysis('book-id', store)
 
-    expect(store.initializeOcrPages).toHaveBeenCalledWith({
-      bookId: 'book-id',
-      pageCount: 2,
-    })
+    expect(store.initializeOcrPages).toHaveBeenCalledWith('book-id')
     expect(store.prepareOcrPagesForRun).toHaveBeenCalledWith('book-id')
     expect(store.storeOcrPage).toHaveBeenNthCalledWith(1, {
       pageId: 'page-1',

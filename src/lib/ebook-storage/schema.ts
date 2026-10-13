@@ -39,7 +39,7 @@ const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
  * - createdAt / updatedAt: 책 등록 시각 / 저장 정보 갱신 시각.
  * 시각은 모두 Unix epoch 기준 밀리초이며 앱에서 기록한다.
  */
-export const books = sqliteTable(
+export const booksTable = sqliteTable(
   'books',
   {
     id: text('id'),
@@ -95,7 +95,7 @@ export const ocrPages = sqliteTable(
     id: text('id'),
     bookId: text('book_id')
       .notNull()
-      .references(() => books.id, { onDelete: 'cascade' }),
+      .references(() => booksTable.id, { onDelete: 'cascade' }),
     pageNumber: integer('page_number').notNull(),
     width: integer('width'),
     height: integer('height'),
@@ -166,7 +166,7 @@ export const searchChunks = sqliteTable(
     id: text('id'),
     bookId: text('book_id')
       .notNull()
-      .references(() => books.id, { onDelete: 'cascade' }),
+      .references(() => booksTable.id, { onDelete: 'cascade' }),
     ordinal: integer('ordinal').notNull(),
     text: text('text').notNull(),
     tokenCount: integer('token_count').notNull(),

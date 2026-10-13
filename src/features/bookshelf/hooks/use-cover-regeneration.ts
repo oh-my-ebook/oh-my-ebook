@@ -26,9 +26,11 @@ export function useCoverRegeneration({
       const analyzed = await analyzePdf(new File([new Uint8Array(result.pdfData)], book.fileName))
       if (!analyzed.coverData || !analyzed.coverMime) throw new Error('Cover rendering failed')
       await store.updateCover({
-        id: book.id,
-        coverData: analyzed.coverData,
-        coverMime: analyzed.coverMime,
+        bookId: book.id,
+        cover: {
+          coverData: analyzed.coverData,
+          coverMime: analyzed.coverMime,
+        },
       })
       await refreshBooks()
       await refreshUsage()

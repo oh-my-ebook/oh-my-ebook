@@ -1,12 +1,10 @@
 import type {
-  BookCover,
-  BookProgress,
-  BookTitle,
   ImportedBook,
   Book,
   StoredBook,
   StoredBookDetail,
   BookAnalysisStatus,
+  BookCoverData,
 } from '../types/book'
 import type { createBookRepository } from './book.repository'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
@@ -14,12 +12,10 @@ import {
   isImportedBook,
   isContentHash,
   isIdentifier,
-  isBookCover,
-  isBookProgress,
-  isBookTitle,
   runValidated,
   validateData,
 } from '../validation'
+import { InvalidDataError } from '../storage-errors'
 
 export interface BookService {
   saveBook(book: ImportedBook): Promise<string>
@@ -27,9 +23,9 @@ export interface BookService {
   deleteBook(bookId: string): Promise<void>
   listBooks(): Promise<StoredBook[]>
   hasBook(bookId: string): Promise<void>
-  updateProgress(bookProgress: BookProgress): Promise<void>
-  updateTitle(bookTitle: BookTitle): Promise<void>
-  updateCover(bookCover: BookCover): Promise<void>
+  updateProgress({ bookId, page }: { bookId: string; page: number }): Promise<void>
+  updateTitle({ bookId, title }: { bookId: string; title: string }): Promise<void>
+  updateCover({ bookId, cover }: { bookId: string; cover: BookCoverData }): Promise<void>
   failBookAnalysis(bookId: string): Promise<void>
   getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus>
   retryBookAnalysis(bookId: string): Promise<void>
@@ -120,12 +116,22 @@ export function createBookService(
     deleteBook,
     listBooks: listLibraryBooks,
     hasBook: (bookId) => runValidated('hasBook', bookRepository.hasBook, bookId, isIdentifier),
-    updateProgress: (bookProgress) =>
-      runValidated('updateProgress', bookRepository.updateProgress, bookProgress, isBookProgress),
-    updateTitle: (bookTitle) =>
-      runValidated('updateTitle', bookRepository.updateTitle, bookTitle, isBookTitle),
-    updateCover: (bookCover) =>
-      runValidated('updateCover', bookRepository.updateCover, bookCover, isBookCover),
+    updateProgress: async ({ bookId, page }) => {
+      if (!Number.isSafeInteger(page) || page <= 0) {
+        throw new InvalidDataError('updateProgress')
+      }
+
+      await bookRepository.updateProgress({ bookId, page })
+    },
+
+    updateTitle: async ({ bookId, title }) => {
+      if (title.trim().length === 0) {
+        throw new InvalidDataError('updateTitle')
+      }
+
+      await bookRepository.updateTitle({ bookId, title })
+    },
+    updateCover: ({ bookId, cover }) => bookRepository.updateCover({ bookId, cover }),
     failBookAnalysis: (bookId) =>
       runValidated('failBookAnalysis', bookRepository.failBookAnalysis, bookId, isIdentifier),
     getBookAnalysisStatus: (bookId) =>

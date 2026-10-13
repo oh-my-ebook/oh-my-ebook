@@ -17,7 +17,7 @@ import type {
 } from '../types/search'
 import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
 import {
-  books,
+  booksTable,
   chunkSources,
   ocrPages,
   searchChunks as searchChunksTable,
@@ -79,9 +79,9 @@ export function createSearchRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
   async function storeSearchIndex(searchIndex: SearchIndex): Promise<void> {
-    const book = await db.query.books.findFirst({
+    const book = await db.query.booksTable.findFirst({
       columns: { id: true },
-      where: eq(books.id, searchIndex.bookId),
+      where: eq(booksTable.id, searchIndex.bookId),
     })
     if (!book) throw new NotFoundBookError()
 
@@ -121,10 +121,10 @@ export function createSearchRepository(database: DatabaseConnection) {
       }
       const [updated] = await tx.query(
         db
-          .update(books)
+          .update(booksTable)
           .set({ analysisStatus: 'ready', indexedAt: now, updatedAt: now })
-          .where(eq(books.id, searchIndex.bookId))
-          .returning({ id: books.id }),
+          .where(eq(booksTable.id, searchIndex.bookId))
+          .returning({ id: booksTable.id }),
       )
       if (!updated) throw new NotFoundBookError()
     })

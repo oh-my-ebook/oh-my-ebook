@@ -50,7 +50,7 @@ export function useEbookReadingSession(bookId: string, store: EbookReaderStore) 
     let saved = false
 
     try {
-      await store.updateProgress({ id: bookId, page })
+      await store.updateProgress({ bookId: bookId, page })
       saved = true
     } catch {
       pendingPageRef.current ??= page

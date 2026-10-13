@@ -147,7 +147,7 @@ export function useBookshelf(store: BookshelfStore) {
 
   async function renameBook(bookId: string, title: string) {
     try {
-      await store.updateTitle({ id: bookId, title })
+      await store.updateTitle({ bookId, title })
     } catch {
       toast.add({ title: '책 제목을 수정하지 못했습니다.', type: 'error' })
       return
