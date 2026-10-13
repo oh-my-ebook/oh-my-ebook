@@ -42,6 +42,11 @@ export interface BookMetadata {
 
 export type BookAnalysisStatus = Book['analysisStatus']
 
+export interface BookCoverData {
+  coverData: ArrayBuffer
+  coverMime: 'image/webp' | 'image/png'
+}
+
 export interface ImportedBook extends ImportedBookFields {
   pdfData: ArrayBuffer
   coverData: ArrayBuffer | null
@@ -60,9 +65,4 @@ export interface BookRecordsQuery {
   bookId: Book['id']
   limit: number
   offset: number
-}
-
-export interface BookCoverData {
-  coverData: ArrayBuffer
-  coverMime: 'image/webp' | 'image/png'
 }

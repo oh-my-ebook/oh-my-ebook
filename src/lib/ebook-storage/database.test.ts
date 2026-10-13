@@ -142,7 +142,7 @@ describe('SQLocal 저장소', () => {
   })
 
   it('제목·표지·읽기 위치를 갱신하고 범위 밖 위치와 삭제된 책을 거부한다', async () => {
-    const { db, id, store } = await setup()
+    const { id, store } = await setup()
     const bookCover = {
       coverData: new Uint8Array([4, 5]).buffer,
       coverMime: 'image/webp' as const,
@@ -161,9 +161,6 @@ describe('SQLocal 저장소', () => {
       DeletedBookError,
     )
     expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
-    await db.sqlocal.sql('PRAGMA ignore_check_constraints = ON')
-    await db.sqlocal.sql('UPDATE books SET last_page = 10 WHERE id = ?', id)
-    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 1 })
     await store.deleteBookById(id)
     await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
     await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)

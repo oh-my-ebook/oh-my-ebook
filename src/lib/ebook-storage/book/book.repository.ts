@@ -4,7 +4,7 @@ import { and, desc, eq, gte } from 'drizzle-orm'
 import { booksTable } from '../schema'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
 import { refreshSearchTerms } from '../search/search.repository'
-import { isBookAnalysisStatus, normalizeStoredProgress } from '../validation'
+import { isBookAnalysisStatus } from '../validation'
 
 export function createBookRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
@@ -74,8 +74,7 @@ export function createBookRepository(database: DatabaseConnection) {
     if (!book) throw new NotFoundBookError()
     if (book.id === null) throw new Error('Invalid book ID')
     if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
-    const normalizedBook = await normalizeStoredProgress(database, bookId, { ...book, id: book.id })
-    return normalizedBook
+    return { ...book, id: book.id }
   }
 
   async function updateProgress({ bookId, page }: { bookId: string; page: number }): Promise<void> {

@@ -1,4 +1,3 @@
-import type { DatabaseConnection } from './database-connection'
 import type { ImportedBook, BookAnalysisStatus, BookRecordsQuery } from './types/book'
 import type { OcrLine, OcrPageQuery, OcrPageResult } from './types/ocr'
 import type { SearchChunkQuery } from './types/search'
@@ -9,8 +8,6 @@ import type {
   SearchTermFrequency,
   SearchIndex,
 } from './types/search-index'
-import { eq } from 'drizzle-orm'
-import { booksTable } from './schema'
 import { InvalidDataError } from './storage-errors'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
@@ -193,31 +190,6 @@ export function validateData<T>(
 
 export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
   return value === 'analyzing' || value === 'ready' || value === 'failed'
-}
-
-export async function normalizeStoredProgress<
-  T extends { pageCount: number; lastPage: number | null },
->(database: Pick<DatabaseConnection, 'db'>, id: string, book: T): Promise<T> {
-  const pageCount = book.pageCount
-  const lastPage = book.lastPage
-  if (
-    lastPage === null ||
-    (typeof pageCount === 'number' &&
-      Number.isSafeInteger(pageCount) &&
-      pageCount > 0 &&
-      typeof lastPage === 'number' &&
-      Number.isSafeInteger(lastPage) &&
-      lastPage >= 1 &&
-      lastPage <= pageCount)
-  ) {
-    return book
-  }
-
-  await database.db
-    .update(booksTable)
-    .set({ lastPage: 1, updatedAt: Date.now() })
-    .where(eq(booksTable.id, id))
-  return { ...book, lastPage: 1 }
 }
 
 export async function runValidated<Data, Result>(
