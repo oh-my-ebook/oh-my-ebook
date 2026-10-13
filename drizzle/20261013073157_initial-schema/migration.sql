@@ -1,5 +1,5 @@
 CREATE TABLE `books` (
-	`id` text PRIMARY KEY,
+	`id` text PRIMARY KEY NOT NULL,
 	`content_hash` text NOT NULL UNIQUE,
 	`file_name` text NOT NULL,
 	`title` text NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE `ocr_lines` (
 );
 --> statement-breakpoint
 CREATE TABLE `ocr_pages` (
-	`id` text PRIMARY KEY,
+	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`page_number` integer NOT NULL,
 	`width` integer,
@@ -69,7 +69,7 @@ CREATE TABLE `ocr_pages` (
 );
 --> statement-breakpoint
 CREATE TABLE `search_chunks` (
-	`id` text PRIMARY KEY,
+	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`ordinal` integer NOT NULL,
 	`text` text NOT NULL,
