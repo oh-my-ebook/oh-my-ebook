@@ -11,7 +11,7 @@ describe('OcrConsole', () => {
       createStoredBook({
         id: `book-${index + 1}`,
         title: `PDF ${index + 1}`,
-        analysis_status: 'analyzing',
+        analysisStatus: 'analyzing',
       }),
     )
     const store = createStoreMock()
@@ -23,9 +23,9 @@ describe('OcrConsole', () => {
         total: 1,
         lines: [
           {
-            page_number: 1,
-            line_index: 0,
-            raw_text: '저장된 OCR 원문',
+            pageNumber: 1,
+            lineIndex: 0,
+            rawText: '저장된 OCR 원문',
             x0: 1,
             y0: 2,
             x1: 3,
@@ -37,7 +37,7 @@ describe('OcrConsole', () => {
     store.listOcrPages.mockImplementation(async () => {
       return [
         {
-          page_number: 1,
+          pageNumber: 1,
           status: 'pending',
           width: null,
           height: null,
@@ -54,18 +54,18 @@ describe('OcrConsole', () => {
       return { total: 0, sources: [] }
     })
     store.listSearchTerms.mockImplementation(async () => {
-      return { total: 1, terms: [{ id: 1, term: '검색', document_frequency: 2 }] }
+      return { total: 1, terms: [{ id: 1, term: '검색', documentFrequency: 2 }] }
     })
     store.listSearchPostings.mockImplementation(async () => {
       return {
         total: 1,
         postings: [
           {
-            term_id: 1,
-            chunk_id: 'chunk-1',
-            term_frequency: 2,
+            termId: 1,
+            chunkId: 'chunk-1',
+            termFrequency: 2,
             term: '검색',
-            chunk_ordinal: 0,
+            chunkOrdinal: 0,
           },
         ],
       }
@@ -114,8 +114,8 @@ describe('OcrConsole', () => {
     const store = createStoreMock()
     store.listBooks.mockImplementation(async () => {
       return [
-        createStoredBook({ id: 'failed-book', title: '실패한 PDF', analysis_status: 'analyzing' }),
-        createStoredBook({ id: 'ready-book', title: '완료된 PDF', analysis_status: 'ready' }),
+        createStoredBook({ id: 'failed-book', title: '실패한 PDF', analysisStatus: 'analyzing' }),
+        createStoredBook({ id: 'ready-book', title: '완료된 PDF', analysisStatus: 'ready' }),
       ]
     })
     store.listOcrLines.mockImplementation(async (payload) => {

@@ -15,8 +15,8 @@ describe('createSearchChunks', () => {
   it('OCR 원문이 빈 줄뿐이면 Kiwi 처리 없이 빈 청크 목록을 반환한다', async () => {
     const chunks = await createSearchChunks(
       [
-        { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '' },
-        { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '   ' },
+        { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '' },
+        { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 1, rawText: '   ' },
       ],
       new AbortController().signal,
     )
@@ -27,10 +27,10 @@ describe('createSearchChunks', () => {
 
   it('빈 줄로 문단을 나누고 짧은 문단을 합치며 페이지별 줄 범위를 남긴다', async () => {
     const lines: OcrLineForChunking[] = [
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '첫 문장' },
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 1, raw_text: '둘째 문장' },
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 2, raw_text: '' },
-      { ocr_page_id: 'page-2', page_number: 2, line_index: 0, raw_text: '셋째 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '첫 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 1, rawText: '둘째 문장' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 2, rawText: '' },
+      { ocrPageId: 'page-2', pageNumber: 2, lineIndex: 0, rawText: '셋째 문장' },
     ]
     postprocessWithKiwi.mockImplementation(async (text: string) => text)
 
@@ -52,10 +52,10 @@ describe('createSearchChunks', () => {
   it('목표 길이를 넘는 문장은 토큰 단위로 나누고 같은 OCR 줄을 연결한다', async () => {
     const lines: OcrLineForChunking[] = [
       {
-        ocr_page_id: 'page-1',
-        page_number: 1,
-        line_index: 0,
-        raw_text: '하나 둘 셋 넷 다섯',
+        ocrPageId: 'page-1',
+        pageNumber: 1,
+        lineIndex: 0,
+        rawText: '하나 둘 셋 넷 다섯',
       },
     ]
     postprocessWithKiwi.mockImplementation(async (text: string) => text)
@@ -76,12 +76,12 @@ describe('createSearchChunks', () => {
 
   it('긴 문단에서 OCR 줄을 넘는 문장을 문장 경계로 분할하고 관련 줄 범위를 연결한다', async () => {
     const lines: OcrLineForChunking[] = [
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '하나 둘 셋' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '하나 둘 셋' },
       {
-        ocr_page_id: 'page-1',
-        page_number: 1,
-        line_index: 1,
-        raw_text: '넷 다섯. 여섯 일곱 여덟 아홉.',
+        ocrPageId: 'page-1',
+        pageNumber: 1,
+        lineIndex: 1,
+        rawText: '넷 다섯. 여섯 일곱 여덟 아홉.',
       },
     ]
     postprocessWithKiwi.mockImplementation(async (text: string) => text)

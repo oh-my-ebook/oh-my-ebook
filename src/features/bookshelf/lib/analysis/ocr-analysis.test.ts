@@ -37,26 +37,23 @@ describe('runOcrAnalysis', () => {
     ])
     extractSearchTermsWithKiwi.mockResolvedValue([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(false)
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
     store.storeOcrPage.mockResolvedValueOnce(true)
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
-      { page_number: 1, width: null, height: null, status: 'ready' },
-      { page_number: 1, width: null, height: null, status: 'ready' },
+      { pageNumber: 1, width: null, height: null, status: 'ready' },
+      { pageNumber: 1, width: null, height: null, status: 'ready' },
     ])
     store.getOcrLinesForChunking.mockResolvedValueOnce([
-      { ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '원문' },
+      { ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '원문' },
     ])
 
     await runOcrAnalysis('book-id', store)
 
-    expect(store.initializeOcrPages).toHaveBeenCalledWith({
-      bookId: 'book-id',
-      pageCount: 2,
-    })
+    expect(store.initializeOcrPages).toHaveBeenCalledWith('book-id')
     expect(store.prepareOcrPagesForRun).toHaveBeenCalledWith('book-id')
     expect(store.storeOcrPage).toHaveBeenNthCalledWith(1, {
       pageId: 'page-1',
@@ -72,7 +69,7 @@ describe('runOcrAnalysis', () => {
     expect(store.listOcrPages).toHaveBeenCalledWith('book-id')
     expect(store.getOcrLinesForChunking).toHaveBeenCalledWith('book-id')
     expect(createSearchChunks).toHaveBeenCalledWith(
-      [{ ocr_page_id: 'page-1', page_number: 1, line_index: 0, raw_text: '원문' }],
+      [{ ocrPageId: 'page-1', pageNumber: 1, lineIndex: 0, rawText: '원문' }],
       expect.any(AbortSignal),
     )
     expect(extractSearchTermsWithKiwi).toHaveBeenCalledWith('검색 청크', expect.any(AbortSignal))
@@ -102,14 +99,14 @@ describe('runOcrAnalysis', () => {
       lines: [],
     })
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
     store.storeOcrPage.mockResolvedValueOnce(false)
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
-      { page_number: 1, width: null, height: null, status: 'failed' },
-      { page_number: 1, width: null, height: null, status: 'ready' },
+      { pageNumber: 1, width: null, height: null, status: 'failed' },
+      { pageNumber: 1, width: null, height: null, status: 'ready' },
     ])
 
     await runOcrAnalysis('book-id', store)
@@ -127,11 +124,11 @@ describe('runOcrAnalysis', () => {
     recognizePdfPageRaw.mockRejectedValueOnce(new Error('PaddleOCR model unavailable'))
     const onFailure = vi.fn()
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-3', pageNumber: 3 })
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
-      { page_number: 1, width: null, height: null, status: 'failed' },
+      { pageNumber: 1, width: null, height: null, status: 'failed' },
     ])
 
     await runOcrAnalysis('book-id', store, { onFailure })
@@ -151,12 +148,12 @@ describe('runOcrAnalysis', () => {
     recognizePdfPageRaw.mockResolvedValue({ width: 100, height: 200, lines: [] })
     createSearchChunks.mockRejectedValueOnce(new Error('Kiwi failed'))
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(true)
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
-      { page_number: 1, width: null, height: null, status: 'ready' },
+      { pageNumber: 1, width: null, height: null, status: 'ready' },
     ])
     store.getOcrLinesForChunking.mockResolvedValueOnce([])
 
@@ -175,13 +172,13 @@ describe('runOcrAnalysis', () => {
     extractSearchTermsWithKiwi.mockResolvedValueOnce([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
     store.getBook.mockImplementation(async () => {
-      return createStoredBookDetail({ pdf_data: new Uint8Array([1]) })
+      return createStoredBookDetail({ pdfData: new Uint8Array([1]) })
     })
     store.acquireNextOcrPage.mockImplementation(async () => {
       return null
     })
     store.listOcrPages.mockImplementation(async () => {
-      return [{ page_number: 1, width: null, height: null, status: 'ready' }]
+      return [{ pageNumber: 1, width: null, height: null, status: 'ready' }]
     })
     store.getOcrLinesForChunking.mockImplementation(async () => {
       return []
@@ -213,10 +210,10 @@ describe('runOcrAnalysis', () => {
     createSearchChunks.mockResolvedValueOnce([])
     extractSearchTermsWithKiwi.mockResolvedValueOnce([])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdf_data: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
-      { page_number: 1, width: null, height: null, status: 'ready' },
+      { pageNumber: 1, width: null, height: null, status: 'ready' },
     ])
     store.getOcrLinesForChunking.mockResolvedValueOnce([])
 

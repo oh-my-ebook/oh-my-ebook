@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBookInput } from '../../test/sqlocal'
+import { createImportedBook } from '../../test/sqlocal'
 import { EbookStoreClient } from './storage-client'
 import { storageService } from './storage.service'
 import { DuplicateBookError } from './storage-errors'
@@ -25,7 +25,7 @@ describe('EbookStoreClient', () => {
     })
     vi.mocked(storageService.saveBook).mockImplementationOnce(async () => await saving)
     const client = new EbookStoreClient()
-    const save = client.saveBook(createBookInput())
+    const save = client.saveBook(createImportedBook())
     const clear = client.clearStorage()
     await vi.waitFor(() => expect(storageService.saveBook).toHaveBeenCalledOnce())
     expect(storageService.clearStorage).not.toHaveBeenCalled()
@@ -39,7 +39,7 @@ describe('EbookStoreClient', () => {
     vi.mocked(storageService.saveBook).mockRejectedValueOnce(new DuplicateBookError())
     vi.mocked(storageService.listBooks).mockResolvedValueOnce([])
     const client = new EbookStoreClient()
-    const failed = client.saveBook(createBookInput())
+    const failed = client.saveBook(createImportedBook())
     const list = client.listBooks()
     await expect(failed).rejects.toMatchObject({ code: 'duplicate' })
     await expect(list).resolves.toEqual([])
@@ -54,7 +54,7 @@ describe('EbookStoreClient', () => {
 
   it('책 저장은 자동 재시도하지 않는다', async () => {
     vi.mocked(storageService.saveBook).mockRejectedValue({ resultCode: 5 })
-    await expect(new EbookStoreClient().saveBook(createBookInput())).rejects.toMatchObject({
+    await expect(new EbookStoreClient().saveBook(createImportedBook())).rejects.toMatchObject({
       code: 'locked',
     })
     expect(storageService.saveBook).toHaveBeenCalledOnce()

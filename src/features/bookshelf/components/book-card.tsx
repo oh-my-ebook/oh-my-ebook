@@ -45,21 +45,21 @@ export function BookCard({
   const imageRef = useRef<HTMLImageElement>(null)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const isPdfMissing = book.pdf_status === 'missing'
+  const isPdfMissing = book.pdfStatus === 'missing'
   const progress =
-    book.last_page === null
-      ? `읽지 않음 · 전체 ${book.page_count}페이지`
-      : `${book.last_page} / ${book.page_count}페이지`
-  const analysis = analysisStatusBadge[book.analysis_status]
+    book.lastPage === null
+      ? `읽지 않음 · 전체 ${book.pageCount}페이지`
+      : `${book.lastPage} / ${book.pageCount}페이지`
+  const analysis = analysisStatusBadge[book.analysisStatus]
 
   useEffect(() => {
-    if (!book.cover_data || !book.cover_mime) return
+    if (!book.coverData || !book.coverMime) return
     const url = URL.createObjectURL(
-      new Blob([new Uint8Array(book.cover_data)], { type: book.cover_mime }),
+      new Blob([new Uint8Array(book.coverData)], { type: book.coverMime }),
     )
     if (imageRef.current) imageRef.current.src = url
     return () => URL.revokeObjectURL(url)
-  }, [book.cover_data, book.cover_mime])
+  }, [book.coverData, book.coverMime])
 
   return (
     <article aria-label={book.title} className="book-card group">
@@ -86,7 +86,7 @@ export function BookCard({
                 <TriangleAlert aria-hidden="true" className="size-8" />
                 <span>원본 PDF 없음</span>
               </div>
-            ) : book.cover_data && book.cover_mime ? (
+            ) : book.coverData && book.coverMime ? (
               <img
                 ref={imageRef}
                 alt={`${book.title} 표지`}
@@ -106,7 +106,7 @@ export function BookCard({
                   {book.title}
                 </h2>
                 <Badge variant={analysis.variant}>{analysis.label}</Badge>
-                {book.analysis_status === 'failed' && onRetryAnalysis && (
+                {book.analysisStatus === 'failed' && onRetryAnalysis && (
                   <Button onClick={onRetryAnalysis} size="sm" variant="outline">
                     <RotateCcw data-icon="inline-start" />
                     분석 다시 시도
@@ -132,7 +132,7 @@ export function BookCard({
                         <Trash2 />책 삭제
                       </DropdownMenuItem>
                     )}
-                    {!isPdfMissing && book.cover_status === 'fallback' && onRegenerate && (
+                    {!isPdfMissing && book.coverStatus === 'fallback' && onRegenerate && (
                       <DropdownMenuItem disabled={regenerating} onClick={onRegenerate}>
                         <RefreshCw />
                         표지 다시 만들기
@@ -145,12 +145,12 @@ export function BookCard({
             <Progress
               aria-label={`${book.title} 읽기 진행률`}
               value={
-                book.last_page === null ? 0 : Math.round((book.last_page / book.page_count) * 100)
+                book.lastPage === null ? 0 : Math.round((book.lastPage / book.pageCount) * 100)
               }
             />
             <p className="text-sm text-muted-foreground">{progress}</p>
           </div>
-          {!isPdfMissing && book.cover_status === 'fallback' && onRegenerate && (
+          {!isPdfMissing && book.coverStatus === 'fallback' && onRegenerate && (
             <>
               <p>표지를 만들지 못했습니다.</p>
               {coverError && <p role="alert">{coverError}</p>}

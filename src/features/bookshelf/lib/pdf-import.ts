@@ -1,5 +1,5 @@
 import { GlobalWorkerOptions, getDocument, type PDFPageProxy } from 'pdfjs-dist'
-import type { AddBookInput } from '@/lib/ebook-storage/types/book'
+import type { ImportedBook } from '@/lib/ebook-storage/types/book'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -77,7 +77,7 @@ function generateTitle(pdfTitle: string | null, fileName: string): string {
   return pdfTitle || clean(fileName.replace(/\.pdf$/i, '')) || '제목 없음'
 }
 
-export async function analyzePdf(file: File): Promise<AddBookInput> {
+export async function analyzePdf(file: File): Promise<ImportedBook> {
   let pdfData: ArrayBuffer
   try {
     pdfData = await file.arrayBuffer()
