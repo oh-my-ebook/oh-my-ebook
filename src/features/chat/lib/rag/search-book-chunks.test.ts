@@ -1,19 +1,25 @@
 import type { ThreadMessage } from '@assistant-ui/react'
-import { describe, expect, it, vi } from 'vitest'
+import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { extractSearchTermsWithKiwi } = vi.hoisted(() => ({
-  extractSearchTermsWithKiwi: vi.fn(),
-}))
+async function createSearchStub() {
+  const extractSearchTerms = vi.fn<KiwiClient['extractSearchTerms']>()
+  vi.doMock('@/lib/kiwi/kiwi.client', () => ({ kiwiClient: { extractSearchTerms } }))
+  const { searchBookChunks } = await import('./search-book-chunks')
 
-vi.mock('@/lib/kiwi/client', () => ({ extractSearchTermsWithKiwi }))
+  return { extractSearchTerms, searchBookChunks }
+}
 
-import { searchBookChunks } from './search-book-chunks'
+afterEach(() => {
+  vi.resetModules()
+  vi.doUnmock('@/lib/kiwi/kiwi.client')
+})
 
 function createUserMessage(text: string): ThreadMessage {
   return {
     id: `user-${text}`,
     role: 'user',
-    createdAt: new Date(),
+    createdAt: new Date(0),
     content: [{ type: 'text', text }],
     attachments: [],
     metadata: { custom: {} },
@@ -24,7 +30,7 @@ function createAssistantMessage(text: string): ThreadMessage {
   return {
     id: `assistant-${text}`,
     role: 'assistant',
-    createdAt: new Date(),
+    createdAt: new Date(0),
     content: [{ type: 'text', text }],
     status: { type: 'complete', reason: 'stop' },
     metadata: {
@@ -39,6 +45,7 @@ function createAssistantMessage(text: string): ThreadMessage {
 
 describe('searchBookChunks', () => {
   it('최신 사용자 질문을 Kiwi로 분석하고 중복 term 없이 검색한다', async () => {
+    const { extractSearchTerms, searchBookChunks } = await createSearchStub()
     const request = vi.fn().mockResolvedValue([
       {
         id: 'chunk-1',
@@ -49,10 +56,11 @@ describe('searchBookChunks', () => {
         sources: [{ pageNumber: 2, startLineIndex: 1, endLineIndex: 2 }],
       },
     ])
-    extractSearchTermsWithKiwi.mockResolvedValue([
-      { term: '전자책', termFrequency: 1 },
-      { term: '검색', termFrequency: 2 },
-      { term: '전자책', termFrequency: 1 },
+    extractSearchTerms.mockResolvedValue([
+      { term: ' 전자책 ', frequency: 1 },
+      { term: '검색', frequency: 2 },
+      { term: '전자책', frequency: 1 },
+      { term: '   ', frequency: 1 },
     ])
     const signal = new AbortController().signal
 
@@ -77,7 +85,7 @@ describe('searchBookChunks', () => {
         sources: [{ pageNumber: 2, startLineIndex: 1, endLineIndex: 2 }],
       },
     ])
-    expect(extractSearchTermsWithKiwi).toHaveBeenCalledWith('최신 질문', signal)
+    expect(extractSearchTerms).toHaveBeenCalledWith('최신 질문', signal)
     expect(request).toHaveBeenCalledWith({
       bookId: 'book-id',
       terms: ['전자책', '검색'],
@@ -85,9 +93,10 @@ describe('searchBookChunks', () => {
     })
   })
 
-  it('검색 term이나 사용자 질문이 없으면 Worker를 호출하지 않는다', async () => {
+  it('Kiwi가 검색어를 추출하지 못하면 저장소를 검색하지 않는다', async () => {
+    const { extractSearchTerms, searchBookChunks } = await createSearchStub()
     const request = vi.fn()
-    extractSearchTermsWithKiwi.mockResolvedValue([])
+    extractSearchTerms.mockResolvedValue([])
 
     await expect(
       searchBookChunks({
@@ -97,14 +106,42 @@ describe('searchBookChunks', () => {
         searchChunks: request,
       }),
     ).resolves.toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: '사용자 질문이 없으면', messages: [] },
+    { name: '사용자 질문이 공백이면', messages: [createUserMessage('   ')] },
+  ])('$name Kiwi와 저장소를 호출하지 않는다', async ({ messages }) => {
+    const { extractSearchTerms, searchBookChunks } = await createSearchStub()
+    const request = vi.fn()
+
     await expect(
       searchBookChunks({
         bookId: 'book-id',
-        messages: [],
+        messages,
         signal: new AbortController().signal,
         searchChunks: request,
       }),
     ).resolves.toEqual([])
+    expect(extractSearchTerms).not.toHaveBeenCalled()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('Kiwi 분석 실패를 호출자에게 전달하고 저장소를 검색하지 않는다', async () => {
+    const { extractSearchTerms, searchBookChunks } = await createSearchStub()
+    const error = new Error('Kiwi 분석 실패')
+    extractSearchTerms.mockRejectedValueOnce(error)
+    const request = vi.fn()
+
+    await expect(
+      searchBookChunks({
+        bookId: 'book-id',
+        messages: [createUserMessage('검색 질문')],
+        signal: new AbortController().signal,
+        searchChunks: request,
+      }),
+    ).rejects.toBe(error)
     expect(request).not.toHaveBeenCalled()
   })
 })
