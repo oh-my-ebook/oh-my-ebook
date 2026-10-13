@@ -1,5 +1,5 @@
 import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook-storage/types/search'
-import { extractSearchTermsWithKiwi } from '@/lib/kiwi/client'
+import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
 
 const SEARCH_CHUNK_LIMIT = 5
@@ -35,7 +35,7 @@ export async function searchBookChunks({
   const question = getLatestUserQuestion(messages)
   if (!question.trim()) return []
 
-  const searchTerms = await extractSearchTermsWithKiwi(question, signal)
+  const searchTerms = await kiwiClient.extractSearchTerms(question, signal)
   const terms = [...new Set(searchTerms.map(({ term }) => term.trim()).filter(Boolean))]
   if (terms.length === 0) return []
 

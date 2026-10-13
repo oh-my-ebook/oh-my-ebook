@@ -88,9 +88,12 @@ src/
 │   │       ├── recognize-page.ts   # 페이지 OCR 인식·후처리
 │   │       └── reading-order.ts    # OCR 결과의 읽기 순서 계산
 │   └── kiwi/
-│       ├── client.ts               # Kiwi Worker 요청·응답·취소
-│       ├── kiwi.worker.ts          # 형태소 분석 모델 실행
-│       └── postprocess.ts          # OCR 텍스트 후처리·검색어 추출
+│       ├── kiwi.client.ts          # 타입이 정해진 메서드·Worker 요청·응답·취소
+│       ├── kiwi.worker.ts          # 요청별 형태소 분석·응답 전송
+│       ├── kiwi-provider.ts        # WASM·모델 초기화와 Kiwi 인스턴스 캐싱
+│       ├── kiwi.types.ts           # 공통 타입·Worker 메시지 계약
+│       ├── kiwi.util.ts            # 줄을 유지하는 텍스트 정규화·검색어 추출
+│       └── const.ts                # 요청 종류·모델 파일·검색어 품사
 └── index.css                       # Tailwind 설정·공통 테마
 ```
 
