@@ -1,4 +1,4 @@
-import { type KiwiRequestType, KIWI_REQUEST } from './const'
+import { type KiwiRequestType, KIWI_REQUEST } from './kiwi.const'
 import type {
   KiwiSearchTerm,
   KiwiWorkerRequest,

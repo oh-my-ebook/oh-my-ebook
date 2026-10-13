@@ -2,8 +2,8 @@
 
 import { Match } from 'kiwi-nlp'
 import { extractSearchTerms, normalizeText } from './kiwi.util'
-import { KIWI_REQUEST } from './const'
-import { KiwiProvider } from './kiwi-provider'
+import { KIWI_REQUEST } from './kiwi.const'
+import { KiwiProvider } from './kiwi.provider'
 import type { KiwiTools, KiwiWorkerRequest, KiwiWorkerResponse } from './kiwi.types'
 
 const provider = new KiwiProvider()

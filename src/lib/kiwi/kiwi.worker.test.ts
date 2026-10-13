@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '@/test/promise-controller'
-import { KIWI_REQUEST } from './const'
+import { KIWI_REQUEST } from './kiwi.const'
 import type { KiwiWorkerRequest, KiwiWorkerResponse } from './kiwi.types'
 
 interface WorkerScope {

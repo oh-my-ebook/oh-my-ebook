@@ -1,4 +1,4 @@
-import type { KiwiRequestType, KIWI_REQUEST } from './const'
+import type { KiwiRequestType, KIWI_REQUEST } from './kiwi.const'
 
 export interface KiwiTools {
   tokenize(text: string): Array<{ str: string; tag: string }>

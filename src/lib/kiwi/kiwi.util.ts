@@ -1,4 +1,4 @@
-import { SEARCH_TERM_TAGS } from './const'
+import { SEARCH_TERM_TAGS } from './kiwi.const'
 import type { KiwiTools, KiwiSearchTerm } from './kiwi.types'
 
 export function normalizeText(tool: KiwiTools, text: string) {

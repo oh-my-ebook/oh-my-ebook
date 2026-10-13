@@ -1,5 +1,5 @@
 import { KiwiBuilder, type Kiwi } from 'kiwi-nlp'
-import { KIWI_MODEL_FILES } from './const'
+import { KIWI_MODEL_FILES } from './kiwi.const'
 
 export class KiwiProvider {
   private kiwiPromise: Promise<Kiwi> | undefined
