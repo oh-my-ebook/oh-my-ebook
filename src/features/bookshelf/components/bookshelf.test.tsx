@@ -9,7 +9,7 @@ import * as ocrAnalysis from '../lib/analysis/ocr-analysis'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { StoredBook } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '@/test/promise-controller'
-import { createBookInput } from '@/test/sqlocal'
+import { createImportedBook } from '@/test/sqlocal'
 import { toast, Toaster } from '@/components/ui/toast'
 import { Bookshelf } from './bookshelf'
 
@@ -135,7 +135,7 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.saveBook.mockRejectedValueOnce(new EbookStoreError('storage-failed'))
-    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue(createBookInput())
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue(createImportedBook())
     render(
       <TestRouter>
         <Toaster>
@@ -158,11 +158,11 @@ describe('Bookshelf', () => {
   it('손상·암호 PDF를 안내하고 다음 유효한 파일을 추가한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const book = { ...createStoredBook('정상 책'), analysis_status: 'ready' as const }
+    const book = { ...createStoredBook('정상 책'), analysisStatus: 'ready' as const }
     vi.spyOn(pdfImport, 'analyzePdf')
       .mockRejectedValueOnce(new pdfImport.PdfImportError('invalid-document'))
       .mockRejectedValueOnce(new pdfImport.PdfImportError('password-required'))
-      .mockResolvedValueOnce(createBookInput({ title: book.title }))
+      .mockResolvedValueOnce(createImportedBook({ title: book.title }))
     store.saveBook.mockImplementation(async () => {
       store.listBooks.mockResolvedValue([book])
       return book.id
@@ -193,7 +193,7 @@ describe('Bookshelf', () => {
   it('삭제 저장이 실패하면 책을 유지하고 다이얼로그에서 다시 삭제한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const book = { ...createStoredBook('삭제할 책'), analysis_status: 'ready' as const }
+    const book = { ...createStoredBook('삭제할 책'), analysisStatus: 'ready' as const }
     store.listBooks.mockResolvedValue([book])
     store.deleteBook
       .mockRejectedValueOnce(new Error('delete failed'))
