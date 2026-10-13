@@ -24,4 +24,4 @@ export const SEARCH_TERM_TAGS = new Set([
   'MAG',
   'SL',
   'SN',
-])
+] as const)
