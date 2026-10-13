@@ -1,10 +1,16 @@
-import type { chunkSources, ocrPages, searchChunks, searchPostings, searchTerms } from '../schema'
+import type {
+  chunkSourcesTable,
+  ocrPagesTable,
+  searchChunksTable,
+  searchPostingsTable,
+  searchTermsTable,
+} from '../schema'
 
-type SearchChunkRow = typeof searchChunks.$inferSelect
-type ChunkSourceRow = typeof chunkSources.$inferSelect
-type SearchTermRow = typeof searchTerms.$inferSelect
-type SearchPostingRow = typeof searchPostings.$inferSelect
-type OcrPageRow = typeof ocrPages.$inferSelect
+type SearchChunkRow = typeof searchChunksTable.$inferSelect
+type ChunkSourceRow = typeof chunkSourcesTable.$inferSelect
+type SearchTermRow = typeof searchTermsTable.$inferSelect
+type SearchPostingRow = typeof searchPostingsTable.$inferSelect
+type OcrPageRow = typeof ocrPagesTable.$inferSelect
 
 type SearchChunkFields = Omit<SearchChunkRow, 'bookId' | 'createdAt'>
 

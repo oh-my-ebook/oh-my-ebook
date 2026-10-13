@@ -1,7 +1,7 @@
-import type { ocrLines, ocrPages } from '../schema'
+import type { ocrLinesTable, ocrPagesTable } from '../schema'
 
-type OcrLineRow = typeof ocrLines.$inferSelect
-type OcrPageRow = typeof ocrPages.$inferSelect
+type OcrLineRow = typeof ocrLinesTable.$inferSelect
+type OcrPageRow = typeof ocrPagesTable.$inferSelect
 
 type OcrPagePosition = Pick<OcrPageRow, 'id' | 'pageNumber'>
 type OcrChunkingLine = Pick<OcrLineRow, 'ocrPageId' | 'lineIndex' | 'rawText'>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTestConnection } from '../../test/sqlocal'
-import { booksTable, searchTerms } from './schema'
+import { booksTable, searchTermsTable } from './schema'
 
 describe('Drizzle 관계 조회 연결', () => {
   it('없는 행의 단건 조회는 undefined를 반환한다', async () => {
@@ -40,12 +40,12 @@ describe('Drizzle 관계 조회 연결', () => {
 
   it('batch에서 정상 단건, 없는 단건과 목록을 각각 복원한다', async () => {
     const { db } = await createTestConnection()
-    await db.insert(searchTerms).values({ term: '검색', documentFrequency: 1 })
+    await db.insert(searchTermsTable).values({ term: '검색', documentFrequency: 1 })
 
     const results = await db.batch([
-      db.query.searchTerms.findFirst({ columns: { term: true, documentFrequency: true } }),
-      db.query.searchTerms.findFirst({ where: (term, { eq }) => eq(term.term, '없는 용어') }),
-      db.query.searchTerms.findMany({ columns: { term: true } }),
+      db.query.searchTermsTable.findFirst({ columns: { term: true, documentFrequency: true } }),
+      db.query.searchTermsTable.findFirst({ where: (term, { eq }) => eq(term.term, '없는 용어') }),
+      db.query.searchTermsTable.findMany({ columns: { term: true } }),
     ])
 
     expect(results).toEqual([{ term: '검색', documentFrequency: 1 }, undefined, [{ term: '검색' }]])
