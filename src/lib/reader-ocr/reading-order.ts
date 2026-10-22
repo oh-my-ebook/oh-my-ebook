@@ -1,8 +1,16 @@
-import type { TextBox } from '../text-layout'
+import type { TextBox } from '@/lib/reader-ocr/reader-ocr.types'
 
-// 줄 높이 중앙값의 몇 배 이상 비어 있어야 페이지·카드 같은 영역 경계로 볼지 정한다.
-// 줄 간격이나 번호와 본문 사이 간격은 이보다 좁고, 양면 캡처의 가운데 여백은 훨씬 넓다.
 const BLOCK_GAP_RATIO = 2.5
+
+interface Gutter {
+  x0: number
+  x1: number
+}
+
+interface Section {
+  lines: TextBox[]
+  crossing: boolean
+}
 
 // 어떤 줄도 걸치지 않는 빈 띠가 minGap 이상인 곳에서 줄 묶음을 나눈다.
 function splitAtGaps(lines: readonly TextBox[], axis: 'x' | 'y', minGap: number) {
@@ -37,11 +45,6 @@ function orderBlock(lines: readonly TextBox[], minGap: number): TextBox[] {
     return orderAroundGutter(lines, minGap) ?? orderBlock(lines, 0)
   }
   return lines.toSorted((a, b) => a.bbox.y0 - b.bbox.y0 || a.bbox.x0 - b.bbox.x0)
-}
-
-interface Gutter {
-  x0: number
-  x1: number
 }
 
 // 줄 높이 이상 넓으면서 가로지르는 줄이 가장 적은 세로 띠를 단 사이 여백으로 본다.
@@ -109,11 +112,6 @@ function isTextColumn(lines: readonly TextBox[], lineHeight: number) {
   return lines.length >= 3 && medianWidth >= lineHeight * 8
 }
 
-interface Section {
-  lines: TextBox[]
-  crossing: boolean
-}
-
 // 세로 2단 문서처럼 단 사이 여백이 좁은 영역을 단 순서로 읽는다.
 // 여백을 가로지르는 줄이 있는 행(머리말·꼬리말·제목)은 제자리에서 따로 읽고,
 // 그 사이 구간은 좌우 줄 높이가 서로 어긋나 독립된 단으로 보일 때만 왼쪽 단부터 읽는다.
@@ -154,10 +152,11 @@ function orderAroundGutter(lines: readonly TextBox[], minGap: number): TextBox[]
   return sections.flatMap((section) => splitColumns(section) ?? orderBlock(section.lines, 0))
 }
 
-// PaddleOCR은 y 좌표 순으로 줄을 돌려주므로 여러 단이 있으면 좌우 줄이 섞인다.
+// 인식 엔진의 반환 순서와 무관하게 여러 단을 읽기 순서로 정렬한다.
 // 텍스트 레이어의 DOM 순서가 드래그 선택 순서가 되므로 읽기 순서로 다시 정렬한다.
 export function sortInReadingOrder(lines: readonly TextBox[]): TextBox[] {
   const heights = lines.map(({ bbox }) => bbox.y1 - bbox.y0).toSorted((a, b) => a - b)
   const medianHeight = heights[Math.floor(heights.length / 2)] ?? 0
+
   return orderBlock(lines, medianHeight * BLOCK_GAP_RATIO)
 }
