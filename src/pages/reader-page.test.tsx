@@ -12,13 +12,21 @@ import { ReaderPage } from './reader-page'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const respondSpy = vi.hoisted(() => vi.fn<(question: string, context: ModelContext) => void>())
-const recognizePdfPageMock = vi.hoisted(() => vi.fn())
+const readImageMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/lib/pdf/ocr/recognize-page', () => ({
-  recognizePdfPage: recognizePdfPageMock,
+vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+  readerOcrService: { readImage: readImageMock },
+}))
+vi.mock('@/lib/pdf/render-page-image', () => ({
+  renderPdfPageForOcr: vi.fn(async (page: { pageNumber: number }) => ({
+    bytes: new Uint8Array([1]),
+    mimeType: 'image/png',
+    width: page.pageNumber,
+    height: 1,
+  })),
 }))
 
 // jsdom에는 Resizable이 패널 크기를 계산할 실제 레이아웃이 없어 구분선이 입력 포커스를
@@ -186,12 +194,12 @@ async function renderLoadedReader(
   chatModel?: ChatModelAdapter,
 ) {
   vi.stubGlobal('devicePixelRatio', 1)
-  recognizePdfPageMock.mockImplementation(async (page: { pageNumber: number }) => ({
+  readImageMock.mockImplementation(async (image: { width: number }) => ({
     width: 1,
     height: 1,
     lines: [
       {
-        text: `${page.pageNumber}페이지 OCR 본문`,
+        text: `${image.width}페이지 OCR 본문`,
         x0: 0,
         y0: 0,
         x1: 1,

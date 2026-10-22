@@ -14,7 +14,9 @@ vi.mock('@/lib/ebook-storage/connection', () => ({
     return null
   },
 }))
-vi.mock('@/lib/pdf/ocr/recognize-page', () => ({ prepareOcr: vi.fn(async () => undefined) }))
+vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+  readerOcrService: { init: vi.fn(async () => undefined) },
+}))
 vi.mock('../features/chat/lib/web-llm/model', () => ({
   prepareCachedWebLlmModel: vi.fn(async () => undefined),
 }))
