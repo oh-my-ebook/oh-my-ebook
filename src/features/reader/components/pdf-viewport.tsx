@@ -12,11 +12,9 @@ import {
   renderPdfPageImage,
   renderPdfPageToCanvas,
 } from '../lib/pdf-page-render'
-import {
-  postprocessStoredOcrPage,
-  recognizePdfPage,
-  type StoredOcrPageResult,
-} from '@/lib/pdf/ocr/recognize-page'
+import { readerOcrService } from '@/lib/reader-ocr/reader-ocr.service'
+import { renderPdfPageForOcr } from '@/lib/pdf/render-page-image'
+import type { StoredOcrPageResult } from '@/lib/reader-ocr/reader-ocr.types'
 import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layout'
 import {
   PdfSelectionToolbar,
@@ -279,9 +277,22 @@ export function PdfViewport(props: PdfViewportProps) {
           return embeddedText
         }
         const storedOcrPage = await readStoredOcrPage(pageNumber)
-        return storedOcrPage
-          ? await postprocessStoredOcrPage(storedOcrPage, controller.signal)
-          : await recognizePdfPage(page, controller.signal)
+        controller.signal.throwIfAborted()
+        if (storedOcrPage) {
+          return await readerOcrService.postprocessPage(
+            {
+              width: storedOcrPage.width,
+              height: storedOcrPage.height,
+              lines: storedOcrPage.lines.map(({ rawText, x0, y0, x1, y1 }) => ({
+                text: rawText,
+                bbox: { x0, y0, x1, y1 },
+              })),
+            },
+            controller.signal,
+          )
+        }
+        const image = await renderPdfPageForOcr(page, controller.signal)
+        return await readerOcrService.readImage(image, controller.signal)
       })
       if (!controller.signal.aborted) {
         setTextLayerOutcome({ document, pageNumbers, pages })

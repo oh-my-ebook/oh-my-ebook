@@ -8,7 +8,6 @@ const domTests = [
   'src/features/reader/lib/{pdf-page-render,toc-focus}.test.ts',
   'src/features/bookshelf/lib/{pdf-import,pdf-import-cover,origin-data-manager}.test.ts',
   'src/lib/pdf/extract-text.test.ts',
-  'src/lib/pdf/ocr/recognize-page.test.ts',
 ]
 
 export default mergeConfig(

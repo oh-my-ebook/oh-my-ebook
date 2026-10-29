@@ -5,21 +5,25 @@ import { createPromiseController } from '../../../test/promise-controller'
 import type { PdfDocumentHandle, PdfPageHandle, PdfPageInfo } from '@/lib/pdf/document'
 import { PdfViewport } from './pdf-viewport'
 
-const {
-  extractPdfPageImages,
-  extractPdfPageText,
-  postprocessStoredOcrPage,
-  recognizePdfPage,
-  renderPdfPageImage,
-} = vi.hoisted(() => ({
-  extractPdfPageImages: vi.fn(),
-  extractPdfPageText: vi.fn(),
-  postprocessStoredOcrPage: vi.fn(),
-  recognizePdfPage: vi.fn(),
-  renderPdfPageImage: vi.fn(),
-}))
+const { extractPdfPageImages, extractPdfPageText, postprocessPage, readImage, renderPdfPageImage } =
+  vi.hoisted(() => ({
+    extractPdfPageImages: vi.fn(),
+    extractPdfPageText: vi.fn(),
+    postprocessPage: vi.fn(),
+    readImage: vi.fn(),
+    renderPdfPageImage: vi.fn(),
+  }))
 
-vi.mock('@/lib/pdf/ocr/recognize-page', () => ({ postprocessStoredOcrPage, recognizePdfPage }))
+vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+  readerOcrService: { postprocessPage, readImage },
+}))
+const image = {
+  bytes: new Uint8Array([137, 80, 78, 71]),
+  mimeType: 'image/png',
+  width: 1200,
+  height: 1800,
+}
+vi.mock('@/lib/pdf/render-page-image', () => ({ renderPdfPageForOcr: vi.fn(async () => image) }))
 vi.mock('@/lib/pdf/extract-images', () => ({ extractPdfPageImages }))
 vi.mock('@/lib/pdf/extract-text', () => ({ extractPdfPageText }))
 vi.mock('../lib/pdf-page-render', async (importOriginal) => ({
@@ -148,8 +152,8 @@ describe('PdfViewport', () => {
     vi.stubGlobal('devicePixelRatio', 2)
     extractPdfPageImages.mockResolvedValue({ width: 1, height: 1, regions: [] })
     extractPdfPageText.mockResolvedValue(null)
-    recognizePdfPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
-    postprocessStoredOcrPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
+    readImage.mockResolvedValue({ height: 1, lines: [], width: 1 })
+    postprocessPage.mockResolvedValue({ height: 1, lines: [], width: 1 })
   })
 
   afterEach(() => {
@@ -287,8 +291,8 @@ describe('PdfViewport', () => {
 
     const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
     expect(layer).toHaveTextContent('PDF에 들어 있는 문장')
-    expect(postprocessStoredOcrPage).not.toHaveBeenCalled()
-    expect(recognizePdfPage).not.toHaveBeenCalled()
+    expect(postprocessPage).not.toHaveBeenCalled()
+    expect(readImage).not.toHaveBeenCalled()
   })
 
   it('내장 텍스트 조회가 실패하면 저장된 OCR을 표시한다', async () => {
@@ -301,7 +305,7 @@ describe('PdfViewport', () => {
       lines: [{ rawText: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4 }],
     }
     extractPdfPageText.mockRejectedValueOnce(new Error('텍스트 조회 실패'))
-    postprocessStoredOcrPage.mockResolvedValueOnce({
+    postprocessPage.mockResolvedValueOnce({
       width: 1_200,
       height: 1_800,
       lines: [{ text: '저장한 원문', x0: 1, y0: 2, x1: 3, y1: 4, fontSize: 2, scaleX: 1 }],
@@ -324,8 +328,15 @@ describe('PdfViewport', () => {
     expect(await screen.findByLabelText('PDF 1페이지 텍스트 레이어')).toHaveTextContent(
       '저장한 원문',
     )
-    expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal))
-    expect(recognizePdfPage).not.toHaveBeenCalled()
+    expect(postprocessPage).toHaveBeenCalledWith(
+      {
+        width: 1200,
+        height: 1800,
+        lines: [{ text: '저장한 원문', bbox: { x0: 1, y0: 2, x1: 3, y1: 4 } }],
+      },
+      expect.any(AbortSignal),
+    )
+    expect(readImage).not.toHaveBeenCalled()
   })
 
   it('저장된 OCR이 있으면 Kiwi 후처리 경로를 우선하고 PaddleOCR을 실행하지 않는다', async () => {
@@ -353,16 +364,23 @@ describe('PdfViewport', () => {
     })
 
     await waitFor(() =>
-      expect(postprocessStoredOcrPage).toHaveBeenCalledWith(storedOcrPage, expect.any(AbortSignal)),
+      expect(postprocessPage).toHaveBeenCalledWith(
+        {
+          width: 1200,
+          height: 1800,
+          lines: [{ text: '저장한 원문', bbox: { x0: 1, y0: 2, x1: 3, y1: 4 } }],
+        },
+        expect.any(AbortSignal),
+      ),
     )
-    expect(recognizePdfPage).not.toHaveBeenCalled()
+    expect(readImage).not.toHaveBeenCalled()
   })
 
   it('PDF에 텍스트가 없으면 OCR 결과를 텍스트 레이어로 표시한다', async () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
-    recognizePdfPage.mockResolvedValueOnce({
+    readImage.mockResolvedValueOnce({
       width: 1_200,
       height: 1_800,
       lines: [
@@ -394,7 +412,7 @@ describe('PdfViewport', () => {
     })
 
     const layer = await screen.findByLabelText('PDF 1페이지 텍스트 레이어')
-    expect(recognizePdfPage).toHaveBeenCalledWith(page.page, expect.any(AbortSignal))
+    expect(readImage).toHaveBeenCalledWith(image, expect.any(AbortSignal))
     expect(layer).toHaveTextContent('형태소로 다듬은 문장')
     expect(onOcrTextChange).toHaveBeenCalledWith({
       document,
@@ -407,7 +425,7 @@ describe('PdfViewport', () => {
     const renderTask = createRenderTask()
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
-    recognizePdfPage.mockResolvedValueOnce({
+    readImage.mockResolvedValueOnce({
       width: 1_200,
       height: 1_800,
       lines: [
@@ -468,7 +486,7 @@ describe('PdfViewport', () => {
     const page = createPdfPage([renderTask])
     const { document } = createPdfDocument(new Map([[1, page.page]]))
     const onOcrTextChange = vi.fn()
-    recognizePdfPage.mockRejectedValueOnce(new Error('OCR 실패'))
+    readImage.mockRejectedValueOnce(new Error('OCR 실패'))
 
     render(
       <PdfViewport
