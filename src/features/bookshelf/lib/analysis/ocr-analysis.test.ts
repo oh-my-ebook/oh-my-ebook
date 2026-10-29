@@ -1,4 +1,4 @@
-import { createStoreMock, createStoredBookDetail } from '@/test/ebook-store'
+import { createStoreMock, createBookDocument } from '@/test/ebook-store'
 import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -276,7 +276,7 @@ describe('runOcrAnalysis', () => {
     extractSearchTerms.mockRejectedValueOnce(error)
     const onFailure = vi.fn()
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail())
+    store.getBook.mockResolvedValueOnce(createBookDocument())
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
       { pageNumber: 1, width: null, height: null, status: 'ready' },
