@@ -1,10 +1,10 @@
-import { createStoreMock, createStoredBookDetail } from '@/test/ebook-store'
-import type { StoredBookDetail } from '@/lib/ebook-storage/types/book'
+import { createStoreMock, createBookDocument } from '@/test/ebook-store'
+import type { BookDocument } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { BookMetadata } from '@/lib/ebook-storage/types/book'
+import type { BookInfo } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '../test/promise-controller'
 import { EbookReaderPage } from './ebook-reader-page'
 
@@ -12,7 +12,7 @@ const readerProps = vi.hoisted(() => vi.fn())
 
 vi.mock('./reader-page', () => ({
   ReaderPage: (props: {
-    bookMetadata?: BookMetadata
+    bookInfo?: BookInfo
     initialPage?: number
     onPageChange?(pageNumber: number): void
     title?: string
@@ -29,8 +29,8 @@ vi.mock('./reader-page', () => ({
   },
 }))
 
-function createBook(overrides: Partial<StoredBookDetail> = {}) {
-  return createStoredBookDetail({
+function createBook(overrides: Partial<BookDocument> = {}) {
+  return createBookDocument({
     id: 'book-id',
     fileName: 'book.pdf',
     title: '저장한 책',
@@ -53,7 +53,7 @@ function createStore(book = createBook()) {
 
 describe('EbookReaderPage', () => {
   it('책을 불러오는 동안 스피너로 로딩 상태를 알린다', () => {
-    const pendingBook = createPromiseController<StoredBookDetail>()
+    const pendingBook = createPromiseController<BookDocument>()
     const store = createStore()
     store.getBook.mockImplementation(() => pendingBook.promise)
     render(<EbookReaderPage bookId="book-id" store={store} />)
@@ -72,12 +72,13 @@ describe('EbookReaderPage', () => {
       expect.objectContaining({
         data: new Uint8Array([1, 2, 3]),
         bookId: 'book-id',
-        bookMetadata: {
+        bookInfo: expect.objectContaining({
           author: '저자',
           publisher: '출판사',
-          subject: '주제',
+          pdfSubject: '주제',
+          pdfKeywords: null,
           title: '저장한 책',
-        },
+        }),
         initialPage: 12,
         analysisStatus: 'ready',
         searchChunks: expect.any(Function),

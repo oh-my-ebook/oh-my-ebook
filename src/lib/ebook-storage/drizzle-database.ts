@@ -4,7 +4,7 @@ import {
   type AsyncBatchRemoteCallback,
 } from 'drizzle-orm/sqlite-proxy'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
-import * as schema from './schema'
+import { relations } from './schema'
 
 export function createDrizzleDatabase(sqlocal: SQLocalDrizzle) {
   const driver = async (...args: Parameters<SQLocalDrizzle['driver']>) => {
@@ -28,9 +28,9 @@ export function createDrizzleDatabase(sqlocal: SQLocalDrizzle) {
     return normalizedResults
   }
 
-  // Drizzle 0.45.3은 런타임에서 없는 행을 처리하지만 콜백 타입은 rows의 undefined를 허용하지 않는다.
+  // Drizzle은 없는 행을 처리하지만 콜백 타입은 rows의 undefined를 허용하지 않는다.
   const database = drizzle(driver as AsyncRemoteCallback, batchDriver as AsyncBatchRemoteCallback, {
-    schema,
+    relations,
   })
   return database
 }

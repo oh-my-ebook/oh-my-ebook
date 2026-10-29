@@ -538,7 +538,30 @@ describe('ReaderChat', () => {
     )
   })
 
-  it('값이 있는 도서 메타데이터만 컨텍스트에 함께 전달한다', async () => {
+  it.each([
+    {
+      name: '저자와 출판사',
+      bookInfo: {
+        title: '도서 제목',
+        author: '저자',
+        publisher: '출판사',
+        pdfSubject: null,
+        pdfKeywords: null,
+      },
+      metadata: '제목: 도서 제목\n저자: 저자\n출판사: 출판사',
+    },
+    {
+      name: 'PDF 주제와 키워드',
+      bookInfo: {
+        title: '도서 제목',
+        author: null,
+        publisher: null,
+        pdfSubject: '주제',
+        pdfKeywords: '키워드',
+      },
+      metadata: '제목: 도서 제목\n주제: 주제\n키워드: 키워드',
+    },
+  ])('$name 정보를 전달하고 null인 항목은 생략한다', async ({ bookInfo, metadata }) => {
     setupResizeObserverMock()
     useWebLlmModelStore.setState({ status: 'ready' })
     const user = userEvent.setup()
@@ -550,11 +573,7 @@ describe('ReaderChat', () => {
     const adapter = createMockChatModelAdapter(respond)
     render(
       <ReaderChat
-        bookMetadata={{
-          author: '저자',
-          publisher: '출판사',
-          title: '도서 제목',
-        }}
+        bookInfo={bookInfo}
         chatModel={adapter}
         currentPage={5}
         currentPageText="페이지 본문"
@@ -565,12 +584,7 @@ describe('ReaderChat', () => {
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(receivedContexts).toHaveLength(1))
-    expect(receivedContexts[0]?.system).toContain('<book_metadata>')
-    expect(receivedContexts[0]?.system).toContain('제목: 도서 제목')
-    expect(receivedContexts[0]?.system).toContain('저자: 저자')
-    expect(receivedContexts[0]?.system).toContain('출판사: 출판사')
-    expect(receivedContexts[0]?.system).not.toContain('주제:')
-    expect(receivedContexts[0]?.system).not.toContain('키워드:')
+    expect(receivedContexts[0]?.system).toContain(`<book_metadata>\n${metadata}\n</book_metadata>`)
     expect(receivedContexts[0]?.system).not.toContain('null')
   })
 

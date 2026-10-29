@@ -137,7 +137,6 @@ describe('analyzePdf', () => {
     )
 
     expect(analyzed.pageCount).toBe(1)
-    expect(analyzed.coverStatus).toBe('fallback')
     expect(analyzed.coverData).toBeNull()
     expect(analyzed.coverMime).toBeNull()
   })

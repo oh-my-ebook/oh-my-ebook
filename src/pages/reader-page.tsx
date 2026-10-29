@@ -1,5 +1,5 @@
 import type { ChatModelAdapter } from '@assistant-ui/react'
-import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/types/book'
+import type { BookAnalysisStatus, BookInfo } from '@/lib/ebook-storage/types/book'
 import { ReaderChat } from '@/features/chat/components/reader-chat'
 import type { SearchChunks } from '@/features/chat/lib/rag/search-book-chunks'
 import { Reader, type ReaderProps } from '@/features/reader/components/reader'
@@ -7,7 +7,7 @@ import { Reader, type ReaderProps } from '@/features/reader/components/reader'
 interface ReaderPageProps extends Omit<ReaderProps, 'renderPanel'> {
   analysisStatus?: BookAnalysisStatus
   bookId?: string
-  bookMetadata?: BookMetadata
+  bookInfo?: BookInfo
   chatModel?: ChatModelAdapter
   searchChunks?: SearchChunks
 }
@@ -15,7 +15,7 @@ interface ReaderPageProps extends Omit<ReaderProps, 'renderPanel'> {
 export function ReaderPage({
   analysisStatus,
   bookId,
-  bookMetadata,
+  bookInfo,
   chatModel,
   searchChunks,
   ...readerProps
@@ -28,7 +28,7 @@ export function ReaderPage({
           {...context}
           analysisStatus={analysisStatus}
           bookId={bookId}
-          bookMetadata={bookMetadata}
+          bookInfo={bookInfo}
           chatModel={chatModel}
           key={readerProps.url}
           searchChunks={searchChunks}

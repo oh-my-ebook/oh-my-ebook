@@ -1,44 +1,41 @@
-import type { ocrLinesTable, ocrPagesTable } from '../schema'
+import type { InferModelFromColumns } from 'drizzle-orm'
+import type {
+  nextOcrPageColumns,
+  ocrLineContentColumns,
+  ocrLineForChunkingColumns,
+  ocrLineRecordColumns,
+  ocrLinesTable,
+  ocrPagesTable,
+  ocrPageStateColumns,
+} from '../schema/ocr'
 
-type OcrLineRow = typeof ocrLinesTable.$inferSelect
-type OcrPageRow = typeof ocrPagesTable.$inferSelect
+export type OcrLine = typeof ocrLinesTable.$inferSelect
+export type OcrPage = typeof ocrPagesTable.$inferSelect
+export type InsertOcrPage = typeof ocrPagesTable.$inferInsert
 
-type OcrPagePosition = Pick<OcrPageRow, 'id' | 'pageNumber'>
-type OcrChunkingLine = Pick<OcrLineRow, 'ocrPageId' | 'lineIndex' | 'rawText'>
-
-export type OcrLine = Omit<OcrLineRow, 'id' | 'ocrPageId' | 'lineIndex'>
-
-export interface NextOcrPage extends OcrPagePosition {
-  id: string
-}
-
-export interface OcrLineRecord extends OcrLine {
-  pageNumber: OcrPageRow['pageNumber']
-  lineIndex: OcrLineRow['lineIndex']
-}
+export type OcrLineContent = Pick<OcrLine, keyof typeof ocrLineContentColumns>
+export type NextOcrPage = InferModelFromColumns<typeof nextOcrPageColumns>
 
 export interface OcrLinePage {
-  lines: OcrLineRecord[]
+  lines: InferModelFromColumns<typeof ocrLineRecordColumns>[]
   total: number
 }
 
-export interface OcrLineForChunking extends OcrChunkingLine {
-  pageNumber: OcrPageRow['pageNumber']
-}
+export type OcrLineForChunking = InferModelFromColumns<typeof ocrLineForChunkingColumns>
 
 export interface StoredOcrPage {
   width: number
   height: number
-  lines: OcrLine[]
+  lines: OcrLineContent[]
 }
 
-export type OcrPageRecord = Pick<OcrPageRow, 'pageNumber' | 'status' | 'width' | 'height'>
+export type OcrPageRecord = Pick<OcrPage, keyof typeof ocrPageStateColumns>
 
 export interface OcrPageResult {
   pageId: string
   width: number
   height: number
-  lines: readonly OcrLine[]
+  lines: readonly OcrLineContent[]
 }
 
 export interface OcrPageQuery {

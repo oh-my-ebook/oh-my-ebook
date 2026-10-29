@@ -7,9 +7,9 @@ import * as storage from '@/lib/ebook-storage/browser-storage'
 import * as pdfImport from '../lib/pdf-import'
 import * as ocrAnalysis from '../lib/analysis/ocr-analysis'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '@/test/promise-controller'
-import { createImportedBook } from '@/test/sqlocal'
+import { createBookFileData } from '@/test/sqlocal'
 import { toast, Toaster } from '@/components/ui/toast'
 import { Bookshelf } from './bookshelf'
 
@@ -19,7 +19,7 @@ function createStore() {
   return store
 }
 
-function createStoredBook(title: string) {
+function createBookListItem(title: string) {
   return {
     id: `${title}-id`,
     contentHash: `${title}-hash`,
@@ -34,7 +34,6 @@ function createStoredBook(title: string) {
     pageCount: 1,
     coverData: null,
     coverMime: null,
-    coverStatus: 'fallback' as const,
     pdfStatus: 'available' as const,
     lastPage: null,
     analysisStatus: 'analyzing' as const,
@@ -135,7 +134,7 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.saveBook.mockRejectedValueOnce(new EbookStoreError('storage-failed'))
-    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue(createImportedBook())
+    vi.spyOn(pdfImport, 'analyzePdf').mockResolvedValue(createBookFileData())
     render(
       <TestRouter>
         <Toaster>
@@ -158,11 +157,11 @@ describe('Bookshelf', () => {
   it('손상·암호 PDF를 안내하고 다음 유효한 파일을 추가한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const book = { ...createStoredBook('정상 책'), analysisStatus: 'ready' as const }
+    const book = { ...createBookListItem('정상 책'), analysisStatus: 'ready' as const }
     vi.spyOn(pdfImport, 'analyzePdf')
       .mockRejectedValueOnce(new pdfImport.PdfImportError('invalid-document'))
       .mockRejectedValueOnce(new pdfImport.PdfImportError('password-required'))
-      .mockResolvedValueOnce(createImportedBook({ title: book.title }))
+      .mockResolvedValueOnce(createBookFileData({ title: book.title }))
     store.saveBook.mockImplementation(async () => {
       store.listBooks.mockResolvedValue([book])
       return book.id
@@ -193,7 +192,7 @@ describe('Bookshelf', () => {
   it('삭제 저장이 실패하면 책을 유지하고 다이얼로그에서 다시 삭제한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const book = { ...createStoredBook('삭제할 책'), analysisStatus: 'ready' as const }
+    const book = { ...createBookListItem('삭제할 책'), analysisStatus: 'ready' as const }
     store.listBooks.mockResolvedValue([book])
     store.deleteBook
       .mockRejectedValueOnce(new Error('delete failed'))
@@ -248,7 +247,7 @@ describe('Bookshelf', () => {
   })
 
   it('자동 재개 중 OCR 분석이 실패하면 같은 세션에서 분석 재시도 버튼을 표시한다', async () => {
-    const failedBook = createStoredBook('자동 재개 실패 책')
+    const failedBook = createBookListItem('자동 재개 실패 책')
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [failedBook]
@@ -269,7 +268,7 @@ describe('Bookshelf', () => {
   })
 
   it('OCR 완료 뒤 청킹 전에 중단된 책도 자동으로 분석을 재개한다', async () => {
-    const interruptedBook = { ...createStoredBook('청킹 전 중단 책'), ocrCompletedAt: 1 }
+    const interruptedBook = { ...createBookListItem('청킹 전 중단 책'), ocrCompletedAt: 1 }
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [interruptedBook]
@@ -286,7 +285,7 @@ describe('Bookshelf', () => {
   })
 
   it('책장 화면을 다시 마운트해도 이미 진행 중인 OCR 분석을 중복 실행하지 않는다', async () => {
-    const analyzingBook = createStoredBook('분석 중인 책')
+    const analyzingBook = createBookListItem('분석 중인 책')
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [analyzingBook]
@@ -312,7 +311,7 @@ describe('Bookshelf', () => {
   })
 
   it('다시 마운트된 화면도 진행 중이던 OCR 분석의 실제 결과(실패)를 반영한다', async () => {
-    const analyzingBook = createStoredBook('분석 중인 책')
+    const analyzingBook = createBookListItem('분석 중인 책')
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return [analyzingBook]
@@ -353,7 +352,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -391,7 +389,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -447,7 +444,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -489,7 +485,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
@@ -510,8 +505,8 @@ describe('Bookshelf', () => {
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       return store.listBooks.mock.calls.length === 1
-        ? [createStoredBook('기존 책')]
-        : [createStoredBook('새 책')]
+        ? [createBookListItem('기존 책')]
+        : [createBookListItem('새 책')]
     })
     const usage = vi.spyOn(storage, 'getStorageUsage')
     usage.mockResolvedValueOnce(1).mockResolvedValueOnce(2)
@@ -533,9 +528,9 @@ describe('Bookshelf', () => {
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
       const listRequestCount = store.listBooks.mock.calls.length
-      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      if (listRequestCount === 1) return [createBookListItem('기존 책')]
       if (listRequestCount === 2) throw new Error('failed')
-      return [createStoredBook('새 책')]
+      return [createBookListItem('새 책')]
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -553,7 +548,7 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
-      return [createStoredBook('기존 책')]
+      return [createBookListItem('기존 책')]
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -576,8 +571,8 @@ describe('Bookshelf', () => {
 
   it('삭제를 취소하면 책을 유지하고 성공하면 다른 책과 용량을 갱신한다', async () => {
     const user = userEvent.setup()
-    const firstBook = createStoredBook('첫 번째 책')
-    const secondBook = createStoredBook('두 번째 책')
+    const firstBook = createBookListItem('첫 번째 책')
+    const secondBook = createBookListItem('두 번째 책')
     let books = [firstBook, secondBook]
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
@@ -610,8 +605,8 @@ describe('Bookshelf', () => {
 
   it('업로드·목록·용량·새로고침·삭제를 하나의 책장 흐름으로 조합한다', async () => {
     const user = userEvent.setup()
-    const savedBook = createStoredBook('새 책')
-    let books: ReturnType<typeof createStoredBook>[] = []
+    const savedBook = createBookListItem('새 책')
+    let books: ReturnType<typeof createBookListItem>[] = []
     let usage = 0
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
@@ -643,7 +638,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -679,7 +673,7 @@ describe('Bookshelf', () => {
   it('표지를 다시 만들면 책 ID와 새 표지 데이터를 저장한다', async () => {
     const user = userEvent.setup()
     const store = createStore()
-    const book: StoredBook = { ...createStoredBook('기존 책'), analysisStatus: 'ready' }
+    const book: BookListItem = { ...createBookListItem('기존 책'), analysisStatus: 'ready' }
     const coverData = new Uint8Array([1, 2, 3]).buffer
     store.listBooks.mockResolvedValue([book])
     store.getBook.mockResolvedValue({ ...book, pdfData: new Uint8Array([4, 5]) })
@@ -688,7 +682,6 @@ describe('Bookshelf', () => {
       pdfData: new ArrayBuffer(2),
       coverData,
       coverMime: 'image/png',
-      coverStatus: 'ready',
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -707,7 +700,7 @@ describe('Bookshelf', () => {
     const user = userEvent.setup()
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
-      return [createStoredBook('기존 책')]
+      return [createBookListItem('기존 책')]
     })
     store.updateTitle.mockImplementation(async () => {
       throw new Error('failed')
@@ -734,7 +727,7 @@ describe('Bookshelf', () => {
     let listRequestCount = 0
     store.listBooks.mockImplementation(async () => {
       listRequestCount += 1
-      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      if (listRequestCount === 1) return [createBookListItem('기존 책')]
       throw new Error('failed')
     })
     render(
@@ -760,7 +753,7 @@ describe('Bookshelf', () => {
     let listRequestCount = 0
     store.listBooks.mockImplementation(async () => {
       listRequestCount += 1
-      if (listRequestCount === 1) return [createStoredBook('기존 책')]
+      if (listRequestCount === 1) return [createBookListItem('기존 책')]
       throw new Error('failed')
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
@@ -779,7 +772,7 @@ describe('Bookshelf', () => {
     const onOpenBook = vi.fn()
     const store = createStore()
     store.listBooks.mockImplementation(async () => {
-      return [createStoredBook('기존 책')]
+      return [createBookListItem('기존 책')]
     })
     store.hasBook.mockImplementation(async () => {
       throw new EbookStoreError('deleted')

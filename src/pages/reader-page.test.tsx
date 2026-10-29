@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatModelAdapter, ChatModelRunResult, ModelContext } from '@assistant-ui/react'
-import type { BookMetadata } from '@/lib/ebook-storage/types/book'
+import type { BookInfo } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '../test/promise-controller'
 import { TestRouter } from '@/test/test-router'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
@@ -190,7 +190,7 @@ function createCitationAdapter(pageNumber: number): ChatModelAdapter {
 async function renderLoadedReader(
   resizeObserverMock: ReturnType<typeof setupResizeObserverMock>,
   pageCount = 1,
-  bookMetadata?: BookMetadata,
+  bookInfo?: BookInfo,
   chatModel?: ChatModelAdapter,
 ) {
   vi.stubGlobal('devicePixelRatio', 1)
@@ -211,12 +211,9 @@ async function renderLoadedReader(
   }))
   const documentLoad = createPromiseController<LoadedPdfDocument>()
   loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
-  const view = render(
-    <ReaderPage bookMetadata={bookMetadata} chatModel={chatModel} url="/sample.pdf" />,
-    {
-      wrapper: TestRouter,
-    },
-  )
+  const view = render(<ReaderPage bookInfo={bookInfo} chatModel={chatModel} url="/sample.pdf" />, {
+    wrapper: TestRouter,
+  })
   resizeObserverMock.resizeReaderAreaTo(1000, 1200)
 
   await act(async () => {
@@ -462,6 +459,8 @@ describe('Reader 보조 패널 연결', () => {
     await renderLoadedReader(resizeObserverMock, 1, {
       author: '저자',
       publisher: '출판사',
+      pdfSubject: null,
+      pdfKeywords: null,
       title: '도서 제목',
     })
 

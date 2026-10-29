@@ -3,7 +3,7 @@ export const GET_SCHEMA_VERSION_SQL = 'PRAGMA user_version'
 
 export const INITIAL_SCHEMA_SQL = `
   CREATE TABLE books (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY NOT NULL,
     content_hash TEXT NOT NULL UNIQUE,
     file_name TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -16,7 +16,6 @@ export const INITIAL_SCHEMA_SQL = `
     page_count INTEGER NOT NULL CHECK (page_count > 0),
     cover_data BLOB,
     cover_mime TEXT,
-    cover_status TEXT NOT NULL CHECK (cover_status IN ('ready', 'fallback')),
     last_page INTEGER CHECK (last_page IS NULL OR (last_page >= 1 AND last_page <= page_count)),
     analysis_status TEXT NOT NULL CHECK (analysis_status IN ('analyzing', 'ready', 'failed')),
     ocr_completed_at INTEGER,
@@ -27,7 +26,7 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE INDEX books_created_at_idx ON books(created_at DESC, id DESC);
 
   CREATE TABLE ocr_pages (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY NOT NULL,
     book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     page_number INTEGER NOT NULL CHECK (page_number > 0),
     width INTEGER CHECK (width IS NULL OR width > 0),
@@ -40,7 +39,7 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE INDEX ocr_pages_resume_idx ON ocr_pages(book_id, status, page_number);
 
   CREATE TABLE ocr_lines (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY NOT NULL,
     ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE,
     line_index INTEGER NOT NULL,
     raw_text TEXT NOT NULL,
@@ -52,7 +51,7 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE UNIQUE INDEX ocr_lines_page_order_idx ON ocr_lines(ocr_page_id, line_index);
 
   CREATE TABLE search_chunks (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY NOT NULL,
     book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     ordinal INTEGER NOT NULL,
     text TEXT NOT NULL,
@@ -62,7 +61,7 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE UNIQUE INDEX search_chunks_book_order_idx ON search_chunks(book_id, ordinal);
 
   CREATE TABLE chunk_sources (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY NOT NULL,
     chunk_id TEXT NOT NULL REFERENCES search_chunks(id) ON DELETE CASCADE,
     ocr_page_id TEXT NOT NULL REFERENCES ocr_pages(id) ON DELETE CASCADE,
     start_line_index INTEGER NOT NULL,
@@ -73,7 +72,7 @@ export const INITIAL_SCHEMA_SQL = `
   CREATE INDEX chunk_sources_page_line_idx ON chunk_sources(ocr_page_id, start_line_index);
 
   CREATE TABLE search_terms (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY NOT NULL,
     term TEXT NOT NULL UNIQUE,
     document_frequency INTEGER NOT NULL CHECK (document_frequency > 0)
   );
@@ -86,5 +85,10 @@ export const INITIAL_SCHEMA_SQL = `
   );
   CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id);
 
-  PRAGMA user_version = 1;
+  PRAGMA user_version = 2;
+`
+
+export const REMOVE_COVER_STATUS_SQL = `
+  ALTER TABLE books DROP COLUMN cover_status;
+  PRAGMA user_version = 2;
 `

@@ -1,9 +1,9 @@
 import { Separator } from '@/components/ui/separator'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { formatBytes } from '../lib/format-bytes'
 
 interface LibrarySummaryProps {
-  books: StoredBook[]
+  books: BookListItem[]
   usage: number | null
 }
 

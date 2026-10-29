@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { BookCard } from './book-card'
 
-const book: StoredBook = {
+const book: BookListItem = {
   id: 'book-id',
   contentHash: 'hash',
   fileName: 'local-library.pdf',
@@ -18,7 +18,6 @@ const book: StoredBook = {
   pageCount: 100,
   coverData: new Uint8Array([1, 2, 3]),
   coverMime: 'image/png',
-  coverStatus: 'ready',
   pdfStatus: 'available',
   lastPage: null,
   analysisStatus: 'analyzing',
@@ -42,6 +41,34 @@ beforeEach(() => {
 })
 
 describe('BookCard', () => {
+  it.each<Pick<BookListItem, 'coverData' | 'coverMime'>>([
+    { coverData: null, coverMime: null },
+    { coverData: null, coverMime: 'image/png' },
+    { coverData: new Uint8Array([1]), coverMime: null },
+  ])('표지 데이터나 형식이 없으면 기본 표지와 재생성 메뉴를 제공한다: %j', async (cover) => {
+    const user = userEvent.setup()
+    const onRegenerate = vi.fn()
+    render(<BookCard book={{ ...book, ...cover }} onOpen={vi.fn()} onRegenerate={onRegenerate} />)
+
+    expect(screen.getByText('기본 표지')).toBeVisible()
+    expect(screen.getByText('표지를 만들지 못했습니다.')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
+    await user.click(await screen.findByRole('menuitem', { name: '표지 다시 만들기' }))
+
+    expect(onRegenerate).toHaveBeenCalledOnce()
+  })
+
+  it('표지 데이터와 형식이 있으면 재생성 메뉴와 실패 안내를 표시하지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<BookCard book={book} onOpen={vi.fn()} onRegenerate={vi.fn()} onRename={vi.fn()} />)
+
+    expect(screen.getByRole('img', { name: `${book.title} 표지` })).toBeVisible()
+    expect(screen.queryByText('표지를 만들지 못했습니다.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: `${book.title} 메뉴` }))
+    expect(await screen.findByRole('menuitem', { name: '책 제목 수정' })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: '표지 다시 만들기' })).not.toBeInTheDocument()
+  })
+
   it('표지와 제목, 읽지 않은 책의 전체 페이지를 표시한다', () => {
     render(<BookCard book={book} onOpen={vi.fn()} />)
 

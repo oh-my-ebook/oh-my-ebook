@@ -1,4 +1,4 @@
-import { createStoreMock, createStoredBookDetail } from '@/test/ebook-store'
+import { createStoreMock, createBookDocument } from '@/test/ebook-store'
 import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -65,7 +65,7 @@ describe('runOcrAnalysis', () => {
     ])
     extractSearchTerms.mockResolvedValue([{ term: '검색', termFrequency: 3 }])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createBookDocument({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(false)
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
@@ -134,7 +134,7 @@ describe('runOcrAnalysis', () => {
       lines: [],
     })
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createBookDocument({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-2', pageNumber: 2 })
     store.storeOcrPage.mockResolvedValueOnce(false)
@@ -160,7 +160,7 @@ describe('runOcrAnalysis', () => {
     recognize.mockRejectedValueOnce(new Error('PaddleOCR model unavailable'))
     const onFailure = vi.fn()
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createBookDocument({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-3', pageNumber: 3 })
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
@@ -186,7 +186,7 @@ describe('runOcrAnalysis', () => {
     recognize.mockResolvedValue({ width: 100, height: 200, lines: [] })
     createSearchChunks.mockRejectedValueOnce(new Error('Kiwi failed'))
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createBookDocument({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce({ id: 'page-1', pageNumber: 1 })
     store.storeOcrPage.mockResolvedValueOnce(true)
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
@@ -212,7 +212,7 @@ describe('runOcrAnalysis', () => {
     extractSearchTerms.mockResolvedValueOnce([{ term: '검색', termFrequency: 1 }])
     const store = createStoreMock()
     store.getBook.mockImplementation(async () => {
-      return createStoredBookDetail({ pdfData: new Uint8Array([1]) })
+      return createBookDocument({ pdfData: new Uint8Array([1]) })
     })
     store.acquireNextOcrPage.mockImplementation(async () => {
       return null
@@ -251,7 +251,7 @@ describe('runOcrAnalysis', () => {
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
     createSearchChunks.mockResolvedValueOnce([])
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
+    store.getBook.mockResolvedValueOnce(createBookDocument({ pdfData: new Uint8Array([1]) }))
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
       { pageNumber: 1, width: null, height: null, status: 'ready' },
@@ -276,7 +276,7 @@ describe('runOcrAnalysis', () => {
     extractSearchTerms.mockRejectedValueOnce(error)
     const onFailure = vi.fn()
     const store = createStoreMock()
-    store.getBook.mockResolvedValueOnce(createStoredBookDetail())
+    store.getBook.mockResolvedValueOnce(createBookDocument())
     store.acquireNextOcrPage.mockResolvedValueOnce(null)
     store.listOcrPages.mockResolvedValueOnce([
       { pageNumber: 1, width: null, height: null, status: 'ready' },

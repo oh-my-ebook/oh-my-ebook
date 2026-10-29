@@ -84,7 +84,6 @@ describe('SQLocal 저장소', () => {
       lastPage: null,
       coverData: new Uint8Array([0, 128, 255]),
       coverMime: null,
-      coverStatus: 'fallback',
       analysisStatus: 'analyzing',
       ocrCompletedAt: null,
       indexedAt: null,
@@ -96,7 +95,7 @@ describe('SQLocal 저장소', () => {
   it('책 상세에는 표지와 분석 시각을 제외한 메타데이터를 반환한다', async () => {
     const { id, store } = await setup()
 
-    expect(await store.getBookMetadata(id)).toEqual({
+    expect(await store.getBookDetails(id)).toEqual({
       id,
       contentHash: 'a'.repeat(64),
       fileName: 'book.pdf',
@@ -153,17 +152,17 @@ describe('SQLocal 저장소', () => {
       cover: bookCover,
     })
     await store.updateProgress({ bookId: id, page: 2 })
-    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
+    expect(await store.getBookDetails(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
     expect(await store.listBooks()).toEqual([
-      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverStatus: 'ready' }),
+      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverMime: 'image/webp' }),
     ])
     await expect(store.updateProgress({ bookId: id, page: 3 })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
-    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
+    expect(await store.getBookDetails(id)).toMatchObject({ lastPage: 2 })
     await store.deleteBookById(id)
     await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
-    await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)
+    await expect(store.getBookDetails(id)).rejects.toBeInstanceOf(NotFoundBookError)
     await expect(store.getBookAnalysisStatus(id)).rejects.toThrow()
   })
 
@@ -188,7 +187,33 @@ describe('SQLocal 저장소', () => {
     )
     await expect(store.deleteBookById('missing')).rejects.toBeInstanceOf(DeletedBookError)
     expect(await store.listBooks()).toEqual(before)
-    expect(await store.getBookMetadata(id)).toMatchObject({ id })
+    expect(await store.getBookDetails(id)).toMatchObject({ id })
+  })
+
+  it('책을 삭제하면 OCR·검색 데이터와 사용하지 않는 검색어도 삭제한다', async () => {
+    const { db, id, store, pages } = await preparePages()
+    await store.acquireNextOcrPage(id)
+    await store.storeOcrPage({
+      pageId: pages[0].id,
+      width: 100,
+      height: 200,
+      lines: [{ rawText: '전자책 검색', x0: 0, y0: 0, x1: 10, y1: 10 }],
+    })
+    await store.storeSearchIndex({ bookId: id, chunks: [chunk('chunk-1', pages[0].id)] })
+
+    await store.deleteBookById(id)
+
+    for (const table of [
+      'books',
+      'ocr_pages',
+      'ocr_lines',
+      'search_chunks',
+      'chunk_sources',
+      'search_terms',
+      'search_postings',
+    ]) {
+      expect(await db.sqlocal.sql(`SELECT * FROM ${table}`)).toEqual([])
+    }
   })
 
   it('동일 PDF의 동시 저장은 하나만 성공하고 중복 오류 뒤에도 저장할 수 있다', async () => {
@@ -559,7 +584,7 @@ describe('SQLocal 저장소', () => {
   )
 
   it('검색 색인·출처·용어·빈도를 저장하고 BM25 순위와 페이지 출처를 반환한다', async () => {
-    const { db, id, store, pages } = await preparePages()
+    const { id, store, pages } = await preparePages()
     await store.storeSearchIndex({
       bookId: id,
       chunks: [
@@ -605,10 +630,6 @@ describe('SQLocal 저장소', () => {
       total: 2,
       sources: [expect.objectContaining({ chunkId: 'chunk-1', pageNumber: 1 })],
     })
-    await store.deleteBookById(id)
-    expect(await db.sqlocal.sql('SELECT * FROM search_terms')).toEqual([])
-    expect(await db.sqlocal.sql('SELECT * FROM search_postings')).toEqual([])
-    expect(await db.sqlocal.sql('SELECT * FROM ocr_pages')).toEqual([])
   })
 
   it('검색 조회는 책별로 정렬·페이지네이션하고 공유 용어의 빈도와 출처 순서를 유지한다', async () => {
@@ -713,17 +734,6 @@ describe('SQLocal 저장소', () => {
         [key]: [],
       })
     }
-  })
-
-  it('식별자가 NULL인 검색 청크는 조회 결과로 반환하지 않는다', async () => {
-    const { db, id, store } = await setup()
-    await db.sqlocal.sql(
-      "INSERT INTO search_chunks (book_id, ordinal, text, token_count, created_at) VALUES (?, 0, '청크', 1, 0)",
-      id,
-    )
-    await expect(store.listSearchChunks({ bookId: id, limit: 10, offset: 0 })).rejects.toThrow(
-      'Invalid search chunks',
-    )
   })
 
   it('색인을 교체하거나 책을 삭제하면 단어별 청크 수를 갱신하고 어느 청크에도 없는 단어만 삭제한다', async () => {

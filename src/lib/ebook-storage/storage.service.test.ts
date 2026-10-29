@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createImportedBook, createNewBook, createTestConnection } from '../../test/sqlocal'
+import { createBookFileData, createNewBook, createTestConnection } from '../../test/sqlocal'
 import { createBookRepository } from './book/book.repository'
 import * as connection from './database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './book/pdf-files'
@@ -40,7 +40,7 @@ describe('책 저장 작업', () => {
   it('명시적으로 초기화한 뒤 저장과 조회에서 초기화를 반복하지 않는다', async () => {
     const { storageService } = await setup()
     await storageService.initialize()
-    await storageService.saveBook(createImportedBook())
+    await storageService.saveBook(createBookFileData())
     expect(await storageService.listBooks()).toHaveLength(1)
     expect(connection.initializeDatabase).toHaveBeenCalledOnce()
   })
@@ -77,8 +77,8 @@ describe('책 저장 작업', () => {
   it('잘못된 책 입력은 DB를 열지 않는다', async () => {
     const { storageService } = await setup()
     for (const payload of [
-      createImportedBook({ pdfSize: -1 }),
-      createImportedBook({ contentHash: ' ' }),
+      createBookFileData({ pdfSize: -1 }),
+      createBookFileData({ contentHash: ' ' }),
     ]) {
       await expect(storageService.saveBook(payload)).rejects.toThrow('Invalid data')
     }
@@ -87,7 +87,7 @@ describe('책 저장 작업', () => {
 
   it('PDF 원본은 파일로 저장하고 메타데이터만 DB에 저장한다', async () => {
     const { db, storageService, bookRepository } = await setup()
-    const book = createImportedBook({
+    const book = createBookFileData({
       author: '저자',
       publisher: '출판사',
       pdfTitle: '원본 제목',
@@ -95,7 +95,6 @@ describe('책 저장 작업', () => {
       pdfKeywords: '키워드',
       coverData: new Uint8Array([0, 128, 255]).buffer,
       coverMime: 'image/png',
-      coverStatus: 'ready',
     })
     const id = await storageService.saveBook(book)
     expect(writePdf).toHaveBeenCalledWith(book.contentHash, book.pdfData)
@@ -114,7 +113,6 @@ describe('책 저장 작업', () => {
         pageCount: book.pageCount,
         coverData: new Uint8Array([0, 128, 255]),
         coverMime: 'image/png',
-        coverStatus: 'ready',
         lastPage: null,
         analysisStatus: 'analyzing',
         ocrCompletedAt: null,
@@ -133,7 +131,7 @@ describe('책 저장 작업', () => {
     await db.sqlocal.sql(
       "CREATE TRIGGER fail_book BEFORE INSERT ON books BEGIN SELECT RAISE(ABORT, 'disk failure'); END",
     )
-    await expect(storageService.saveBook(createImportedBook())).rejects.toMatchObject({
+    await expect(storageService.saveBook(createBookFileData())).rejects.toMatchObject({
       cause: expect.objectContaining({ message: expect.stringContaining('disk failure') }),
     })
     expect(writePdf).not.toHaveBeenCalled()
@@ -143,7 +141,7 @@ describe('책 저장 작업', () => {
   it('PDF 저장 실패 시 방금 추가한 책 정보도 제거한다', async () => {
     const { storageService, bookRepository } = await setup()
     vi.mocked(writePdf).mockRejectedValueOnce(new Error('write failed'))
-    await expect(storageService.saveBook(createImportedBook())).rejects.toThrow('write failed')
+    await expect(storageService.saveBook(createBookFileData())).rejects.toThrow('write failed')
     expect(await bookRepository.listBooks()).toEqual([])
   })
 
@@ -171,7 +169,7 @@ describe('책 저장 작업', () => {
     const id = await bookRepository.addBook(createNewBook())
     vi.mocked(deletePdf).mockRejectedValueOnce(new Error('delete failed'))
     await expect(storageService.deleteBook(id)).rejects.toThrow('delete failed')
-    expect(await bookRepository.getBookMetadata(id)).toMatchObject({ id })
+    expect(await bookRepository.getBookDetails(id)).toMatchObject({ id })
     await storageService.deleteBook(id)
     expect(await bookRepository.listBooks()).toEqual([])
     expect(deletePdf).toHaveBeenCalledWith('a'.repeat(64))
@@ -211,12 +209,21 @@ describe('책 저장 작업', () => {
       storageService.storeOcrPage({ pageId: 'page', width: 0, height: 100, lines: [] }),
     ).rejects.toThrow('Invalid data')
     await expect(
-      storageService.listSearchTerms({ bookId: id, limit: 10, offset: -1 }),
-    ).rejects.toThrow('Invalid data')
-    await expect(
       storageService.searchChunks({ bookId: id, terms: ['검색'], limit: 6 }),
     ).rejects.toThrow('Invalid data')
     expect(connection.initializeDatabase).not.toHaveBeenCalled()
+  })
+
+  it('저장된 결과가 없으면 OCR·검색 목록과 전체 개수를 반환한다', async () => {
+    const { storageService, bookRepository } = await setup()
+    const bookId = await bookRepository.addBook(createNewBook())
+    const query = { bookId, limit: 10, offset: 0 }
+
+    expect(await storageService.listOcrLines(query)).toEqual({ lines: [], total: 0 })
+    expect(await storageService.listSearchChunks(query)).toEqual({ chunks: [], total: 0 })
+    expect(await storageService.listSearchTerms(query)).toEqual({ terms: [], total: 0 })
+    expect(await storageService.listSearchPostings(query)).toEqual({ postings: [], total: 0 })
+    expect(await storageService.listChunkSources(query)).toEqual({ sources: [], total: 0 })
   })
 
   it('DB에 손상된 콘텐츠 해시가 있으면 PDF 파일에 접근하지 않는다', async () => {

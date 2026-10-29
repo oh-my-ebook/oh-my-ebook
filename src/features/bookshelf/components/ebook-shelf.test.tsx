@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { EbookShelf } from './ebook-shelf'
 
-function createBook(id: string, title: string): StoredBook {
+function createBook(id: string, title: string): BookListItem {
   return {
     id,
     contentHash: `${id}-hash`,
@@ -19,7 +19,6 @@ function createBook(id: string, title: string): StoredBook {
     pageCount: 100,
     coverData: null,
     coverMime: null,
-    coverStatus: 'ready',
     pdfStatus: 'available' as const,
     lastPage: null,
     analysisStatus: 'analyzing',

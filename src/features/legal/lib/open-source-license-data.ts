@@ -983,7 +983,7 @@ export const OPEN_SOURCE_LICENSES: OpenSourceLicenseEntry[] = [
   },
   {
     name: 'drizzle-orm',
-    version: '0.45.3',
+    version: '1.0.0-rc.4',
     license: 'Apache-2.0',
     homepage: 'https://orm.drizzle.team',
     copyright: null,

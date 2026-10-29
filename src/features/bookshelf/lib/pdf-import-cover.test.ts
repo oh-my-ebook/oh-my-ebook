@@ -47,7 +47,6 @@ describe('PDF 표지 인코딩', () => {
     const book = await analyzePdf(new File(['pdf'], 'rotated.pdf'))
 
     expect(book).toMatchObject({
-      coverStatus: 'ready',
       coverMime: 'image/png',
       coverData: await png.arrayBuffer(),
     })
@@ -64,7 +63,6 @@ describe('PDF 표지 인코딩', () => {
 
     expect(book).toMatchObject({
       pdfData: await file.arrayBuffer(),
-      coverStatus: 'fallback',
       coverData: null,
       coverMime: null,
     })

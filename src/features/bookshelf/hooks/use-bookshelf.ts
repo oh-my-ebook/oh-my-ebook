@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from '@/components/ui/toast'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { getOcrAnalysisCoordinator } from '../lib/analysis/ocr-analysis-coordinator'
@@ -13,7 +13,7 @@ export type { BookshelfStore } from '../lib/bookshelf-store'
 
 type LibraryState =
   | { status: 'loading' }
-  | { status: 'ready'; books: StoredBook[] }
+  | { status: 'ready'; books: BookListItem[] }
   | { status: 'error'; message: string }
 
 export function useBookshelf(store: BookshelfStore) {

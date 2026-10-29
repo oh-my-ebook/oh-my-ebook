@@ -1,40 +1,17 @@
 import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
-import type { StoredBookDetail } from '@/lib/ebook-storage/types/book'
+import type { BookDocument } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { useEffect, useRef, useState } from 'react'
-import type { BookAnalysisStatus, BookMetadata } from '@/lib/ebook-storage/types/book'
 
 export type EbookReaderStore = Pick<
   EbookStore,
   'getBook' | 'getStoredOcrPage' | 'updateProgress' | 'searchChunks'
 >
 
-interface ReaderBook {
-  analysisStatus: BookAnalysisStatus
-  lastPage: number | null
-  metadata: BookMetadata
-  pdfData: Uint8Array
-}
-
 type EbookReaderState =
   | { status: 'loading' }
-  | { status: 'ready'; book: ReaderBook }
+  | { status: 'ready'; book: BookDocument }
   | { status: 'error'; message: string }
-
-function toReaderBook(book: StoredBookDetail): ReaderBook {
-  return {
-    analysisStatus: book.analysisStatus,
-    lastPage: book.lastPage,
-    metadata: {
-      title: book.title,
-      author: book.author ?? undefined,
-      subject: book.pdfSubject ?? undefined,
-      keywords: book.pdfKeywords ?? undefined,
-      publisher: book.publisher ?? undefined,
-    },
-    pdfData: book.pdfData,
-  }
-}
 
 export function useEbookReadingSession(bookId: string, store: EbookReaderStore) {
   const [state, setState] = useState<EbookReaderState>({ status: 'loading' })
@@ -70,9 +47,8 @@ export function useEbookReadingSession(bookId: string, store: EbookReaderStore) 
 
     async function loadBook() {
       try {
-        const result = await store.getBook(bookId)
+        const book = await store.getBook(bookId)
         if (!active) return
-        const book = toReaderBook(result)
         setState({ status: 'ready', book })
       } catch (error) {
         if (active)

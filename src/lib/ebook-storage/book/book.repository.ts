@@ -1,15 +1,16 @@
 import type { DatabaseConnection } from '../database-connection'
-import type { Book, BookAnalysisStatus, BookCoverData } from '../types/book'
-import { and, desc, eq, gte } from 'drizzle-orm'
+import type { Book, InsertBook, BookAnalysisStatus, BookCover } from '../types/book'
+import { and, eq, gte } from 'drizzle-orm'
 import { booksTable } from '../schema'
+import { bookDetailsColumns } from '../schema/book'
 import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
-import { refreshSearchTerms } from '../search/search.repository'
+import { deleteUnusedSearchTerms, recalculateTermFrequencies } from '../search/search.repository'
 import { isBookAnalysisStatus } from '../validation'
 
 export function createBookRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
 
-  async function addBook(book: Book): Promise<string> {
+  async function addBook(book: InsertBook): Promise<string> {
     const [inserted] = await db
       .insert(booksTable)
       .values(book)
@@ -21,31 +22,30 @@ export function createBookRepository(database: DatabaseConnection) {
 
   async function deleteBookById(bookId: string): Promise<void> {
     await sqlocal.transaction(async (tx) => {
-      const [deleted] = await tx.query(
-        db.delete(booksTable).where(eq(booksTable.id, bookId)).returning({ id: booksTable.id }),
-      )
-      if (!deleted) throw new DeletedBookError()
+      const deleteBookQuery = db
+        .delete(booksTable)
+        .where(eq(booksTable.id, bookId))
+        .returning({ id: booksTable.id })
+      const [deletedBook] = await tx.query(deleteBookQuery)
+      if (!deletedBook) throw new DeletedBookError()
 
-      await refreshSearchTerms(db, tx)
+      await deleteUnusedSearchTerms(db, tx)
+      await recalculateTermFrequencies(db, tx)
     })
   }
 
   async function listBooks(): Promise<Book[]> {
     const rows = await db.query.booksTable.findMany({
-      orderBy: [desc(booksTable.createdAt), desc(booksTable.id)],
+      orderBy: { createdAt: 'desc', id: 'desc' },
     })
     const validatedBooks = rows.map((book) => {
-      const { id } = book
-      if (id === null) throw new Error('Invalid book ID')
       if (!isBookAnalysisStatus(book.analysisStatus))
         throw new Error('Invalid book analysis status')
-      if (book.coverStatus !== 'ready' && book.coverStatus !== 'fallback')
-        throw new Error('Invalid cover status')
       for (const timestamp of [book.ocrCompletedAt, book.indexedAt]) {
         if (timestamp !== null && !Number.isSafeInteger(timestamp))
           throw new Error('Invalid analysis timestamp')
       }
-      return { ...book, id }
+      return book
     })
     return validatedBooks
   }
@@ -53,34 +53,26 @@ export function createBookRepository(database: DatabaseConnection) {
   async function hasBook(bookId: string): Promise<void> {
     const book = await db.query.booksTable.findFirst({
       columns: { id: true },
-      where: eq(booksTable.id, bookId),
+      where: { id: bookId },
     })
     if (!book) throw new DeletedBookError()
   }
 
-  async function getBookMetadata(bookId: string) {
-    const book = await db.query.booksTable.findFirst({
-      columns: {
-        coverData: false,
-        coverMime: false,
-        coverStatus: false,
-        ocrCompletedAt: false,
-        indexedAt: false,
-        createdAt: false,
-        updatedAt: false,
-      },
-      where: eq(booksTable.id, bookId),
-    })
+  async function getBookDetails(bookId: string) {
+    const [book] = await db
+      .select(bookDetailsColumns)
+      .from(booksTable)
+      .where(eq(booksTable.id, bookId))
+      .limit(1)
     if (!book) throw new NotFoundBookError()
-    if (book.id === null) throw new Error('Invalid book ID')
     if (!isBookAnalysisStatus(book.analysisStatus)) throw new Error('Invalid book analysis status')
-    return { ...book, id: book.id }
+    return book
   }
 
   async function updateProgress({ bookId, page }: { bookId: string; page: number }): Promise<void> {
     const [updated] = await db
       .update(booksTable)
-      .set({ lastPage: page, updatedAt: Date.now() })
+      .set({ lastPage: page })
       .where(and(eq(booksTable.id, bookId), gte(booksTable.pageCount, page)))
       .returning({ id: booksTable.id })
     if (!updated) throw new DeletedBookError()
@@ -89,7 +81,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function updateTitle({ bookId, title }: { bookId: string; title: string }): Promise<void> {
     const [updated] = await db
       .update(booksTable)
-      .set({ title: title.trim(), updatedAt: Date.now() })
+      .set({ title: title.trim() })
       .where(eq(booksTable.id, bookId))
       .returning({ id: booksTable.id })
     if (!updated) throw new DeletedBookError()
@@ -100,7 +92,7 @@ export function createBookRepository(database: DatabaseConnection) {
     cover,
   }: {
     bookId: string
-    cover: BookCoverData
+    cover: BookCover
   }): Promise<void> {
     const { coverData, coverMime } = cover
     const [updated] = await db
@@ -108,8 +100,6 @@ export function createBookRepository(database: DatabaseConnection) {
       .set({
         coverData: new Uint8Array(coverData),
         coverMime: coverMime,
-        coverStatus: 'ready',
-        updatedAt: Date.now(),
       })
       .where(eq(booksTable.id, bookId))
       .returning({ id: booksTable.id })
@@ -119,7 +109,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function failBookAnalysis(bookId: string): Promise<void> {
     const [updated] = await db
       .update(booksTable)
-      .set({ analysisStatus: 'failed', updatedAt: Date.now() })
+      .set({ analysisStatus: 'failed' })
       .where(eq(booksTable.id, bookId))
       .returning({ id: booksTable.id })
     if (!updated) throw new NotFoundBookError()
@@ -128,7 +118,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus> {
     const result = await db.query.booksTable.findFirst({
       columns: { analysisStatus: true },
-      where: eq(booksTable.id, bookId),
+      where: { id: bookId },
     })
     if (!result) throw new NotFoundBookError()
     if (!isBookAnalysisStatus(result.analysisStatus))
@@ -139,7 +129,7 @@ export function createBookRepository(database: DatabaseConnection) {
   async function retryBookAnalysis(bookId: string): Promise<void> {
     const [updated] = await db
       .update(booksTable)
-      .set({ analysisStatus: 'analyzing', updatedAt: Date.now() })
+      .set({ analysisStatus: 'analyzing' })
       .where(and(eq(booksTable.id, bookId), eq(booksTable.analysisStatus, 'failed')))
       .returning({ id: booksTable.id })
     if (!updated) throw new NotFoundBookError()
@@ -150,7 +140,7 @@ export function createBookRepository(database: DatabaseConnection) {
     deleteBookById,
     listBooks,
     hasBook,
-    getBookMetadata,
+    getBookDetails,
     updateProgress,
     updateTitle,
     updateCover,

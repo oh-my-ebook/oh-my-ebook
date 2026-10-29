@@ -31,7 +31,7 @@ import type {
   SearchChunkPage,
   SearchPostingPage,
   SearchTermPage,
-} from '@/lib/ebook-storage/types/search-index'
+} from '@/lib/ebook-storage/types/search'
 import { useEffect, useState } from 'react'
 import type { OcrConsoleStore } from '../lib/ocr-console-store'
 
