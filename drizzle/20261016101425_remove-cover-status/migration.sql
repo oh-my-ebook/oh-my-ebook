@@ -1,6 +1,6 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_books` (
-	`id` text PRIMARY KEY,
+	`id` text PRIMARY KEY NOT NULL,
 	`content_hash` text NOT NULL UNIQUE,
 	`file_name` text NOT NULL,
 	`title` text NOT NULL,
