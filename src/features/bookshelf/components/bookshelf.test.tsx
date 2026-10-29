@@ -34,7 +34,6 @@ function createStoredBook(title: string) {
     pageCount: 1,
     coverData: null,
     coverMime: null,
-    coverStatus: 'fallback' as const,
     pdfStatus: 'available' as const,
     lastPage: null,
     analysisStatus: 'analyzing' as const,
@@ -353,7 +352,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -391,7 +389,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -447,7 +444,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 
@@ -489,7 +485,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     store.saveBook.mockRejectedValueOnce(new Error('write failed'))
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
@@ -643,7 +638,6 @@ describe('Bookshelf', () => {
       pageCount: 1,
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback',
     })
     render(
       <TestRouter>
@@ -688,7 +682,6 @@ describe('Bookshelf', () => {
       pdfData: new ArrayBuffer(2),
       coverData,
       coverMime: 'image/png',
-      coverStatus: 'ready',
     })
     render(<Bookshelf store={store} />, { wrapper: TestRouter })
 

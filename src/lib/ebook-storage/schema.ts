@@ -31,7 +31,6 @@ const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
  * - pageCount: 전체 페이지 수.
  * - coverData: 표지 이미지 바이트. 이미지가 없으면 NULL.
  * - coverMime: 표지 이미지의 MIME 타입. 이미지가 없으면 NULL.
- * - coverStatus: 표지 이미지 준비 완료(ready) 또는 대체 표지 사용(fallback).
  * - lastPage: 마지막 읽기 위치(1부터 시작). 저장된 위치가 없으면 NULL.
  * - analysisStatus: OCR·검색 인덱스 분석 중(analyzing), 완료(ready), 실패(failed).
  * - ocrCompletedAt: 전체 페이지 OCR 완료 시각. 미완료이면 NULL.
@@ -55,7 +54,6 @@ export const booksTable = sqliteTable(
     pageCount: integer('page_count').notNull(),
     coverData: bytes('cover_data'),
     coverMime: text('cover_mime'),
-    coverStatus: text('cover_status', { enum: ['ready', 'fallback'] }).notNull(),
     lastPage: integer('last_page'),
     analysisStatus: text('analysis_status', { enum: ['analyzing', 'ready', 'failed'] }).notNull(),
     ocrCompletedAt: integer('ocr_completed_at'),
@@ -67,7 +65,6 @@ export const booksTable = sqliteTable(
     index('books_created_at_idx').on(sql`${table.createdAt} DESC`, sql`${table.id} DESC`),
     check('books_pdf_size_check', sql`${table.pdfSize} >= 0`),
     check('books_page_count_check', sql`${table.pageCount} > 0`),
-    check('books_cover_status_check', sql`${table.coverStatus} IN ('ready', 'fallback')`),
     check(
       'books_last_page_check',
       sql`${table.lastPage} IS NULL OR (${table.lastPage} >= 1 AND ${table.lastPage} <= ${table.pageCount})`,

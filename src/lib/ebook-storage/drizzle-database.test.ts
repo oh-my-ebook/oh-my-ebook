@@ -22,7 +22,6 @@ describe('Drizzle 관계 조회 연결', () => {
       pdfSize: 3,
       pageCount: 2,
       coverData,
-      coverStatus: 'ready',
       analysisStatus: 'analyzing',
       createdAt: 1,
       updatedAt: 1,

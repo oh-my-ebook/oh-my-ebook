@@ -1,7 +1,12 @@
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { createDrizzleDatabase } from './drizzle-database'
 import { UnsupportedStorageError } from './storage-errors'
-import { ENABLE_FOREIGN_KEYS_SQL, GET_SCHEMA_VERSION_SQL, INITIAL_SCHEMA_SQL } from './schema-sql'
+import {
+  ENABLE_FOREIGN_KEYS_SQL,
+  GET_SCHEMA_VERSION_SQL,
+  INITIAL_SCHEMA_SQL,
+  REMOVE_COVER_STATUS_SQL,
+} from './schema-sql'
 
 export interface DatabaseConnection {
   sqlocal: SQLocalDrizzle
@@ -25,7 +30,9 @@ async function initializeSchema(): Promise<void> {
     const [row] = await tx.sql<{ user_version: number }>(GET_SCHEMA_VERSION_SQL)
     if (row?.user_version === 0) {
       await tx.sql(INITIAL_SCHEMA_SQL)
-    } else if (row?.user_version !== 1) {
+    } else if (row?.user_version === 1) {
+      await tx.sql(REMOVE_COVER_STATUS_SQL)
+    } else if (row?.user_version !== 2) {
       throw new Error('Unsupported schema version')
     }
   })

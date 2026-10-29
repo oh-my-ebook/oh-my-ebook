@@ -46,6 +46,7 @@ export function BookCard({
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const isPdfMissing = book.pdfStatus === 'missing'
+  const hasCover = Boolean(book.coverData && book.coverMime)
   const progress =
     book.lastPage === null
       ? `읽지 않음 · 전체 ${book.pageCount}페이지`
@@ -86,7 +87,7 @@ export function BookCard({
                 <TriangleAlert aria-hidden="true" className="size-8" />
                 <span>원본 PDF 없음</span>
               </div>
-            ) : book.coverData && book.coverMime ? (
+            ) : hasCover ? (
               <img
                 ref={imageRef}
                 alt={`${book.title} 표지`}
@@ -132,7 +133,7 @@ export function BookCard({
                         <Trash2 />책 삭제
                       </DropdownMenuItem>
                     )}
-                    {!isPdfMissing && book.coverStatus === 'fallback' && onRegenerate && (
+                    {!isPdfMissing && !hasCover && onRegenerate && (
                       <DropdownMenuItem disabled={regenerating} onClick={onRegenerate}>
                         <RefreshCw />
                         표지 다시 만들기
@@ -150,7 +151,7 @@ export function BookCard({
             />
             <p className="text-sm text-muted-foreground">{progress}</p>
           </div>
-          {!isPdfMissing && book.coverStatus === 'fallback' && onRegenerate && (
+          {!isPdfMissing && !hasCover && onRegenerate && (
             <>
               <p>표지를 만들지 못했습니다.</p>
               {coverError && <p role="alert">{coverError}</p>}

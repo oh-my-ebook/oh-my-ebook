@@ -17,7 +17,6 @@ export function createStoredBook(overrides: Partial<StoredBook> = {}): StoredBoo
     pageCount: 2,
     coverData: null,
     coverMime: null,
-    coverStatus: 'fallback',
     pdfStatus: 'available',
     lastPage: null,
     analysisStatus: 'ready',

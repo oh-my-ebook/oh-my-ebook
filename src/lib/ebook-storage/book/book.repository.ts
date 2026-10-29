@@ -37,8 +37,6 @@ export function createBookRepository(database: DatabaseConnection) {
     const validatedBooks = rows.map((book) => {
       if (!isBookAnalysisStatus(book.analysisStatus))
         throw new Error('Invalid book analysis status')
-      if (book.coverStatus !== 'ready' && book.coverStatus !== 'fallback')
-        throw new Error('Invalid cover status')
       for (const timestamp of [book.ocrCompletedAt, book.indexedAt]) {
         if (timestamp !== null && !Number.isSafeInteger(timestamp))
           throw new Error('Invalid analysis timestamp')
@@ -61,7 +59,6 @@ export function createBookRepository(database: DatabaseConnection) {
       columns: {
         coverData: false,
         coverMime: false,
-        coverStatus: false,
         ocrCompletedAt: false,
         indexedAt: false,
         createdAt: false,
@@ -105,7 +102,6 @@ export function createBookRepository(database: DatabaseConnection) {
       .set({
         coverData: new Uint8Array(coverData),
         coverMime: coverMime,
-        coverStatus: 'ready',
         updatedAt: Date.now(),
       })
       .where(eq(booksTable.id, bookId))

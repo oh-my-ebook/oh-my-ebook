@@ -95,7 +95,6 @@ describe('책 저장 작업', () => {
       pdfKeywords: '키워드',
       coverData: new Uint8Array([0, 128, 255]).buffer,
       coverMime: 'image/png',
-      coverStatus: 'ready',
     })
     const id = await storageService.saveBook(book)
     expect(writePdf).toHaveBeenCalledWith(book.contentHash, book.pdfData)
@@ -114,7 +113,6 @@ describe('책 저장 작업', () => {
         pageCount: book.pageCount,
         coverData: new Uint8Array([0, 128, 255]),
         coverMime: 'image/png',
-        coverStatus: 'ready',
         lastPage: null,
         analysisStatus: 'analyzing',
         ocrCompletedAt: null,

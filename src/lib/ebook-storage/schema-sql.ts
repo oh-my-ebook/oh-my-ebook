@@ -16,7 +16,6 @@ export const INITIAL_SCHEMA_SQL = `
     page_count INTEGER NOT NULL CHECK (page_count > 0),
     cover_data BLOB,
     cover_mime TEXT,
-    cover_status TEXT NOT NULL CHECK (cover_status IN ('ready', 'fallback')),
     last_page INTEGER CHECK (last_page IS NULL OR (last_page >= 1 AND last_page <= page_count)),
     analysis_status TEXT NOT NULL CHECK (analysis_status IN ('analyzing', 'ready', 'failed')),
     ocr_completed_at INTEGER,
@@ -86,5 +85,10 @@ export const INITIAL_SCHEMA_SQL = `
   );
   CREATE INDEX search_postings_chunk_idx ON search_postings(chunk_id);
 
-  PRAGMA user_version = 1;
+  PRAGMA user_version = 2;
+`
+
+export const REMOVE_COVER_STATUS_SQL = `
+  ALTER TABLE books DROP COLUMN cover_status;
+  PRAGMA user_version = 2;
 `

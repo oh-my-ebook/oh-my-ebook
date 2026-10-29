@@ -40,7 +40,6 @@ async function renderCover(page: PDFPageProxy) {
         return {
           coverData: await blob.arrayBuffer(),
           coverMime: mime,
-          coverStatus: 'ready' as const,
         }
       }
     }
@@ -103,7 +102,6 @@ export async function analyzePdf(file: File): Promise<ImportedBook> {
     const cover = await renderCover(firstPage).catch(() => ({
       coverData: null,
       coverMime: null,
-      coverStatus: 'fallback' as const,
     }))
 
     return {

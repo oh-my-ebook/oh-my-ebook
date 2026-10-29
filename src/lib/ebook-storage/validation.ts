@@ -54,7 +54,6 @@ export function isImportedBook(value: unknown): value is ImportedBook {
   )) {
     return false
   }
-  if (!(book.coverStatus === 'ready' || book.coverStatus === 'fallback')) return false
 
   return true
 }

@@ -84,7 +84,6 @@ describe('SQLocal 저장소', () => {
       lastPage: null,
       coverData: new Uint8Array([0, 128, 255]),
       coverMime: null,
-      coverStatus: 'fallback',
       analysisStatus: 'analyzing',
       ocrCompletedAt: null,
       indexedAt: null,
@@ -155,7 +154,7 @@ describe('SQLocal 저장소', () => {
     await store.updateProgress({ bookId: id, page: 2 })
     expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
     expect(await store.listBooks()).toEqual([
-      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverStatus: 'ready' }),
+      expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverMime: 'image/webp' }),
     ])
     await expect(store.updateProgress({ bookId: id, page: 3 })).rejects.toBeInstanceOf(
       DeletedBookError,

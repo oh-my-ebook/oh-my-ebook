@@ -45,7 +45,6 @@ export function createImportedBook(overrides: Partial<ImportedBook> = {}): Impor
     pageCount: 2,
     coverData: null,
     coverMime: null,
-    coverStatus: 'fallback',
     ...overrides,
   }
 }
@@ -65,7 +64,6 @@ export function createNewBook(overrides: Partial<Book> = {}): Book {
     pageCount: 2,
     coverData: null,
     coverMime: null,
-    coverStatus: 'fallback',
     lastPage: null,
     analysisStatus: 'analyzing',
     ocrCompletedAt: null,

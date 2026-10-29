@@ -18,18 +18,11 @@ type ImportedBookFields = Pick<
   | 'publisher'
   | 'pdfSize'
   | 'pageCount'
-  | 'coverStatus'
 >
 
 type StoredBookMetadata = Omit<
   Book,
-  | 'coverData'
-  | 'coverMime'
-  | 'coverStatus'
-  | 'ocrCompletedAt'
-  | 'indexedAt'
-  | 'createdAt'
-  | 'updatedAt'
+  'coverData' | 'coverMime' | 'ocrCompletedAt' | 'indexedAt' | 'createdAt' | 'updatedAt'
 >
 
 export interface BookMetadata {

@@ -19,7 +19,6 @@ function createBook(id: string, title: string): StoredBook {
     pageCount: 100,
     coverData: null,
     coverMime: null,
-    coverStatus: 'ready',
     pdfStatus: 'available' as const,
     lastPage: null,
     analysisStatus: 'analyzing',

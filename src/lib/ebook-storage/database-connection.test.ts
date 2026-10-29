@@ -41,13 +41,13 @@ describe('SQLocal 연결', () => {
         onInit: expect.any(Function),
       }),
     )
-    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
+    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 2 }])
     expect(await database.sql("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(
       7,
     )
   })
 
-  it('버전 1의 기존 DB를 재생성하지 않고 데이터를 보존한다', async () => {
+  it('현재 버전의 DB를 재생성하지 않고 데이터를 보존한다', async () => {
     const database = await useDatabase()
     reportOpfs(database)
     await database.sql("INSERT INTO search_terms(term, document_frequency) VALUES ('기존 용어', 1)")
@@ -81,7 +81,7 @@ describe('SQLocal 연결', () => {
     const { initializeDatabase } = await import('./database-connection')
     await expect(initializeDatabase()).rejects.toThrow('temporary failure')
     await initializeDatabase()
-    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
+    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 2 }])
     expect(SQLocalDrizzle).toHaveBeenCalledOnce()
   })
 
@@ -112,7 +112,7 @@ describe('SQLocal 연결', () => {
     await db.insert(searchTermsTable).values({ term: '삭제할 용어', documentFrequency: 1 })
     await resetDatabase()
     expect(await db.select().from(searchTermsTable)).toEqual([])
-    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
+    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 2 }])
     expect(await database.sql('PRAGMA foreign_keys')).toEqual([{ foreign_keys: 1 }])
     await db.insert(searchTermsTable).values({ term: '새 용어', documentFrequency: 1 })
     expect(await db.select({ term: searchTermsTable.term }).from(searchTermsTable)).toEqual([
@@ -137,6 +137,6 @@ describe('SQLocal 연결', () => {
     expect(await database.sql("SELECT name FROM sqlite_master WHERE type = 'table'")).toEqual([])
     await initializeDatabase()
     expect(await db.select().from(searchTermsTable)).toEqual([])
-    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 1 }])
+    expect(await database.sql('PRAGMA user_version')).toEqual([{ user_version: 2 }])
   })
 })
