@@ -11,7 +11,7 @@ import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { PdfDocumentSource } from '@/lib/pdf/document'
-import type { StoredOcrPageResult } from '@/lib/pdf/ocr/recognize-page'
+import type { StoredOcrPageResult } from '@/lib/reader-ocr/reader-ocr.types'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
 import {
   FIT_HEIGHT_ZOOM,

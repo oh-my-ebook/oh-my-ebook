@@ -1,6 +1,7 @@
 import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import { loadPdfDocument } from '@/lib/pdf/load-document'
-import { recognizePdfPageRaw } from '@/lib/pdf/ocr/recognize-page'
+import { readerOcrService } from '@/lib/reader-ocr/reader-ocr.service'
+import { renderPdfPageForOcr } from '@/lib/pdf/render-page-image'
 import type { BookshelfStore } from '../bookshelf-store'
 import { createSearchChunks } from './search-chunking'
 
@@ -64,7 +65,8 @@ export async function runOcrAnalysis(
 
       try {
         const page = await loaded.document.getPage(nextOcrPage.pageNumber)
-        const result = await recognizePdfPageRaw(page, controller.signal)
+        const image = await renderPdfPageForOcr(page, controller.signal)
+        const result = await readerOcrService.recognize(image, controller.signal)
 
         // 4. OCR 결과를 저장한다. 기존 Line 데이터를 모두 삭제하고 새로 저장한다.
         await store.storeOcrPage({

@@ -6,10 +6,17 @@ async function createAnalysisStub() {
   const createSearchChunks = vi.fn()
   const extractSearchTerms = vi.fn<KiwiClient['extractSearchTerms']>()
   const loadPdfDocument = vi.fn()
-  const recognizePdfPageRaw = vi.fn()
+  const recognize = vi.fn()
 
   vi.doMock('@/lib/pdf/load-document', () => ({ loadPdfDocument }))
-  vi.doMock('@/lib/pdf/ocr/recognize-page', () => ({ recognizePdfPageRaw }))
+  vi.doMock('@/lib/reader-ocr/reader-ocr.service', () => ({ readerOcrService: { recognize } }))
+  const renderPdfPageForOcr = vi.fn(async () => ({
+    bytes: new Uint8Array([1]),
+    mimeType: 'image/png',
+    width: 100,
+    height: 200,
+  }))
+  vi.doMock('@/lib/pdf/render-page-image', () => ({ renderPdfPageForOcr }))
   vi.doMock('./search-chunking', () => ({ createSearchChunks }))
   vi.doMock('@/lib/kiwi/kiwi.client', () => ({ kiwiClient: { extractSearchTerms } }))
   const { runOcrAnalysis } = await import('./ocr-analysis')
@@ -18,7 +25,8 @@ async function createAnalysisStub() {
     createSearchChunks,
     extractSearchTerms,
     loadPdfDocument,
-    recognizePdfPageRaw,
+    recognize,
+    renderPdfPageForOcr,
     runOcrAnalysis,
   }
 }
@@ -27,7 +35,8 @@ describe('runOcrAnalysis', () => {
   afterEach(() => {
     vi.resetModules()
     vi.doUnmock('@/lib/pdf/load-document')
-    vi.doUnmock('@/lib/pdf/ocr/recognize-page')
+    vi.doUnmock('@/lib/reader-ocr/reader-ocr.service')
+    vi.doUnmock('@/lib/pdf/render-page-image')
     vi.doUnmock('./search-chunking')
     vi.doUnmock('@/lib/kiwi/kiwi.client')
     vi.restoreAllMocks()
@@ -38,14 +47,15 @@ describe('runOcrAnalysis', () => {
       createSearchChunks,
       extractSearchTerms,
       loadPdfDocument,
-      recognizePdfPageRaw,
+      recognize,
+      renderPdfPageForOcr,
       runOcrAnalysis,
     } = await createAnalysisStub()
     const page = {}
     loadPdfDocument.mockResolvedValue({
       document: { numPages: 2, getPage: vi.fn(async () => page) },
     })
-    recognizePdfPageRaw.mockResolvedValue({
+    recognize.mockResolvedValue({
       width: 100,
       height: 200,
       lines: [{ text: '원문', bbox: { x0: 1, y0: 2, x1: 3, y1: 4 } }],
@@ -104,16 +114,21 @@ describe('runOcrAnalysis', () => {
         },
       ],
     })
-    expect(recognizePdfPageRaw).toHaveBeenCalledTimes(2)
+    expect(recognize).toHaveBeenCalledTimes(2)
+    expect(renderPdfPageForOcr).toHaveBeenCalledWith(page, expect.any(AbortSignal))
+    expect(recognize).toHaveBeenCalledWith(
+      { bytes: new Uint8Array([1]), mimeType: 'image/png', width: 100, height: 200 },
+      expect.any(AbortSignal),
+    )
     const signal = loadPdfDocument.mock.calls[0]?.[1]
     expect(extractSearchTerms.mock.calls[0]?.[1]).toBe(signal)
     expect(signal).toHaveProperty('aborted', true)
   })
 
   it('페이지 OCR 실패 후에도 남은 pending 페이지를 처리하고 분석을 실패 상태로 남긴다', async () => {
-    const { loadPdfDocument, recognizePdfPageRaw, runOcrAnalysis } = await createAnalysisStub()
+    const { loadPdfDocument, recognize, runOcrAnalysis } = await createAnalysisStub()
     loadPdfDocument.mockResolvedValue({ document: { numPages: 2, getPage: vi.fn() } })
-    recognizePdfPageRaw.mockRejectedValueOnce(new Error('OCR failed')).mockResolvedValueOnce({
+    recognize.mockRejectedValueOnce(new Error('OCR failed')).mockResolvedValueOnce({
       width: 100,
       height: 200,
       lines: [],
@@ -140,9 +155,9 @@ describe('runOcrAnalysis', () => {
   })
 
   it('페이지 OCR 오류를 호출자에게 전달하면서 다음 페이지를 계속 처리한다', async () => {
-    const { loadPdfDocument, recognizePdfPageRaw, runOcrAnalysis } = await createAnalysisStub()
+    const { loadPdfDocument, recognize, runOcrAnalysis } = await createAnalysisStub()
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
-    recognizePdfPageRaw.mockRejectedValueOnce(new Error('PaddleOCR model unavailable'))
+    recognize.mockRejectedValueOnce(new Error('PaddleOCR model unavailable'))
     const onFailure = vi.fn()
     const store = createStoreMock()
     store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
@@ -165,10 +180,10 @@ describe('runOcrAnalysis', () => {
   })
 
   it('청킹에 실패하면 색인 완료를 기록하지 않고 책 분석을 실패 처리한다', async () => {
-    const { createSearchChunks, loadPdfDocument, recognizePdfPageRaw, runOcrAnalysis } =
+    const { createSearchChunks, loadPdfDocument, recognize, runOcrAnalysis } =
       await createAnalysisStub()
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
-    recognizePdfPageRaw.mockResolvedValue({ width: 100, height: 200, lines: [] })
+    recognize.mockResolvedValue({ width: 100, height: 200, lines: [] })
     createSearchChunks.mockRejectedValueOnce(new Error('Kiwi failed'))
     const store = createStoreMock()
     store.getBook.mockResolvedValueOnce(createStoredBookDetail({ pdfData: new Uint8Array([1]) }))
@@ -231,7 +246,7 @@ describe('runOcrAnalysis', () => {
   })
 
   it('모든 OCR 페이지가 저장된 뒤 청킹이 실패했으면 OCR을 다시 하지 않고 청킹부터 재시도한다', async () => {
-    const { createSearchChunks, loadPdfDocument, recognizePdfPageRaw, runOcrAnalysis } =
+    const { createSearchChunks, loadPdfDocument, recognize, runOcrAnalysis } =
       await createAnalysisStub()
     loadPdfDocument.mockResolvedValue({ document: { numPages: 1, getPage: vi.fn() } })
     createSearchChunks.mockResolvedValueOnce([])
@@ -245,7 +260,7 @@ describe('runOcrAnalysis', () => {
 
     await runOcrAnalysis('book-id', store)
 
-    expect(recognizePdfPageRaw).not.toHaveBeenCalled()
+    expect(recognize).not.toHaveBeenCalled()
     expect(createSearchChunks).toHaveBeenCalledOnce()
     expect(store.storeSearchIndex).toHaveBeenCalledWith({ bookId: 'book-id', chunks: [] })
   })
