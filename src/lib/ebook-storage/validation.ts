@@ -1,4 +1,4 @@
-import type { BookFileData, BookAnalysisStatus, BookRecordsQuery } from './types/book'
+import type { BookFileData, BookAnalysisStatus } from './types/book'
 import type { OcrLineContent, OcrPageQuery, OcrPageResult } from './types/ocr'
 import type {
   SearchChunkQuery,
@@ -159,17 +159,6 @@ export function isSearchChunkQuery(value: unknown): value is SearchChunkQuery {
   if (!value.terms.every(isSearchTerm)) return false
   if (new Set(value.terms).size !== value.terms.length) return false
   return isPositiveInteger(value.limit) && value.limit <= MAX_SEARCH_CHUNK_RESULTS
-}
-
-export function isBookRecordsQuery(value: unknown): value is BookRecordsQuery {
-  return (
-    isRecord(value) &&
-    isIdentifier(value.bookId) &&
-    isPositiveInteger(value.limit) &&
-    typeof value.offset === 'number' &&
-    Number.isSafeInteger(value.offset) &&
-    value.offset >= 0
-  )
 }
 
 export function isOcrPageQuery(value: unknown): value is OcrPageQuery {

@@ -26,9 +26,3 @@ export interface BookListItem extends Book {
 export interface BookDocument extends InferModelFromColumns<typeof bookDetailsColumns> {
   pdfData: Uint8Array
 }
-
-export interface BookRecordsQuery {
-  bookId: Book['id']
-  limit: number
-  offset: number
-}

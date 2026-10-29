@@ -8,13 +8,7 @@ import type {
   OcrPageQuery,
 } from '../types/ocr'
 import type { createOcrRepository } from './ocr.repository'
-import {
-  isBookRecordsQuery,
-  isOcrPageQuery,
-  isIdentifier,
-  isOcrPageResult,
-  runValidated,
-} from '../validation'
+import { isOcrPageQuery, isIdentifier, isOcrPageResult, runValidated } from '../validation'
 
 export interface OcrService {
   initializeOcrPages(bookId: string): Promise<void>
@@ -64,8 +58,7 @@ export function createOcrService(
       ),
     listOcrPages: (bookId) =>
       runValidated('listOcrPages', ocrRepository.listOcrPages, bookId, isIdentifier),
-    listOcrLines: (ocrLineQuery) =>
-      runValidated('listOcrLines', ocrRepository.listOcrLines, ocrLineQuery, isBookRecordsQuery),
+    listOcrLines: (ocrLineQuery) => ocrRepository.listOcrLines(ocrLineQuery),
     getOcrLinesForChunking: (bookId) =>
       runValidated(
         'getOcrLinesForChunking',

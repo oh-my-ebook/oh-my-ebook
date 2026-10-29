@@ -209,9 +209,6 @@ describe('책 저장 작업', () => {
       storageService.storeOcrPage({ pageId: 'page', width: 0, height: 100, lines: [] }),
     ).rejects.toThrow('Invalid data')
     await expect(
-      storageService.listSearchTerms({ bookId: id, limit: 10, offset: -1 }),
-    ).rejects.toThrow('Invalid data')
-    await expect(
       storageService.searchChunks({ bookId: id, terms: ['검색'], limit: 6 }),
     ).rejects.toThrow('Invalid data')
     expect(connection.initializeDatabase).not.toHaveBeenCalled()

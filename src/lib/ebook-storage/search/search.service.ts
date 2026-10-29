@@ -8,7 +8,7 @@ import type {
   SearchChunkResult,
 } from '../types/search'
 import type { createSearchRepository } from './search.repository'
-import { isBookRecordsQuery, isSearchChunkQuery, isSearchIndex, runValidated } from '../validation'
+import { isSearchChunkQuery, isSearchIndex, runValidated } from '../validation'
 
 export interface SearchService {
   storeSearchIndex(searchIndex: SearchIndex): Promise<void>
@@ -62,36 +62,13 @@ export function createSearchService(
         searchIndex,
         isSearchIndex,
       ),
-    listSearchChunks: (searchChunkQuery) =>
-      runValidated(
-        'listSearchChunks',
-        searchRepository.listSearchChunks,
-        searchChunkQuery,
-        isBookRecordsQuery,
-      ),
+    listSearchChunks: (searchChunkQuery) => searchRepository.listSearchChunks(searchChunkQuery),
     searchChunks: (query) =>
       runValidated('searchChunks', searchRepository.searchChunks, query, isSearchChunkQuery),
-    listSearchTerms: (searchTermQuery) =>
-      runValidated(
-        'listSearchTerms',
-        searchRepository.listSearchTerms,
-        searchTermQuery,
-        isBookRecordsQuery,
-      ),
+    listSearchTerms: (searchTermQuery) => searchRepository.listSearchTerms(searchTermQuery),
     listSearchPostings: (searchPostingQuery) =>
-      runValidated(
-        'listSearchPostings',
-        searchRepository.listSearchPostings,
-        searchPostingQuery,
-        isBookRecordsQuery,
-      ),
-    listChunkSources: (chunkSourceQuery) =>
-      runValidated(
-        'listChunkSources',
-        searchRepository.listChunkSources,
-        chunkSourceQuery,
-        isBookRecordsQuery,
-      ),
+      searchRepository.listSearchPostings(searchPostingQuery),
+    listChunkSources: (chunkSourceQuery) => searchRepository.listChunkSources(chunkSourceQuery),
   }
   return searchService
 }
