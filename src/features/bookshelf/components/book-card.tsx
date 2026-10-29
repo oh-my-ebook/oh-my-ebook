@@ -11,12 +11,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Ellipsis, Pencil, RefreshCw, RotateCcw, Trash2, TriangleAlert } from 'lucide-react'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { DeleteBookDialog } from './delete-book-dialog'
 import { EditBookDialog } from './edit-book-dialog'
 
 interface BookCardProps {
-  book: StoredBook
+  book: BookListItem
   coverError?: string
   regenerating?: boolean
   onOpen(): void

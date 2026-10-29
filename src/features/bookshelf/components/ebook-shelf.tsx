@@ -1,16 +1,16 @@
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { AddBookCard } from './add-book-card'
 import { BookCard } from './book-card'
 
 interface EbookShelfProps {
-  books: readonly StoredBook[]
+  books: readonly BookListItem[]
   coverErrors: Readonly<Record<string, string>>
   disabled?: boolean
   dragActive?: boolean
   isUploading?: boolean
   onFilesSelected(files: File[]): void
   onOpenBook(bookId: string): void
-  onRegenerate(book: StoredBook): void
+  onRegenerate(book: BookListItem): void
   regeneratingCover: string | null
   onRename(bookId: string, title: string): void
   onDelete(bookId: string): Promise<void>

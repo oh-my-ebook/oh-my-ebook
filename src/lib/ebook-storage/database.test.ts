@@ -95,7 +95,7 @@ describe('SQLocal 저장소', () => {
   it('책 상세에는 표지와 분석 시각을 제외한 메타데이터를 반환한다', async () => {
     const { id, store } = await setup()
 
-    expect(await store.getBookMetadata(id)).toEqual({
+    expect(await store.getBookDetails(id)).toEqual({
       id,
       contentHash: 'a'.repeat(64),
       fileName: 'book.pdf',
@@ -152,17 +152,17 @@ describe('SQLocal 저장소', () => {
       cover: bookCover,
     })
     await store.updateProgress({ bookId: id, page: 2 })
-    expect(await store.getBookMetadata(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
+    expect(await store.getBookDetails(id)).toMatchObject({ title: '새 제목', lastPage: 2 })
     expect(await store.listBooks()).toEqual([
       expect.objectContaining({ coverData: new Uint8Array([4, 5]), coverMime: 'image/webp' }),
     ])
     await expect(store.updateProgress({ bookId: id, page: 3 })).rejects.toBeInstanceOf(
       DeletedBookError,
     )
-    expect(await store.getBookMetadata(id)).toMatchObject({ lastPage: 2 })
+    expect(await store.getBookDetails(id)).toMatchObject({ lastPage: 2 })
     await store.deleteBookById(id)
     await expect(store.hasBook(id)).rejects.toBeInstanceOf(DeletedBookError)
-    await expect(store.getBookMetadata(id)).rejects.toBeInstanceOf(NotFoundBookError)
+    await expect(store.getBookDetails(id)).rejects.toBeInstanceOf(NotFoundBookError)
     await expect(store.getBookAnalysisStatus(id)).rejects.toThrow()
   })
 
@@ -187,7 +187,7 @@ describe('SQLocal 저장소', () => {
     )
     await expect(store.deleteBookById('missing')).rejects.toBeInstanceOf(DeletedBookError)
     expect(await store.listBooks()).toEqual(before)
-    expect(await store.getBookMetadata(id)).toMatchObject({ id })
+    expect(await store.getBookDetails(id)).toMatchObject({ id })
   })
 
   it('책을 삭제하면 OCR·검색 데이터와 사용하지 않는 검색어도 삭제한다', async () => {

@@ -57,9 +57,9 @@ export class EbookStoreClient implements EbookStore {
   }
 
   initializeOcrPages(
-    bookMetadata: Parameters<EbookStore['initializeOcrPages']>[0],
+    bookId: Parameters<EbookStore['initializeOcrPages']>[0],
   ): ReturnType<EbookStore['initializeOcrPages']> {
-    return this.enqueue('initializeOcrPages', (store) => store.initializeOcrPages(bookMetadata))
+    return this.enqueue('initializeOcrPages', (store) => store.initializeOcrPages(bookId))
   }
 
   prepareOcrPagesForRun(

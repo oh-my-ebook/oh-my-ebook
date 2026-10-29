@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { LibrarySummary } from './library-summary'
 
-function createStoredBook(title: string, lastPage: number | null) {
+function createBookListItem(title: string, lastPage: number | null) {
   return {
     id: `${title}-id`,
     contentHash: `${title}-hash`,
@@ -32,9 +32,9 @@ describe('LibrarySummary', () => {
     render(
       <LibrarySummary
         books={[
-          createStoredBook('읽는 책', 3),
-          createStoredBook('다 읽은 책', 10),
-          createStoredBook('읽지 않은 책', null),
+          createBookListItem('읽는 책', 3),
+          createBookListItem('다 읽은 책', 10),
+          createBookListItem('읽지 않은 책', null),
         ]}
         usage={1024}
       />,

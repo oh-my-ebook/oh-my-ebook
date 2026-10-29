@@ -1,56 +1,29 @@
-import type { booksTable } from '../schema'
+import type { InferModelFromColumns } from 'drizzle-orm'
+import type { bookFileColumns, bookDetailsColumns, booksTable } from '../schema/book'
 
-type BookRow = typeof booksTable.$inferSelect
+export type { BookAnalysisStatus } from '../schema/book'
 
-export interface Book extends BookRow {
-  id: string
-}
+export type Book = typeof booksTable.$inferSelect
+export type InsertBook = typeof booksTable.$inferInsert
 
-type ImportedBookFields = Pick<
-  Book,
-  | 'contentHash'
-  | 'fileName'
-  | 'title'
-  | 'author'
-  | 'pdfTitle'
-  | 'pdfSubject'
-  | 'pdfKeywords'
-  | 'publisher'
-  | 'pdfSize'
-  | 'pageCount'
->
+export type BookInfo = Pick<Book, 'title' | 'author' | 'pdfKeywords' | 'publisher' | 'pdfSubject'>
 
-type StoredBookMetadata = Omit<
-  Book,
-  'coverData' | 'coverMime' | 'ocrCompletedAt' | 'indexedAt' | 'createdAt' | 'updatedAt'
->
-
-export interface BookMetadata {
-  author?: string
-  keywords?: string
-  publisher?: string
-  subject?: string
-  title: string
-}
-
-export type BookAnalysisStatus = Book['analysisStatus']
-
-export interface BookCoverData {
-  coverData: ArrayBuffer
-  coverMime: 'image/webp' | 'image/png'
-}
-
-export interface ImportedBook extends ImportedBookFields {
+// 파일 API의 ArrayBuffer는 저장 경계에서 SQLite용 Uint8Array로 변환한다.
+export interface BookFileData extends Pick<Book, keyof typeof bookFileColumns | 'coverMime'> {
   pdfData: ArrayBuffer
   coverData: ArrayBuffer | null
-  coverMime: 'image/webp' | 'image/png' | null
 }
 
-export interface StoredBook extends Book {
+export interface BookCover {
+  coverData: ArrayBuffer
+  coverMime: NonNullable<Book['coverMime']>
+}
+
+export interface BookListItem extends Book {
   pdfStatus: 'available' | 'missing'
 }
 
-export interface StoredBookDetail extends StoredBookMetadata {
+export interface BookDocument extends InferModelFromColumns<typeof bookDetailsColumns> {
   pdfData: Uint8Array
 }
 

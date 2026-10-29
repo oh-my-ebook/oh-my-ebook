@@ -1,14 +1,15 @@
-import type { ImportedBook, BookAnalysisStatus, BookRecordsQuery } from './types/book'
-import type { OcrLine, OcrPageQuery, OcrPageResult } from './types/ocr'
-import type { SearchChunkQuery } from './types/search'
+import type { BookFileData, BookAnalysisStatus, BookRecordsQuery } from './types/book'
+import type { OcrLineContent, OcrPageQuery, OcrPageResult } from './types/ocr'
 import type {
-  ChunkSource,
+  SearchChunkQuery,
+  ChunkSourceRange,
   SearchChunkWithSources,
   IndexedSearchChunk,
   SearchTermFrequency,
   SearchIndex,
-} from './types/search-index'
+} from './types/search'
 import { InvalidDataError } from './storage-errors'
+import { bookAnalysisStatuses, bookCoverMimeTypes } from './schema/book'
 
 const MAX_SEARCH_CHUNK_RESULTS = 5
 
@@ -20,7 +21,7 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
-export function isImportedBook(value: unknown): value is ImportedBook {
+export function isBookFileData(value: unknown): value is BookFileData {
   if (!isRecord(value)) return false
   const book = value
 
@@ -47,11 +48,7 @@ export function isImportedBook(value: unknown): value is ImportedBook {
     return false
   }
   if (!(book.coverData === null || book.coverData instanceof ArrayBuffer)) return false
-  if (!(
-    book.coverMime === null ||
-    book.coverMime === 'image/webp' ||
-    book.coverMime === 'image/png'
-  )) {
+  if (book.coverMime !== null && !bookCoverMimeTypes.some((mime) => mime === book.coverMime)) {
     return false
   }
 
@@ -74,7 +71,7 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-function isOcrLine(value: unknown): value is OcrLine {
+function isLineContent(value: unknown): value is OcrLineContent {
   if (!isRecord(value)) return false
   return (
     typeof value.rawText === 'string' &&
@@ -98,11 +95,11 @@ export function isOcrPageResult(value: unknown): value is OcrPageResult {
     isPositiveInteger(value.width) &&
     isPositiveInteger(value.height) &&
     Array.isArray(value.lines) &&
-    value.lines.every(isOcrLine)
+    value.lines.every(isLineContent)
   )
 }
 
-function isChunkSource(value: unknown): value is ChunkSource {
+function isSourceRange(value: unknown): value is ChunkSourceRange {
   return (
     isRecord(value) &&
     isIdentifier(value.ocrPageId) &&
@@ -122,7 +119,7 @@ function isSearchChunkWithSources(value: unknown): value is SearchChunkWithSourc
     value.text.trim().length > 0 &&
     isPositiveInteger(value.tokenCount) &&
     Array.isArray(value.sources) &&
-    value.sources.every(isChunkSource)
+    value.sources.every(isSourceRange)
   )
 }
 
@@ -188,7 +185,7 @@ export function validateData<T>(
 }
 
 export function isBookAnalysisStatus(value: unknown): value is BookAnalysisStatus {
-  return value === 'analyzing' || value === 'ready' || value === 'failed'
+  return bookAnalysisStatuses.some((status) => status === value)
 }
 
 export async function runValidated<Data, Result>(

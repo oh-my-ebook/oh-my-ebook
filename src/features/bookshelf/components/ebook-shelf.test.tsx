@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { EbookShelf } from './ebook-shelf'
 
-function createBook(id: string, title: string): StoredBook {
+function createBook(id: string, title: string): BookListItem {
   return {
     id,
     contentHash: `${id}-hash`,

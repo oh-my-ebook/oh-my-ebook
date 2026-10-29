@@ -1,8 +1,8 @@
 import { vi } from 'vitest'
 import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
-import type { StoredBook, StoredBookDetail } from '@/lib/ebook-storage/types/book'
+import type { BookListItem, BookDocument } from '@/lib/ebook-storage/types/book'
 
-export function createStoredBook(overrides: Partial<StoredBook> = {}): StoredBook {
+export function createBookListItem(overrides: Partial<BookListItem> = {}): BookListItem {
   return {
     id: 'book-id',
     contentHash: 'a'.repeat(64),
@@ -28,10 +28,8 @@ export function createStoredBook(overrides: Partial<StoredBook> = {}): StoredBoo
   }
 }
 
-export function createStoredBookDetail(
-  overrides: Partial<StoredBookDetail> = {},
-): StoredBookDetail {
-  return { ...createStoredBook(), pdfData: new Uint8Array([1, 2, 3]), ...overrides }
+export function createBookDocument(overrides: Partial<BookDocument> = {}): BookDocument {
+  return { ...createBookListItem(), pdfData: new Uint8Array([1, 2, 3]), ...overrides }
 }
 
 export function createStoreMock() {
@@ -39,7 +37,7 @@ export function createStoreMock() {
     initialize: vi.fn<EbookStore['initialize']>(async () => undefined),
     clearStorage: vi.fn<EbookStore['clearStorage']>(async () => undefined),
     saveBook: vi.fn<EbookStore['saveBook']>(async () => 'saved-id'),
-    getBook: vi.fn<EbookStore['getBook']>(async () => createStoredBookDetail()),
+    getBook: vi.fn<EbookStore['getBook']>(async () => createBookDocument()),
     deleteBook: vi.fn<EbookStore['deleteBook']>(async () => undefined),
     listBooks: vi.fn<EbookStore['listBooks']>(async () => []),
     hasBook: vi.fn<EbookStore['hasBook']>(async () => undefined),

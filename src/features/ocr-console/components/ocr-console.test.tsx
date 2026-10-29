@@ -1,4 +1,4 @@
-import { createStoreMock, createStoredBook } from '@/test/ebook-store'
+import { createStoreMock, createBookListItem } from '@/test/ebook-store'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -8,7 +8,7 @@ describe('OcrConsole', () => {
   it('저장된 PDF를 페이지로 나누고 선택한 PDF의 OCR 원문을 조회한다', async () => {
     const user = userEvent.setup()
     const books = Array.from({ length: 11 }, (_, index) =>
-      createStoredBook({
+      createBookListItem({
         id: `book-${index + 1}`,
         title: `PDF ${index + 1}`,
         analysisStatus: 'analyzing',
@@ -114,8 +114,8 @@ describe('OcrConsole', () => {
     const store = createStoreMock()
     store.listBooks.mockImplementation(async () => {
       return [
-        createStoredBook({ id: 'failed-book', title: '실패한 PDF', analysisStatus: 'analyzing' }),
-        createStoredBook({ id: 'ready-book', title: '완료된 PDF', analysisStatus: 'ready' }),
+        createBookListItem({ id: 'failed-book', title: '실패한 PDF', analysisStatus: 'analyzing' }),
+        createBookListItem({ id: 'ready-book', title: '완료된 PDF', analysisStatus: 'ready' }),
       ]
     })
     store.listOcrLines.mockImplementation(async (payload) => {

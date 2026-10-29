@@ -4,19 +4,51 @@ import type {
   SearchPostingPage,
   ChunkSourcePage,
   SearchIndex,
-} from '../types/search-index'
-import type { SearchChunkQuery, SearchChunkResult } from '../types/search'
-import type { BookRecordsQuery } from '../types/book'
+  SearchChunkQuery,
+  SearchChunkResult,
+} from '../types/search'
 import type { createSearchRepository } from './search.repository'
 import { isBookRecordsQuery, isSearchChunkQuery, isSearchIndex, runValidated } from '../validation'
 
 export interface SearchService {
   storeSearchIndex(searchIndex: SearchIndex): Promise<void>
-  listSearchChunks(searchChunkQuery: BookRecordsQuery): Promise<SearchChunkPage>
+  listSearchChunks({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<SearchChunkPage>
   searchChunks(query: SearchChunkQuery): Promise<SearchChunkResult[]>
-  listSearchTerms(searchTermQuery: BookRecordsQuery): Promise<SearchTermPage>
-  listSearchPostings(searchPostingQuery: BookRecordsQuery): Promise<SearchPostingPage>
-  listChunkSources(chunkSourceQuery: BookRecordsQuery): Promise<ChunkSourcePage>
+  listSearchTerms({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<SearchTermPage>
+  listSearchPostings({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<SearchPostingPage>
+  listChunkSources({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<ChunkSourcePage>
 }
 
 export function createSearchService(

@@ -1,5 +1,6 @@
 import type { DatabaseConnection } from '../database-connection'
 import type {
+  InsertOcrPage,
   OcrPageQuery,
   OcrPageResult,
   NextOcrPage,
@@ -8,12 +9,16 @@ import type {
   OcrPageRecord,
   StoredOcrPage,
 } from '../types/ocr'
-import type { BookRecordsQuery } from '../types/book'
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { booksTable, ocrLinesTable, ocrPagesTable } from '../schema'
+import {
+  nextOcrPageColumns,
+  ocrLineForChunkingColumns,
+  ocrLineRecordColumns,
+  ocrPageStatuses,
+  type OcrPageStatus,
+} from '../schema/ocr'
 import { NotFoundBookError } from '../storage-errors'
-
-type OcrPageInsert = typeof ocrPagesTable.$inferInsert
 
 export function createOcrRepository(database: DatabaseConnection) {
   const { db, sqlocal } = database
@@ -25,7 +30,6 @@ export function createOcrRepository(database: DatabaseConnection) {
     })
     if (!book?.pageCount) throw new NotFoundBookError()
 
-    const now = Date.now()
     const pages = Array.from(
       { length: book.pageCount },
       (_, index) =>
@@ -34,21 +38,19 @@ export function createOcrRepository(database: DatabaseConnection) {
           bookId: bookid,
           pageNumber: index + 1,
           status: 'pending',
-          createdAt: now,
-          updatedAt: now,
-        }) satisfies OcrPageInsert,
+        }) satisfies InsertOcrPage,
     )
 
-    const insertPagesSqlStatements = pages.map((page) =>
+    const insertPages = pages.map((page) =>
       db.insert(ocrPagesTable).values(page).onConflictDoNothing().toSQL(),
     )
-    await sqlocal.batch(() => insertPagesSqlStatements)
+    await sqlocal.batch(() => insertPages)
   }
 
   async function prepareOcrPagesForRun(bookId: string): Promise<void> {
     await db
       .update(ocrPagesTable)
-      .set({ status: 'pending', updatedAt: Date.now() })
+      .set({ status: 'pending' })
       .where(
         and(
           eq(ocrPagesTable.bookId, bookId),
@@ -58,46 +60,42 @@ export function createOcrRepository(database: DatabaseConnection) {
   }
 
   async function acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null> {
-    const now = Date.now()
     const nextPage = await sqlocal.transaction(async (tx) => {
-      const [page] = await tx.query(
-        db
-          .select({ id: ocrPagesTable.id, pageNumber: ocrPagesTable.pageNumber })
-          .from(ocrPagesTable)
-          .where(and(eq(ocrPagesTable.bookId, bookId), eq(ocrPagesTable.status, 'pending')))
-          .orderBy(asc(ocrPagesTable.pageNumber))
-          .limit(1),
-      )
-      if (!page) {
+      const pendingPageQuery = db
+        .select(nextOcrPageColumns)
+        .from(ocrPagesTable)
+        .where(and(eq(ocrPagesTable.bookId, bookId), eq(ocrPagesTable.status, 'pending')))
+        .orderBy(asc(ocrPagesTable.pageNumber))
+        .limit(1)
+      const [pendingPage] = await tx.query(pendingPageQuery)
+      if (!pendingPage) {
         return null
       }
 
-      const { id, pageNumber } = page
-      const [updated] = await tx.query(
-        db
-          .update(ocrPagesTable)
-          .set({ status: 'processing', updatedAt: now })
-          .where(and(eq(ocrPagesTable.id, id), eq(ocrPagesTable.status, 'pending')))
-          .returning({ id: ocrPagesTable.id }),
-      )
-      if (!updated) throw new Error('Unable to claim OCR page')
-      const claimedPage = { id, pageNumber }
-      return claimedPage
+      const { id, pageNumber } = pendingPage
+      const claimPageQuery = db
+        .update(ocrPagesTable)
+        .set({ status: 'processing' })
+        .where(and(eq(ocrPagesTable.id, id), eq(ocrPagesTable.status, 'pending')))
+        .returning({ id: ocrPagesTable.id })
+      const [processingPage] = await tx.query(claimPageQuery)
+      if (!processingPage) throw new Error('Unable to claim OCR page')
+      return { id, pageNumber }
     })
     return nextPage
   }
 
   async function storeOcrPage(ocrPage: OcrPageResult): Promise<boolean> {
     const now = Date.now()
-    const isBookOcrComplete = await sqlocal.transaction(async (tx) => {
-      const [page] = await tx.query(
-        db
-          .select({ bookId: ocrPagesTable.bookId })
-          .from(ocrPagesTable)
-          .where(eq(ocrPagesTable.id, ocrPage.pageId)),
-      )
-      if (!page) throw new NotFoundBookError()
-      const { bookId } = page
+    const ocrComplete = await sqlocal.transaction(async (tx) => {
+      const pageBookQuery = db
+        .select({ bookId: ocrPagesTable.bookId })
+        .from(ocrPagesTable)
+        .where(eq(ocrPagesTable.id, ocrPage.pageId))
+        .limit(1)
+      const [pageBook] = await tx.query(pageBookQuery)
+      if (!pageBook) throw new NotFoundBookError()
+      const { bookId } = pageBook
 
       const pageOcrLines = ocrPage.lines.map((line, index) => ({
         ...line,
@@ -105,47 +103,45 @@ export function createOcrRepository(database: DatabaseConnection) {
         lineIndex: index,
       }))
 
-      const insertOcrLinesSqlStatements = pageOcrLines.map((ocrLine) =>
+      const insertLines = pageOcrLines.map((ocrLine) =>
         db.insert(ocrLinesTable).values(ocrLine).toSQL(),
       )
 
-      await tx.batch(() => [
-        db.delete(ocrLinesTable).where(eq(ocrLinesTable.ocrPageId, ocrPage.pageId)).toSQL(),
-        ...insertOcrLinesSqlStatements,
-      ])
-      const [updated] = await tx.query(
-        db
-          .update(ocrPagesTable)
-          .set({ width: ocrPage.width, height: ocrPage.height, status: 'ready', updatedAt: now })
-          .where(and(eq(ocrPagesTable.id, ocrPage.pageId), eq(ocrPagesTable.status, 'processing')))
-          .returning({ id: ocrPagesTable.id }),
-      )
-      if (!updated) throw new Error('Unable to store OCR page')
+      const deleteLinesQuery = db
+        .delete(ocrLinesTable)
+        .where(eq(ocrLinesTable.ocrPageId, ocrPage.pageId))
+      const replaceLines = [deleteLinesQuery.toSQL(), ...insertLines]
+      await tx.batch(() => replaceLines)
+      const completePageQuery = db
+        .update(ocrPagesTable)
+        .set({ width: ocrPage.width, height: ocrPage.height, status: 'ready' })
+        .where(and(eq(ocrPagesTable.id, ocrPage.pageId), eq(ocrPagesTable.status, 'processing')))
+        .returning({ id: ocrPagesTable.id })
+      const [completedPage] = await tx.query(completePageQuery)
+      if (!completedPage) throw new Error('Unable to store OCR page')
 
-      const [incompletePages] = await tx.query(
-        db
-          .select({ total: count() })
-          .from(ocrPagesTable)
-          .where(and(eq(ocrPagesTable.bookId, bookId), ne(ocrPagesTable.status, 'ready'))),
-      )
+      const incompletePagesQuery = db
+        .select({ total: count() })
+        .from(ocrPagesTable)
+        .where(and(eq(ocrPagesTable.bookId, bookId), ne(ocrPagesTable.status, 'ready')))
+      const [incompletePages] = await tx.query(incompletePagesQuery)
       if (incompletePages?.total !== 0) {
         return false
       }
-      await tx.query(
-        db
-          .update(booksTable)
-          .set({ ocrCompletedAt: now, updatedAt: now })
-          .where(and(eq(booksTable.id, bookId), isNull(booksTable.ocrCompletedAt))),
-      )
+      const completeOcrQuery = db
+        .update(booksTable)
+        .set({ ocrCompletedAt: now })
+        .where(and(eq(booksTable.id, bookId), isNull(booksTable.ocrCompletedAt)))
+      await tx.query(completeOcrQuery)
       return true
     })
-    return isBookOcrComplete
+    return ocrComplete
   }
 
   async function failOcrPage(pageId: string): Promise<void> {
     const [updated] = await db
       .update(ocrPagesTable)
-      .set({ status: 'failed', updatedAt: Date.now() })
+      .set({ status: 'failed' })
       .where(and(eq(ocrPagesTable.id, pageId), eq(ocrPagesTable.status, 'processing')))
       .returning({ id: ocrPagesTable.id })
     if (!updated) throw new NotFoundBookError()
@@ -182,8 +178,8 @@ export function createOcrRepository(database: DatabaseConnection) {
     return storedPage
   }
 
-  function isOcrPageStatus(value: unknown): value is OcrPageRecord['status'] {
-    return value === 'pending' || value === 'processing' || value === 'ready' || value === 'failed'
+  function isOcrPageStatus(value: unknown): value is OcrPageStatus {
+    return ocrPageStatuses.some((status) => status === value)
   }
 
   async function listOcrPages(bookId: string): Promise<OcrPageRecord[]> {
@@ -196,41 +192,36 @@ export function createOcrRepository(database: DatabaseConnection) {
     return pages
   }
 
-  async function listOcrLines(ocrLineQuery: BookRecordsQuery): Promise<OcrLinePage> {
+  async function listOcrLines({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<OcrLinePage> {
     const [result] = await db
       .select({ total: count() })
       .from(ocrLinesTable)
       .innerJoin(ocrPagesTable, eq(ocrPagesTable.id, ocrLinesTable.ocrPageId))
-      .where(eq(ocrPagesTable.bookId, ocrLineQuery.bookId))
+      .where(eq(ocrPagesTable.bookId, bookId))
     if (!result) throw new Error('Invalid OCR line count')
     const lines = await db
-      .select({
-        pageNumber: ocrPagesTable.pageNumber,
-        lineIndex: ocrLinesTable.lineIndex,
-        rawText: ocrLinesTable.rawText,
-        x0: ocrLinesTable.x0,
-        y0: ocrLinesTable.y0,
-        x1: ocrLinesTable.x1,
-        y1: ocrLinesTable.y1,
-      })
+      .select(ocrLineRecordColumns)
       .from(ocrLinesTable)
       .innerJoin(ocrPagesTable, eq(ocrPagesTable.id, ocrLinesTable.ocrPageId))
-      .where(eq(ocrPagesTable.bookId, ocrLineQuery.bookId))
+      .where(eq(ocrPagesTable.bookId, bookId))
       .orderBy(asc(ocrPagesTable.pageNumber), asc(ocrLinesTable.lineIndex))
-      .limit(ocrLineQuery.limit)
-      .offset(ocrLineQuery.offset)
+      .limit(limit)
+      .offset(offset)
     const linePage: OcrLinePage = { lines, total: result.total }
     return linePage
   }
 
   async function getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]> {
     const lines = await db
-      .select({
-        ocrPageId: ocrLinesTable.ocrPageId,
-        pageNumber: ocrPagesTable.pageNumber,
-        lineIndex: ocrLinesTable.lineIndex,
-        rawText: ocrLinesTable.rawText,
-      })
+      .select(ocrLineForChunkingColumns)
       .from(ocrLinesTable)
       .innerJoin(ocrPagesTable, eq(ocrPagesTable.id, ocrLinesTable.ocrPageId))
       .where(eq(ocrPagesTable.bookId, bookId))

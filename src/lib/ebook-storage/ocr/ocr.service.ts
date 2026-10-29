@@ -7,12 +7,11 @@ import type {
   OcrPageResult,
   OcrPageQuery,
 } from '../types/ocr'
-import type { BookRecordsQuery } from '../types/book'
 import type { createOcrRepository } from './ocr.repository'
 import {
+  isBookRecordsQuery,
   isOcrPageQuery,
   isIdentifier,
-  isBookRecordsQuery,
   isOcrPageResult,
   runValidated,
 } from '../validation'
@@ -25,7 +24,15 @@ export interface OcrService {
   failOcrPage(pageId: string): Promise<void>
   getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null>
   listOcrPages(bookId: string): Promise<OcrPageRecord[]>
-  listOcrLines(ocrLineQuery: BookRecordsQuery): Promise<OcrLinePage>
+  listOcrLines({
+    bookId,
+    limit,
+    offset,
+  }: {
+    bookId: string
+    limit: number
+    offset: number
+  }): Promise<OcrLinePage>
   getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]>
 }
 
@@ -33,13 +40,8 @@ export function createOcrService(
   ocrRepository: ReturnType<typeof createOcrRepository>,
 ): OcrService {
   const ocrService: OcrService = {
-    initializeOcrPages: (bookMetadata) =>
-      runValidated(
-        'initializeOcrPages',
-        ocrRepository.initializeOcrPages,
-        bookMetadata,
-        isIdentifier,
-      ),
+    initializeOcrPages: (bookId) =>
+      runValidated('initializeOcrPages', ocrRepository.initializeOcrPages, bookId, isIdentifier),
     prepareOcrPagesForRun: (bookId) =>
       runValidated(
         'prepareOcrPagesForRun',

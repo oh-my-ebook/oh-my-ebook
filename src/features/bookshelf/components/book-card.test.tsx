@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { BookCard } from './book-card'
 
-const book: StoredBook = {
+const book: BookListItem = {
   id: 'book-id',
   contentHash: 'hash',
   fileName: 'local-library.pdf',
@@ -41,7 +41,7 @@ beforeEach(() => {
 })
 
 describe('BookCard', () => {
-  it.each<Pick<StoredBook, 'coverData' | 'coverMime'>>([
+  it.each<Pick<BookListItem, 'coverData' | 'coverMime'>>([
     { coverData: null, coverMime: null },
     { coverData: null, coverMime: 'image/png' },
     { coverData: new Uint8Array([1]), coverMime: null },

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { StoredBook } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf } from '../lib/pdf-import'
@@ -18,7 +18,7 @@ export function useCoverRegeneration({
   const [coverErrors, setCoverErrors] = useState<Record<string, string>>({})
   const [regeneratingCover, setRegeneratingCover] = useState<string | null>(null)
 
-  async function regenerateCover(book: StoredBook) {
+  async function regenerateCover(book: BookListItem) {
     setRegeneratingCover(book.id)
     setCoverErrors((current) => ({ ...current, [book.id]: '' }))
     try {

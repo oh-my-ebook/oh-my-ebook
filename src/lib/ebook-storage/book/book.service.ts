@@ -1,15 +1,15 @@
 import type {
-  ImportedBook,
-  Book,
-  StoredBook,
-  StoredBookDetail,
+  BookFileData,
+  InsertBook,
+  BookListItem,
+  BookDocument,
   BookAnalysisStatus,
-  BookCoverData,
+  BookCover,
 } from '../types/book'
 import type { createBookRepository } from './book.repository'
 import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
 import {
-  isImportedBook,
+  isBookFileData,
   isContentHash,
   isIdentifier,
   runValidated,
@@ -18,14 +18,14 @@ import {
 import { InvalidDataError } from '../storage-errors'
 
 export interface BookService {
-  saveBook(book: ImportedBook): Promise<string>
-  getBook(bookId: string): Promise<StoredBookDetail>
+  saveBook(book: BookFileData): Promise<string>
+  getBook(bookId: string): Promise<BookDocument>
   deleteBook(bookId: string): Promise<void>
-  listBooks(): Promise<StoredBook[]>
+  listBooks(): Promise<BookListItem[]>
   hasBook(bookId: string): Promise<void>
   updateProgress({ bookId, page }: { bookId: string; page: number }): Promise<void>
   updateTitle({ bookId, title }: { bookId: string; title: string }): Promise<void>
-  updateCover({ bookId, cover }: { bookId: string; cover: BookCoverData }): Promise<void>
+  updateCover({ bookId, cover }: { bookId: string; cover: BookCover }): Promise<void>
   failBookAnalysis(bookId: string): Promise<void>
   getBookAnalysisStatus(bookId: string): Promise<BookAnalysisStatus>
   retryBookAnalysis(bookId: string): Promise<void>
@@ -35,23 +35,20 @@ export function createBookService(
   bookRepository: ReturnType<typeof createBookRepository>,
 ): BookService {
   /**
-   * SQLite에 메타 데이터를 먼저 저장한 후, 콘텐츠 해시를 기준으로 OPFS에 PDF 파일 저장
-   * 만약 OPFS 저장에 실패하면 SQLite에 저장한 메타 데이터를 삭제
+   * SQLite에 책 정보를 먼저 저장한 후, 콘텐츠 해시를 기준으로 OPFS에 PDF 파일 저장
+   * 만약 OPFS 저장에 실패하면 SQLite에 저장한 책 정보를 삭제
    */
-  async function saveBook(book: ImportedBook): Promise<string> {
-    validateData(book, 'saveBook', isImportedBook)
-    const { pdfData, coverData, ...metadata } = book
-    const now = Date.now()
-    const newBook: Book = {
-      ...metadata,
+  async function saveBook(book: BookFileData): Promise<string> {
+    validateData(book, 'saveBook', isBookFileData)
+    const { pdfData, coverData, ...fields } = book
+    const newBook: InsertBook = {
+      ...fields,
       id: crypto.randomUUID(),
       coverData: coverData ? new Uint8Array(coverData) : null,
       lastPage: null,
       analysisStatus: 'analyzing',
       ocrCompletedAt: null,
       indexedAt: null,
-      createdAt: now,
-      updatedAt: now,
     }
     const id = await bookRepository.addBook(newBook)
 
@@ -68,9 +65,9 @@ export function createBookService(
     }
   }
 
-  async function getBook(bookId: string): Promise<StoredBookDetail> {
+  async function getBook(bookId: string): Promise<BookDocument> {
     validateData(bookId, 'bookId', isIdentifier)
-    const book = await bookRepository.getBookMetadata(bookId)
+    const book = await bookRepository.getBookDetails(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
     const pdfData = await readPdf(contentHash)
@@ -78,7 +75,7 @@ export function createBookService(
     return { ...book, pdfData }
   }
 
-  async function listLibraryBooks(): Promise<StoredBook[]> {
+  async function listLibraryBooks(): Promise<BookListItem[]> {
     const books = await bookRepository.listBooks()
 
     const libraryBooks = await Promise.all(
@@ -86,23 +83,23 @@ export function createBookService(
         if (!isContentHash(book.contentHash)) throw new Error('Invalid content hash')
         const hasPdfFile = await hasPdf(book.contentHash)
 
-        const storedBook: StoredBook = {
+        const listItem: BookListItem = {
           ...book,
           pdfStatus: hasPdfFile ? 'available' : 'missing',
         }
-        return storedBook
+        return listItem
       }),
     )
     return libraryBooks
   }
 
   /**
-   * OPFS에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 메타 데이터를 삭제
+   * OPFS에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 책 정보를 삭제
    * 만약 OPFS 삭제에 실패하면 Error를 발생
    */
   async function deleteBook(bookId: string): Promise<void> {
     validateData(bookId, 'bookId', isIdentifier)
-    const book = await bookRepository.getBookMetadata(bookId)
+    const book = await bookRepository.getBookDetails(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 

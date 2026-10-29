@@ -68,14 +68,14 @@ export function EbookReaderPage({ bookId, store }: EbookReaderPageProps) {
   return (
     <ReaderPage
       analysisStatus={state.book.analysisStatus}
-      bookMetadata={state.book.metadata}
+      bookInfo={state.book}
       bookId={bookId}
       data={state.book.pdfData}
       initialPage={state.book.lastPage ?? 1}
       getStoredOcrPage={getStoredOcrPage}
       onPageChange={saveReadingPosition}
       searchChunks={searchChunks}
-      title={state.book.metadata.title}
+      title={state.book.title}
     />
   )
 }

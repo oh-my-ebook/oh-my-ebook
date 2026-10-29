@@ -1,11 +1,11 @@
 import { expectTypeOf, it } from 'vitest'
 import type { EbookStore } from './ebook-store'
-import type { StoredBook, StoredBookDetail } from './types/book'
+import type { BookListItem, BookDocument } from './types/book'
 import type { SearchChunkQuery, SearchChunkResult } from './types/search'
 
 it('저장소 메서드는 인수와 반환 타입을 연결한다', () => {
-  expectTypeOf<EbookStore['listBooks']>().returns.toEqualTypeOf<Promise<StoredBook[]>>()
-  expectTypeOf<EbookStore['getBook']>().returns.toEqualTypeOf<Promise<StoredBookDetail>>()
+  expectTypeOf<EbookStore['listBooks']>().returns.toEqualTypeOf<Promise<BookListItem[]>>()
+  expectTypeOf<EbookStore['getBook']>().returns.toEqualTypeOf<Promise<BookDocument>>()
   expectTypeOf<EbookStore['saveBook']>().returns.toEqualTypeOf<Promise<string>>()
   expectTypeOf<EbookStore['updateProgress']>().returns.toEqualTypeOf<Promise<void>>()
   expectTypeOf<EbookStore['updateProgress']>().parameters.toEqualTypeOf<
