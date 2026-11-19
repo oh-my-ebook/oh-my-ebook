@@ -1,5 +1,5 @@
 import { createStoreMock, createBookDocument } from '@/test/ebook-store'
-import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
+import type { KiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 async function createAnalysisStub() {
@@ -18,7 +18,9 @@ async function createAnalysisStub() {
   }))
   vi.doMock('@/lib/pdf/render-page-image', () => ({ renderPdfPageForOcr }))
   vi.doMock('./search-chunking', () => ({ createSearchChunks }))
-  vi.doMock('@/lib/kiwi/kiwi.client', () => ({ kiwiClient: { extractSearchTerms } }))
+  vi.doMock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client', () => ({
+    kiwiClient: { extractSearchTerms },
+  }))
   const { runOcrAnalysis } = await import('./ocr-analysis')
 
   return {
@@ -38,7 +40,7 @@ describe('runOcrAnalysis', () => {
     vi.doUnmock('@/lib/reader-ocr/reader-ocr.service')
     vi.doUnmock('@/lib/pdf/render-page-image')
     vi.doUnmock('./search-chunking')
-    vi.doUnmock('@/lib/kiwi/kiwi.client')
+    vi.doUnmock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client')
     vi.restoreAllMocks()
   })
 

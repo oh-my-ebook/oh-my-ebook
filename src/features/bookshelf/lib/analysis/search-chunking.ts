@@ -1,4 +1,4 @@
-import { kiwiClient } from '@/lib/kiwi/kiwi.client'
+import { kiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
 import type { SearchChunkWithSources } from '@/lib/ebook-storage/types/search'
 
