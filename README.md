@@ -21,7 +21,7 @@ pnpm dev
 
 ### 코드 구조
 
-기능 전용 코드는 `src/features/<기능>/`에 모으고, 여러 기능에서 함께 사용하는 코드만 최상위 공통 폴더에 둔다.
+기능 전용 코드는 `src/features/<기능>/`에 모은다. 여러 기능이 함께 쓰는 Kiwi 텍스트 분석 코드는 저장소 루트의 `shared/`에 둔다.
 아래는 현재 주요 모듈의 구조다. 테스트 파일과 일부 화면·유틸리티는 생략했다.
 
 ```text
@@ -85,21 +85,22 @@ src/
 │   │   ├── extract-images.ts       # 이미지 영역 추출·병합
 │   │   ├── text-layout.ts          # 텍스트 선택 레이어의 글꼴 크기·가로 배율 계산
 │   │   └── errors.ts               # PDF 로딩 오류 분류·변환
-│   ├── reader-ocr/
-│   │   ├── reader-ocr.service.ts   # OCR 인식·읽기 순서 정렬·Kiwi 후처리
-│   │   ├── reader-ocr.types.ts     # 이미지·텍스트 좌표·OCR 계약
-│   │   ├── reader-ocr.util.ts      # OCR 텍스트 레이어 크기 계산
-│   │   ├── reading-order.ts        # OCR 결과의 읽기 순서 계산
-│   │   └── adaptors/
-│   │       └── paddle-ocr/         # PaddleOCR 초기화·인식·요청 취소
-│   └── kiwi/
-│       ├── kiwi.client.ts          # 타입이 정해진 메서드·Worker 요청·응답·취소
-│       ├── kiwi.worker.ts          # 요청별 형태소 분석·응답 전송
-│       ├── kiwi-provider.ts        # WASM·모델 초기화와 Kiwi 인스턴스 캐싱
-│       ├── kiwi.types.ts           # 공통 타입·Worker 메시지 계약
-│       ├── kiwi.util.ts            # 줄을 유지하는 텍스트 정규화·검색어 추출
-│       └── const.ts                # 요청 종류·모델 파일·검색어 품사
+│   └── reader-ocr/
+│       ├── reader-ocr.service.ts   # OCR 인식·읽기 순서 정렬·Kiwi 후처리
+│       ├── reader-ocr.types.ts     # 이미지·텍스트 좌표·OCR 계약
+│       ├── reader-ocr.util.ts      # OCR 텍스트 레이어 크기 계산
+│       ├── reading-order.ts        # OCR 결과의 읽기 순서 계산
+│       └── adaptors/
+│           └── paddle-ocr/         # PaddleOCR 초기화·인식·요청 취소
 └── index.css                       # Tailwind 설정·공통 테마
+
+shared/lib/text-analysis/adapters/kiwi/
+├── kiwi.client.ts                  # 호출부에서 쓰는 정규화·검색어 추출 API와 요청 취소
+├── kiwi.worker.ts                  # Worker 메시지 처리와 형태소 분석
+├── kiwi.provider.ts                # WASM·모델 초기화와 Kiwi 인스턴스 캐싱
+├── kiwi.types.ts                   # 분석 결과와 Worker 메시지 타입
+├── kiwi.util.ts                    # 줄을 유지하는 텍스트 정규화와 검색어 집계
+└── kiwi.const.ts                   # 요청 종류·모델 파일·검색어 품사
 ```
 
 - 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case로 작성한다. 컴포넌트 함수 이름은 PascalCase를 사용한다.
