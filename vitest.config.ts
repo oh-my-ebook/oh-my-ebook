@@ -19,7 +19,7 @@ export default mergeConfig(
           extends: true,
           test: {
             name: 'node',
-            include: ['src/**/*.test.ts'], // .test.ts 파일 중에서
+            include: ['src/**/*.test.ts', 'shared/**/*.test.ts'],
             exclude: domTests, // DOM이 필요한 파일을 제외하고
             environment: 'node', // 나머지를 DOM 없이 실행
             clearMocks: true,
@@ -39,8 +39,8 @@ export default mergeConfig(
       coverage: {
         provider: 'v8',
         reporter: ['text', 'html', 'lcov'],
-        include: ['src/**/*.{ts,tsx}'],
-        exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx'],
+        include: ['src/**/*.{ts,tsx}', 'shared/**/*.{ts,tsx}'],
+        exclude: ['**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx'],
       },
     },
   }),
