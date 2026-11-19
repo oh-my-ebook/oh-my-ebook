@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
+import type { KiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
 
 async function createChunkingStub() {
   const normalizeText = vi.fn<KiwiClient['normalizeText']>()
-  vi.doMock('@/lib/kiwi/kiwi.client', () => ({ kiwiClient: { normalizeText } }))
+  vi.doMock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client', () => ({
+    kiwiClient: { normalizeText },
+  }))
   const { createSearchChunks } = await import('./search-chunking')
 
   return { normalizeText, createSearchChunks }
@@ -13,7 +15,7 @@ async function createChunkingStub() {
 describe('createSearchChunks', () => {
   afterEach(() => {
     vi.resetModules()
-    vi.doUnmock('@/lib/kiwi/kiwi.client')
+    vi.doUnmock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client')
   })
 
   it('OCR 원문이 빈 줄뿐이면 Kiwi 처리 없이 빈 청크 목록을 반환한다', async () => {

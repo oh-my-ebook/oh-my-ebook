@@ -8,7 +8,7 @@ import type {
 import { sortInReadingOrder } from './reading-order'
 import type { OcrTextNormalizer, ReaderOcrClient } from './reader-ocr.types'
 import { paddleOcrClient } from './adaptors/paddle-ocr/paddle-ocr.client'
-import { kiwiClient } from '../kiwi/kiwi.client'
+import { kiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 
 export class ReaderOcrService {
   private readonly ocrClient: ReaderOcrClient

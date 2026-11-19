@@ -1,10 +1,12 @@
 import type { ThreadMessage } from '@assistant-ui/react'
-import type { KiwiClient } from '@/lib/kiwi/kiwi.client'
+import type { KiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 async function createSearchStub() {
   const extractSearchTerms = vi.fn<KiwiClient['extractSearchTerms']>()
-  vi.doMock('@/lib/kiwi/kiwi.client', () => ({ kiwiClient: { extractSearchTerms } }))
+  vi.doMock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client', () => ({
+    kiwiClient: { extractSearchTerms },
+  }))
   const { searchBookChunks } = await import('./search-book-chunks')
 
   return { extractSearchTerms, searchBookChunks }
@@ -12,7 +14,7 @@ async function createSearchStub() {
 
 afterEach(() => {
   vi.resetModules()
-  vi.doUnmock('@/lib/kiwi/kiwi.client')
+  vi.doUnmock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client')
 })
 
 function createUserMessage(text: string): ThreadMessage {
