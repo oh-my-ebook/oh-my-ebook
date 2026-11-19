@@ -1,6 +1,6 @@
 import { kiwiClient } from '@/lib/kiwi/kiwi.client'
 import { loadPdfDocument } from '@/lib/pdf/load-document'
-import { readerOcrService } from '@/lib/reader-ocr/reader-ocr.service'
+import { readerOcrService } from '@/app-services'
 import { renderPdfPageForOcr } from '@/lib/pdf/render-page-image'
 import type { BookshelfStore } from '../bookshelf-store'
 import { createSearchChunks } from './search-chunking'

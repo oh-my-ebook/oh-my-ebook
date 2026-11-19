@@ -14,7 +14,7 @@ vi.mock('@/lib/ebook-storage/connection', () => ({
     return null
   },
 }))
-vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+vi.mock('@/app-services', () => ({
   readerOcrService: { init: vi.fn(async () => undefined) },
 }))
 vi.mock('../features/chat/lib/web-llm/model', () => ({

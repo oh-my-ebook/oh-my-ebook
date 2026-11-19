@@ -14,7 +14,7 @@ const { extractPdfPageImages, extractPdfPageText, postprocessPage, readImage, re
     renderPdfPageImage: vi.fn(),
   }))
 
-vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+vi.mock('@/app-services', () => ({
   readerOcrService: { postprocessPage, readImage },
 }))
 const image = {

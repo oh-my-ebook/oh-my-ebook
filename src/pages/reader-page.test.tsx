@@ -17,7 +17,7 @@ vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/lib/reader-ocr/reader-ocr.service', () => ({
+vi.mock('@/app-services', () => ({
   readerOcrService: { readImage: readImageMock },
 }))
 vi.mock('@/lib/pdf/render-page-image', () => ({

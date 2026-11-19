@@ -12,9 +12,8 @@ import {
   renderPdfPageImage,
   renderPdfPageToCanvas,
 } from '../lib/pdf-page-render'
-import { readerOcrService } from '@/lib/reader-ocr/reader-ocr.service'
+import { readerOcrService } from '@/app-services'
 import { renderPdfPageForOcr } from '@/lib/pdf/render-page-image'
-import type { StoredOcrPageResult } from '@/lib/reader-ocr/reader-ocr.types'
 import type { BoundingBox, PageTextLayer } from '@/lib/pdf/text-layout'
 import {
   PdfSelectionToolbar,
@@ -26,6 +25,12 @@ import {
 export interface OcrText {
   document: PdfDocumentHandle
   textByPage: ReadonlyMap<number, string>
+}
+
+export interface StoredOcrPageResult {
+  width: number
+  height: number
+  lines: readonly (BoundingBox & { rawText: string })[]
 }
 
 interface PdfViewportBaseProps {

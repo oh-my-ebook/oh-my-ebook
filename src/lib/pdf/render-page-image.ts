@@ -1,5 +1,5 @@
 import type { PdfPageHandle, PdfPageViewport } from '@/lib/pdf/document'
-import type { PageImage } from '@/lib/reader-ocr/reader-ocr.types'
+import type { PageImage } from '@shared/lib/ocr/reader-ocr.types'
 
 const OCR_SCALE = 160 / 72
 
