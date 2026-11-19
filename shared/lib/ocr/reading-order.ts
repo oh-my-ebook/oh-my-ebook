@@ -1,4 +1,4 @@
-import type { TextBox } from '@/lib/reader-ocr/reader-ocr.types'
+import type { TextBox } from './reader-ocr.types'
 
 const BLOCK_GAP_RATIO = 2.5
 

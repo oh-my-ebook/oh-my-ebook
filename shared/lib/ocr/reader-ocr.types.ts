@@ -40,18 +40,6 @@ export interface TextMeasurer {
   (text: string, fontSize: number): number
 }
 
-export interface StoredOcrPageResult {
-  width: number
-  height: number
-  lines: readonly {
-    rawText: string
-    x0: number
-    y0: number
-    x1: number
-    y1: number
-  }[]
-}
-
 export interface ReaderOcrClient {
   initOcr(): Promise<void>
   recognize(image: PageImage, signal: AbortSignal): Promise<readonly TextBox[]>

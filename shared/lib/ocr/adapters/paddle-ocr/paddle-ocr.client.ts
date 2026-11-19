@@ -1,6 +1,5 @@
-import { toBoundingBox } from '@/lib/reader-ocr/reader-ocr.util'
-import type { PageImage, TextBox } from '@/lib/reader-ocr/reader-ocr.types'
-import type { ReaderOcrClient } from '../../reader-ocr.types'
+import { toBoundingBox } from '../../reader-ocr.util'
+import type { PageImage, ReaderOcrClient, TextBox } from '../../reader-ocr.types'
 import { PaddleOcrProvider } from './paddle-ocr.provider'
 
 export class PaddleOcrClient implements ReaderOcrClient {
@@ -83,5 +82,3 @@ export class PaddleOcrClient implements ReaderOcrClient {
     })
   }
 }
-
-export const paddleOcrClient = new PaddleOcrClient()

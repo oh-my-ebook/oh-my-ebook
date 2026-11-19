@@ -1,14 +1,13 @@
-import { measureSelectableTextLines } from '@/lib/reader-ocr/reader-ocr.util'
+import { measureSelectableTextLines } from './reader-ocr.util'
 import type {
+  OcrTextNormalizer,
   PageImage,
   PageTextLayer,
   RawPageText,
+  ReaderOcrClient,
   TextBox,
-} from '@/lib/reader-ocr/reader-ocr.types'
+} from './reader-ocr.types'
 import { sortInReadingOrder } from './reading-order'
-import type { OcrTextNormalizer, ReaderOcrClient } from './reader-ocr.types'
-import { paddleOcrClient } from './adaptors/paddle-ocr/paddle-ocr.client'
-import { kiwiClient } from '../kiwi/kiwi.client'
 
 export class ReaderOcrService {
   private readonly ocrClient: ReaderOcrClient
@@ -52,7 +51,7 @@ export class ReaderOcrService {
   }
 
   private async postprocessText(textBoxes: readonly TextBox[], signal: AbortSignal) {
-    // 1. 텍스트 정규화(예: Kiwi-형태소 분리, 띄어쓰기 수정)
+    // 줄 단위 좌표를 보존하기 위해 정규화한 텍스트를 원래 줄 순서에 맞춘다.
     const ocrLines = textBoxes.map(({ text }) => text).join('\n')
     const normalizedOcrText = await this.textNormalizer.normalizeText(ocrLines, signal)
     const normalizedLines = normalizedOcrText.split('\n')
@@ -68,5 +67,3 @@ export class ReaderOcrService {
     return selectableTextLines
   }
 }
-
-export const readerOcrService = new ReaderOcrService(paddleOcrClient, kiwiClient)
