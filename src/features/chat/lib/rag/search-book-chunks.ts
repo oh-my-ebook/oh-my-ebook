@@ -1,4 +1,4 @@
-import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook-storage/types/search'
+import type { SearchChunkQuery, SearchChunkResult } from '@shared/lib/ebook-storage/types/search'
 import { kiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
 

@@ -63,21 +63,16 @@ src/
 ├── hooks/                          # 공통 훅
 ├── lib/
 │   ├── ebook-storage/
-│   │   ├── book/                  # 책 Service·Repository와 PDF 파일 처리
-│   │   ├── ocr/                   # OCR Service·Repository
-│   │   ├── search/                # 검색 Service·Repository와 BM25 SQL
-│   │   ├── types/                 # 책·OCR·검색 입력 및 조회 결과 타입
-│   │   ├── ebook-store.ts         # 기능별 Service를 합친 저장소 타입
+│   │   ├── adapters/
+│   │   │   ├── opfs/              # OPFS에 PDF 원본을 저장하고 읽는 구현
+│   │   │   └── sqlocal/           # 웹 DB 연결·초기화, Drizzle 드라이버, Repository 구현
 │   │   ├── connection.ts          # 화면에서 사용하는 저장소 인스턴스
 │   │   ├── storage-client.ts      # 저장 작업 순서 보장·오류 변환·재시도
-│   │   ├── storage.service.ts     # Service 조합·초기화·전체 삭제
-│   │   ├── database-connection.ts # SQLocal·Drizzle 연결과 DB 초기화
-│   │   ├── schema.ts              # Drizzle 테이블·컬럼 정의
-│   │   ├── schema-sql.ts          # 기존 초기 스키마·PRAGMA
-│   │   ├── validation.ts          # 입력·저장값 검증
-│   │   ├── errors.ts              # 공개 오류 코드·메시지·오류 클래스
-│   │   ├── storage-errors.ts      # 내부 오류와 공개 오류 코드 변환
+│   │   ├── storage.service.ts      # 공통 서비스에 웹 어댑터 연결·초기화·전체 삭제
+│   │   ├── errors.ts               # 웹에서 사용하는 오류 코드·메시지·오류 클래스
+│   │   ├── storage-errors.ts       # 저장소 오류를 웹 오류 코드로 변환
 │   │   └── browser-storage.ts     # 브라우저 지원 여부·저장소 사용량
+│   ├── ocr/adapters/paddle-ocr/    # 웹에서 쓸 인식기 초기화·인식·요청 취소
 │   └── pdf/
 │       ├── document.ts             # 문서·페이지 타입 정의와 좌표 배율
 │       ├── load-document.ts        # PDF 로딩·취소·자원 정리
@@ -90,13 +85,21 @@ src/
 
 shared/
 └── lib/
+    ├── ebook-storage/
+    │   ├── book/                   # 책 서비스·Repository 계약·PDF 파일 저장 계약
+    │   ├── ocr/                    # OCR 저장 서비스·Repository 계약
+    │   ├── search/                 # 검색 서비스·Repository 계약
+    │   ├── schema/                 # Drizzle 테이블·관계 정의
+    │   ├── types/                  # 책·OCR·검색 입력 및 조회 결과 타입
+    │   ├── ebook-store.ts          # 기능별 서비스를 합친 저장소 인터페이스
+    │   ├── schema-sql.ts           # SQLite 초기 스키마·버전 변경 SQL
+    │   ├── storage-errors.ts       # 책 조회·중복·삭제·입력 검증 오류
+    │   └── validation.ts           # 입력·저장값 검증
     ├── ocr/
     │   ├── reader-ocr.service.ts     # 이미지 인식·읽기 순서 정렬·텍스트 정규화
     │   ├── reader-ocr.types.ts       # 이미지·텍스트 좌표·인식기와 정규화기 계약
     │   ├── reader-ocr.util.ts        # 브라우저 Canvas에서 선택 레이어의 글자 크기 계산
-    │   ├── reading-order.ts          # OCR 결과의 읽기 순서 계산
-    │   └── adapters/
-    │       └── paddle-ocr/           # PaddleOCR 초기화·인식·요청 취소
+    │   └── reading-order.ts          # OCR 결과의 읽기 순서 계산
     └── text-analysis/
         └── adapters/
             └── kiwi/
@@ -113,7 +116,8 @@ shared/
 - 기능 전용 코드는 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다. 공통 코드는 특정 feature를 import하지 않는다.
 - feature끼리 내부 컴포넌트·훅·로직을 직접 import하지 않는다. 리더와 채팅 연결처럼 여러 기능이 만나는 부분은 앱이나 페이지에서 조합한다.
 - 전자책 저장소는 책 정보·표지·PDF 원본·독서 위치·OCR 결과·검색 색인을 관리한다. 페이지에서 공통 저장소를 전달하고, 서재·리더·콘솔은 필요한 저장소 메서드를 인터페이스로 정의한다.
-- 책·검색·OCR 데이터 타입은 `lib/ebook-storage/types/`에 모은다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다. PDF 파일 작업은 비동기 파일 API로 처리한다. Kiwi Worker는 해당 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
+- 책·OCR·검색 서비스와 저장소 계약, Drizzle 스키마는 `shared/lib/ebook-storage/`에 둔다. 책 서비스는 `BookRepository`와 `PdfFileStore`를 받고, OCR 저장 서비스와 검색 서비스는 각각 `OcrRepository`와 `SearchRepository`를 받는다. 웹의 `src/lib/ebook-storage/storage.service.ts`는 SQLocal Repository와 OPFS PDF 저장소를 공통 서비스에 연결한다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다.
+- Kiwi Worker는 해당 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
 - 책 추가와 분석 실행 흐름은 `bookshelf`에, PDF 로딩·내장 텍스트·이미지 추출은 `lib/pdf`에 둔다. 리더와 서재 분석은 `app-services.ts`에서 구성한 OCR 서비스를 함께 사용한다. 텍스트 레이아웃(text layout)은 기존 글자 영역에 맞춰 선택 레이어의 크기·배율을 계산하며, 문서 전체 레이아웃을 재배치하지 않는다.
 - 테스트는 대상 파일 옆에 `reader-state.test.ts`, `pdf-viewport.test.tsx`처럼 둔다.
 

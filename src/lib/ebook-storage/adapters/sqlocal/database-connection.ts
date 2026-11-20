@@ -1,12 +1,12 @@
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { createDrizzleDatabase } from './drizzle-database'
-import { UnsupportedStorageError } from './storage-errors'
+import { UnsupportedStorageError } from '../../storage-errors'
 import {
   ENABLE_FOREIGN_KEYS_SQL,
   GET_SCHEMA_VERSION_SQL,
   INITIAL_SCHEMA_SQL,
   REMOVE_COVER_STATUS_SQL,
-} from './schema-sql'
+} from '@shared/lib/ebook-storage/schema-sql'
 
 export interface DatabaseConnection {
   sqlocal: SQLocalDrizzle

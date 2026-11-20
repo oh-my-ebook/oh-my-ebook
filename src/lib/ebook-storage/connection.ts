@@ -1,4 +1,4 @@
-import type { EbookStore } from './ebook-store'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
 import { EbookStoreClient } from './storage-client'
 import { isOpfsSupported } from './browser-storage'
 

@@ -1,5 +1,5 @@
 import type { TransactionHandle } from 'sqlocal'
-import type { DatabaseConnection } from '../database-connection'
+import type { DatabaseConnection } from './database-connection'
 import type {
   SearchIndex,
   ChunkSourcePage,
@@ -11,7 +11,7 @@ import type {
   SearchChunkQuery,
   SearchChunkResult,
   SearchChunkSource,
-} from '../types/search'
+} from '@shared/lib/ebook-storage/types/search'
 import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
 import {
   booksTable,
@@ -20,13 +20,17 @@ import {
   searchChunksTable,
   searchPostingsTable,
   searchTermsTable,
-} from '../schema'
+} from '@shared/lib/ebook-storage/schema'
 import {
   chunkSourceRecordColumns,
   searchChunkSourceColumns,
   searchPostingRecordColumns,
-} from '../schema/search'
-import { NotFoundBookError } from '../storage-errors'
+} from '@shared/lib/ebook-storage/schema/search'
+import { NotFoundBookError } from '@shared/lib/ebook-storage/storage-errors'
+import type {
+  SearchPageQuery,
+  SearchRepository,
+} from '@shared/lib/ebook-storage/search/search-repository.types'
 import { createSearchChunksSql } from './search-sql'
 
 /**
@@ -94,7 +98,7 @@ async function storeSearchChunk(
   }
 }
 
-export function createSearchRepository(database: DatabaseConnection) {
+export function createSearchRepository(database: DatabaseConnection): SearchRepository {
   const { db, sqlocal } = database
 
   async function storeSearchIndex(searchIndex: SearchIndex): Promise<void> {
@@ -149,11 +153,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchChunkPage> {
+  }: SearchPageQuery): Promise<SearchChunkPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchChunksTable)
@@ -236,11 +236,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchTermPage> {
+  }: SearchPageQuery): Promise<SearchTermPage> {
     const [result] = await db
       .select({ total: countDistinct(searchTermsTable.id) })
       .from(searchTermsTable)
@@ -265,11 +261,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchPostingPage> {
+  }: SearchPageQuery): Promise<SearchPostingPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchPostingsTable)
@@ -293,11 +285,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<ChunkSourcePage> {
+  }: SearchPageQuery): Promise<ChunkSourcePage> {
     const [result] = await db
       .select({ total: count() })
       .from(chunkSourcesTable)

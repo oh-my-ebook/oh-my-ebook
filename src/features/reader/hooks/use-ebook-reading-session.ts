@@ -1,5 +1,5 @@
-import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
-import type { BookDocument } from '@/lib/ebook-storage/types/book'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
+import type { BookDocument } from '@shared/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import { useEffect, useRef, useState } from 'react'
 

@@ -1,4 +1,5 @@
-import type { DatabaseConnection } from '../database-connection'
+import type { DatabaseConnection } from './database-connection'
+import type { OcrRepository } from '@shared/lib/ebook-storage/ocr/ocr-repository.types'
 import type {
   InsertOcrPage,
   OcrPageQuery,
@@ -8,19 +9,19 @@ import type {
   OcrLinePage,
   OcrPageRecord,
   StoredOcrPage,
-} from '../types/ocr'
+} from '@shared/lib/ebook-storage/types/ocr'
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
-import { booksTable, ocrLinesTable, ocrPagesTable } from '../schema'
+import { booksTable, ocrLinesTable, ocrPagesTable } from '@shared/lib/ebook-storage/schema'
 import {
   nextOcrPageColumns,
   ocrLineForChunkingColumns,
   ocrLineRecordColumns,
   ocrPageStatuses,
   type OcrPageStatus,
-} from '../schema/ocr'
-import { NotFoundBookError } from '../storage-errors'
+} from '@shared/lib/ebook-storage/schema/ocr'
+import { NotFoundBookError } from '@shared/lib/ebook-storage/storage-errors'
 
-export function createOcrRepository(database: DatabaseConnection) {
+export function createOcrRepository(database: DatabaseConnection): OcrRepository {
   const { db, sqlocal } = database
 
   async function initializeOcrPages(bookid: string): Promise<void> {

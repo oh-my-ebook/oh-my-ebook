@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookFileData, createNewBook, createTestConnection } from '../../test/sqlocal'
-import { createBookRepository } from './book/book.repository'
-import * as connection from './database-connection'
-import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './book/pdf-files'
+import { createBookRepository } from './adapters/sqlocal/book.repository'
+import * as connection from './adapters/sqlocal/database-connection'
+import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './adapters/opfs/pdf-files'
 
-vi.mock('./database-connection', () => ({
+vi.mock('./adapters/sqlocal/database-connection', () => ({
   initializeDatabase: vi.fn(),
   resetDatabase: vi.fn(),
   get db() {
@@ -14,8 +14,8 @@ vi.mock('./database-connection', () => ({
     throw new Error('Test database not configured')
   },
 }))
-vi.mock('./book/pdf-files', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./book/pdf-files')>()),
+vi.mock('./adapters/opfs/pdf-files', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./adapters/opfs/pdf-files')>()),
   clearPdfFiles: vi.fn(),
   deletePdf: vi.fn(),
   hasPdf: vi.fn(),
@@ -177,7 +177,7 @@ describe('책 저장 작업', () => {
 
   it('빈 ID로 제목·표지를 수정하거나 없는 책을 조회하면 오류를 반환한다', async () => {
     const { storageService } = await setup()
-    const { DeletedBookError } = await import('./storage-errors')
+    const { DeletedBookError } = await import('@shared/lib/ebook-storage/storage-errors')
     const bookCover = {
       coverData: new Uint8Array([1]).buffer,
       coverMime: 'image/png',

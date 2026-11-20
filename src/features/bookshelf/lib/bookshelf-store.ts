@@ -1,4 +1,4 @@
-import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
 
 export type BookshelfStore = Pick<
   EbookStore,

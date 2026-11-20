@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { KiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
-import type { OcrLineForChunking } from '@/lib/ebook-storage/types/ocr'
+import type { OcrLineForChunking } from '@shared/lib/ebook-storage/types/ocr'
 
 async function createChunkingStub() {
   const normalizeText = vi.fn<KiwiClient['normalizeText']>()

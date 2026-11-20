@@ -1,15 +1,12 @@
 import { DrizzleQueryError } from 'drizzle-orm'
+import {
+  DeletedBookError,
+  DuplicateBookError,
+  NotFoundBookError,
+} from '@shared/lib/ebook-storage/storage-errors'
 import type { EbookStoreErrorCode } from './errors'
 
 export class UnsupportedStorageError extends Error {}
-export class NotFoundBookError extends Error {}
-export class DuplicateBookError extends Error {}
-export class DeletedBookError extends Error {}
-export class InvalidDataError extends Error {
-  constructor(operation: string) {
-    super(`Invalid data for ${operation}`)
-  }
-}
 
 export function getErrorCode(error: unknown): EbookStoreErrorCode {
   if (error instanceof DrizzleQueryError) return getErrorCode(error.cause)

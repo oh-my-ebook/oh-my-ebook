@@ -4,7 +4,7 @@ import {
   type AsyncBatchRemoteCallback,
 } from 'drizzle-orm/sqlite-proxy'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
-import { relations } from './schema'
+import { relations } from '@shared/lib/ebook-storage/schema'
 
 export function createDrizzleDatabase(sqlocal: SQLocalDrizzle) {
   const driver = async (...args: Parameters<SQLocalDrizzle['driver']>) => {

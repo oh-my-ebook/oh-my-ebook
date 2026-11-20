@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
-import type { EbookStore } from '@/lib/ebook-storage/ebook-store'
-import type { BookListItem, BookDocument } from '@/lib/ebook-storage/types/book'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
+import type { BookListItem, BookDocument } from '@shared/lib/ebook-storage/types/book'
 
 export function createBookListItem(overrides: Partial<BookListItem> = {}): BookListItem {
   return {

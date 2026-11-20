@@ -7,8 +7,8 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { useEffect, useState } from 'react'
-import type { BookAnalysisStatus, BookInfo } from '@/lib/ebook-storage/types/book'
-import type { SearchChunkSource } from '@/lib/ebook-storage/types/search'
+import type { BookAnalysisStatus, BookInfo } from '@shared/lib/ebook-storage/types/book'
+import type { SearchChunkSource } from '@shared/lib/ebook-storage/types/search'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
 import { ReaderChatWelcome } from '@/components/reader-chat-welcome'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'

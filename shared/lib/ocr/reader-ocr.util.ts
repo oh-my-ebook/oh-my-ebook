@@ -1,4 +1,4 @@
-import type { BoundingBox, SelectableTextLine, TextBox, TextMeasurer } from './reader-ocr.types'
+import type { SelectableTextLine, TextBox, TextMeasurer } from './reader-ocr.types'
 
 export function createTextMeasurer(): TextMeasurer {
   const context = document.createElement('canvas').getContext('2d')
@@ -10,12 +10,6 @@ export function createTextMeasurer(): TextMeasurer {
   }
 
   return measurer
-}
-
-export function toBoundingBox(points: readonly (readonly [number, number])[]): BoundingBox {
-  const xs = points.map(([x]) => x)
-  const ys = points.map(([, y]) => y)
-  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
 }
 
 export function measureSelectableTextLines(textBoxes: readonly TextBox[]): SelectableTextLine[] {

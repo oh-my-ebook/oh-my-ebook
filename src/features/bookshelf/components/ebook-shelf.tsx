@@ -1,4 +1,4 @@
-import type { BookListItem } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@shared/lib/ebook-storage/types/book'
 import { AddBookCard } from './add-book-card'
 import { BookCard } from './book-card'
 

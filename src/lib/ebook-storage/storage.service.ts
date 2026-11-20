@@ -1,15 +1,15 @@
-import type { EbookStore } from './ebook-store'
-import * as database from './database-connection'
-import { createBookRepository } from './book/book.repository'
-import { createBookService } from './book/book.service'
-import { clearPdfFiles } from './book/pdf-files'
-import { createOcrRepository } from './ocr/ocr.repository'
-import { createOcrService } from './ocr/ocr.service'
-import { createSearchRepository } from './search/search.repository'
-import { createSearchService } from './search/search.service'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
+import { createBookService } from '@shared/lib/ebook-storage/book/book.service'
+import { createOcrService } from '@shared/lib/ebook-storage/ocr/ocr.service'
+import { createSearchService } from '@shared/lib/ebook-storage/search/search.service'
+import * as opfsPdfFiles from './adapters/opfs/pdf-files'
+import * as database from './adapters/sqlocal/database-connection'
+import { createBookRepository } from './adapters/sqlocal/book.repository'
+import { createOcrRepository } from './adapters/sqlocal/ocr.repository'
+import { createSearchRepository } from './adapters/sqlocal/search.repository'
 
 export const storageService: EbookStore = {
-  ...createBookService(createBookRepository(database)),
+  ...createBookService(createBookRepository(database), opfsPdfFiles),
   ...createOcrService(createOcrRepository(database)),
   ...createSearchService(createSearchRepository(database)),
   async initialize() {
@@ -17,6 +17,6 @@ export const storageService: EbookStore = {
   },
   async clearStorage() {
     await database.resetDatabase()
-    await clearPdfFiles()
+    await opfsPdfFiles.clearPdfFiles()
   },
 }

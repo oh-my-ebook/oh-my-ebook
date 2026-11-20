@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Ellipsis, Pencil, RefreshCw, RotateCcw, Trash2, TriangleAlert } from 'lucide-react'
-import type { BookListItem } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@shared/lib/ebook-storage/types/book'
 import { DeleteBookDialog } from './delete-book-dialog'
 import { EditBookDialog } from './edit-book-dialog'
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookFileData } from '../../test/sqlocal'
 import { EbookStoreClient } from './storage-client'
 import { storageService } from './storage.service'
-import { DuplicateBookError } from './storage-errors'
+import { DuplicateBookError } from '@shared/lib/ebook-storage/storage-errors'
 
 vi.mock('./storage.service', () => ({
   storageService: {
