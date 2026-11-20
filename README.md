@@ -53,7 +53,8 @@ src/
 │   │   ├── components/             # 대화·출처·모델 준비 UI
 │   │   └── lib/
 │   │       ├── rag/                # 책 검색·검색 문맥·출처 처리
-│   │       └── web-llm/            # 모델 로딩·응답 처리·WebLLM Worker
+│   │       ├── chat-adapter.ts     # 프롬프트 구성·응답 누적·출처 전달
+│   │       └── web-llm-chat-adapter.ts # 채팅에 WebLLM과 책 검색 연결
 │   ├── ocr-console/
 │   │   ├── components/             # OCR·검색 데이터 진단 화면
 │   │   └── lib/
@@ -62,6 +63,7 @@ src/
 │   └── legal/                      # 개인정보·이용약관·오픈소스 고지
 ├── hooks/                          # 공통 훅
 ├── lib/
+│   ├── chat/adapters/web-llm/      # 웹 모델 준비·응답 생성·Worker
 │   ├── ebook-storage/
 │   │   ├── book/                  # 책 Service·Repository와 PDF 파일 처리
 │   │   ├── ocr/                   # OCR Service·Repository
@@ -90,6 +92,8 @@ src/
 
 shared/
 └── lib/
+    ├── chat/
+    │   └── chat-model.ts           # 모델에 응답 생성을 요청하는 공통 인터페이스
     ├── ocr/
     │   ├── reader-ocr.service.ts     # 이미지 인식·읽기 순서 정렬·텍스트 정규화
     │   ├── reader-ocr.types.ts       # 이미지·텍스트 좌표·인식기와 정규화기 계약
@@ -113,7 +117,8 @@ shared/
 - 기능 전용 코드는 다른 기능에서도 실제로 필요해질 때 공통으로 옮긴다. 공통 코드는 특정 feature를 import하지 않는다.
 - feature끼리 내부 컴포넌트·훅·로직을 직접 import하지 않는다. 리더와 채팅 연결처럼 여러 기능이 만나는 부분은 앱이나 페이지에서 조합한다.
 - 전자책 저장소는 책 정보·표지·PDF 원본·독서 위치·OCR 결과·검색 색인을 관리한다. 페이지에서 공통 저장소를 전달하고, 서재·리더·콘솔은 필요한 저장소 메서드를 인터페이스로 정의한다.
-- 책·검색·OCR 데이터 타입은 `lib/ebook-storage/types/`에 모은다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다. PDF 파일 작업은 비동기 파일 API로 처리한다. Kiwi Worker는 해당 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
+- 책·검색·OCR 데이터 타입은 `lib/ebook-storage/types/`에 모은다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다. PDF 파일 작업은 비동기 파일 API로 처리한다. Kiwi Worker는 해당 공통 모듈에 둔다.
+- 채팅 어댑터는 공통 `ChatModel` 인터페이스로 응답을 요청한다. WebLLM 모델 준비, Worker, 생성 요청은 웹 어댑터에서 처리한다.
 - 책 추가와 분석 실행 흐름은 `bookshelf`에, PDF 로딩·내장 텍스트·이미지 추출은 `lib/pdf`에 둔다. 리더와 서재 분석은 `app-services.ts`에서 구성한 OCR 서비스를 함께 사용한다. 텍스트 레이아웃(text layout)은 기존 글자 영역에 맞춰 선택 레이어의 크기·배율을 계산하며, 문서 전체 레이아웃을 재배치하지 않는다.
 - 테스트는 대상 파일 옆에 `reader-state.test.ts`, `pdf-viewport.test.tsx`처럼 둔다.
 
