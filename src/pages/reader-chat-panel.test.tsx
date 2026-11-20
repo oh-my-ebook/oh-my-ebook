@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { useWebLlmModelStore } from '../features/chat/lib/web-llm/model'
+import { webLlmProvider } from '@/app-services'
 import { ReaderChat } from '../features/chat/components/reader-chat'
 import { ReaderPanel } from '../features/reader/components/reader-panel'
 
@@ -69,7 +69,7 @@ describe('ReaderPanel', () => {
   })
 
   afterEach(() => {
-    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
+    act(() => webLlmProvider.modelStore.setState(webLlmProvider.modelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -124,7 +124,7 @@ describe('ReaderPanel', () => {
 
   it('넓은 화면에서 패널 안에 포커스가 있을 때 Escape를 누르면 패널을 닫고 열기 버튼으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
-    useWebLlmModelStore.setState({ status: 'ready' })
+    webLlmProvider.modelStore.setState({ status: 'ready' })
     render(<ReaderPanelHarness initialOpen isWideScreen />)
     await user.click(screen.getByRole('textbox', { name: CHAT_INPUT_LABEL }))
 

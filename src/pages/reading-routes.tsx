@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { EbookStoreError, EBOOK_STORE_ERROR_MESSAGES } from '@/lib/ebook-storage/errors'
 import { ebookStore } from '@/lib/ebook-storage/connection'
-import { readerOcrService } from '@/app-services'
-import { prepareCachedWebLlmModel } from '../features/chat/lib/web-llm/model'
+import { readerOcrService, webLlmProvider } from '@/app-services'
 import { EbookReaderPage } from '../pages/ebook-reader-page'
 import { BookshelfPage } from '../pages/bookshelf-page'
 import { OcrConsolePage } from '../pages/ocr-console-page'
@@ -94,7 +93,7 @@ function EbookReaderRoute() {
 function ReadingRoutes() {
   useEffect(() => {
     readerOcrService.init().catch(() => undefined)
-    prepareCachedWebLlmModel().catch((error: unknown) => {
+    webLlmProvider.prepareCachedModel().catch((error: unknown) => {
       console.warn('저장된 채팅 모델을 미리 준비하지 못했습니다.', error)
     })
   }, [])

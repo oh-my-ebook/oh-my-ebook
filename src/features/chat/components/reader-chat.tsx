@@ -7,6 +7,8 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react'
 import { useEffect, useState } from 'react'
+import { useStore } from 'zustand'
+import { webLlmProvider } from '@/app-services'
 import type { BookAnalysisStatus, BookInfo } from '@/lib/ebook-storage/types/book'
 import type { SearchChunkSource } from '@/lib/ebook-storage/types/search'
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/elements/thread.aui'
@@ -18,8 +20,7 @@ import type { SearchChunks } from '../lib/rag/search-book-chunks'
 import {
   createBookSearchWebLlmChatModelAdapter,
   webLlmChatModelAdapter,
-} from '../lib/web-llm/chat-adapter'
-import { useWebLlmModelStore } from '../lib/web-llm/model'
+} from '../lib/web-llm-chat-adapter'
 import { ModelDownloadAlert } from './model-download-alert'
 import { BookCitationNavigationProvider, BookCitations } from './book-citations'
 
@@ -117,7 +118,7 @@ function ReaderChatContent({
 }: ReaderChatContext &
   Pick<ReaderChatProps, 'analysisStatus' | 'onQuoteRequestHandled' | 'quoteRequest'>) {
   const assistant = useAui()
-  const isModelReady = useWebLlmModelStore((state) => state.status === 'ready')
+  const isModelReady = useStore(webLlmProvider.modelStore, (state) => state.status === 'ready')
   const isSearchReady = analysisStatus === undefined || analysisStatus === 'ready'
   useAssistantDataUI({ name: BOOK_CITATIONS_DATA_NAME, render: BookCitations })
   useAssistantContext({

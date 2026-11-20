@@ -7,7 +7,7 @@ import type { BookInfo } from '@/lib/ebook-storage/types/book'
 import { createPromiseController } from '../test/promise-controller'
 import { TestRouter } from '@/test/test-router'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
-import { useWebLlmModelStore } from '../features/chat/lib/web-llm/model'
+import { webLlmProvider } from '@/app-services'
 import { ReaderPage } from './reader-page'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
@@ -17,7 +17,8 @@ vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/app-services', () => ({
+vi.mock('@/app-services', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app-services')>()),
   readerOcrService: { readImage: readImageMock },
 }))
 vi.mock('@/lib/pdf/render-page-image', () => ({
@@ -42,7 +43,7 @@ vi.mock('@/components/ui/resizable', () => ({
 
 // 페이지 이동이 실제로 다음 질문의 컨텍스트에 반영되는지 확인하려면 응답 생성 과정을 들여다봐야 해서,
 // 실제 WebLLM 다운로드 없이 런타임 연결을 검증하도록 기본 어댑터만 제어 가능한 Mock으로 바꾼다.
-vi.mock('../features/chat/lib/web-llm/chat-adapter', async () => {
+vi.mock('../features/chat/lib/web-llm-chat-adapter', async () => {
   const { createMockChatModelAdapter } = await import('../lib/mock-chat-adapter')
   async function* spyingRespond(question: string, context: ModelContext) {
     respondSpy(question, context)
@@ -51,11 +52,7 @@ vi.mock('../features/chat/lib/web-llm/chat-adapter', async () => {
   return { webLlmChatModelAdapter: createMockChatModelAdapter(spyingRespond) }
 })
 
-// 다운로드 버튼을 누르는 시나리오가 추가돼도 jsdom에 없는 실제 WebGPU 경로를 타지 않게 한다.
-vi.mock('../features/chat/lib/web-llm/model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../features/chat/lib/web-llm/model')>()),
-  prepareWebLlmModel: vi.fn(async () => undefined),
-}))
+const modelStore = webLlmProvider.modelStore
 
 const PANEL_OPEN_LABEL = '함께 읽기 패널 열기'
 const PANEL_TITLE = '함께 읽기'
@@ -228,7 +225,7 @@ describe('Reader 보조 패널 연결', () => {
   afterEach(() => {
     loadPdfDocumentMock.mockReset()
     respondSpy.mockReset()
-    act(() => useWebLlmModelStore.setState(useWebLlmModelStore.getInitialState(), true))
+    act(() => modelStore.setState(modelStore.getInitialState(), true))
     vi.unstubAllGlobals()
   })
 
@@ -293,7 +290,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -317,7 +314,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     const { rerender } = await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -337,7 +334,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(false)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -359,7 +356,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock, 2)
 
     await user.click(screen.getByRole('button', { name: PANEL_OPEN_LABEL }))
@@ -393,7 +390,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     const citationAdapter = createCitationAdapter(2)
     await renderLoadedReader(resizeObserverMock, 2, undefined, citationAdapter)
 
@@ -427,7 +424,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock, 1, undefined, createCitationAdapter(1))
     const ocrLine = await screen.findByText('1페이지 OCR 본문')
 
@@ -455,7 +452,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock, 1, {
       author: '저자',
       publisher: '출판사',
@@ -476,7 +473,7 @@ describe('Reader 보조 패널 연결', () => {
     const user = userEvent.setup()
     const resizeObserverMock = setupResizeObserverMock()
     setupMatchMediaMock(true)
-    useWebLlmModelStore.setState({ status: 'ready' })
+    modelStore.setState({ status: 'ready' })
     await renderLoadedReader(resizeObserverMock)
 
     selectOcrText('1페이지 OCR 본문')
