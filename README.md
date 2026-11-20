@@ -64,7 +64,9 @@ src/
 ├── lib/
 │   ├── ebook-storage/
 │   │   ├── book/                  # 책 서비스·repository와 PDF 파일 저장 계약
-│   │   ├── adapters/opfs/         # OPFS에 PDF 원본을 저장하고 읽는 구현
+│   │   ├── adapters/
+│   │   │   ├── opfs/              # OPFS에 PDF 원본을 저장하고 읽는 구현
+│   │   │   └── sqlocal/           # 웹 DB 연결·초기화와 Drizzle 드라이버 보정
 │   │   ├── ocr/                   # OCR Service·Repository
 │   │   ├── search/                # 검색 Service·Repository와 BM25 SQL
 │   │   ├── types/                 # 책·OCR·검색 입력 및 조회 결과 타입
@@ -72,7 +74,6 @@ src/
 │   │   ├── connection.ts          # 화면에서 사용하는 저장소 인스턴스
 │   │   ├── storage-client.ts      # 저장 작업 순서 보장·오류 변환·재시도
 │   │   ├── storage.service.ts     # Service 조합·초기화·전체 삭제
-│   │   ├── database-connection.ts # SQLocal·Drizzle 연결과 DB 초기화
 │   │   ├── schema.ts              # Drizzle 테이블·컬럼 정의
 │   │   ├── schema-sql.ts          # 기존 초기 스키마·PRAGMA
 │   │   ├── validation.ts          # 입력·저장값 검증
