@@ -6,7 +6,7 @@ import type {
   BookAnalysisStatus,
   BookCover,
 } from '../types/book'
-import type { createBookRepository } from './book.repository'
+import type { BookRepository } from './book-repository.types'
 import type { PdfFileStore } from './pdf-file-store'
 import {
   isBookFileData,
@@ -32,7 +32,7 @@ export interface BookService {
 }
 
 export function createBookService(
-  bookRepository: ReturnType<typeof createBookRepository>,
+  bookRepository: BookRepository,
   pdfFileStore: PdfFileStore,
 ): BookService {
   // 책 정보를 먼저 등록해 중복을 확인하고, PDF 쓰기에 실패하면 등록을 되돌린다.
@@ -107,7 +107,8 @@ export function createBookService(
     getBook,
     deleteBook,
     listBooks: listLibraryBooks,
-    hasBook: (bookId) => runValidated('hasBook', bookRepository.hasBook, bookId, isIdentifier),
+    hasBook: (bookId) =>
+      runValidated('hasBook', (id) => bookRepository.hasBook(id), bookId, isIdentifier),
     updateProgress: async ({ bookId, page }) => {
       if (!Number.isSafeInteger(page) || page <= 0) {
         throw new InvalidDataError('updateProgress')
@@ -125,16 +126,26 @@ export function createBookService(
     },
     updateCover: ({ bookId, cover }) => bookRepository.updateCover({ bookId, cover }),
     failBookAnalysis: (bookId) =>
-      runValidated('failBookAnalysis', bookRepository.failBookAnalysis, bookId, isIdentifier),
+      runValidated(
+        'failBookAnalysis',
+        (id) => bookRepository.failBookAnalysis(id),
+        bookId,
+        isIdentifier,
+      ),
     getBookAnalysisStatus: (bookId) =>
       runValidated(
         'getBookAnalysisStatus',
-        bookRepository.getBookAnalysisStatus,
+        (id) => bookRepository.getBookAnalysisStatus(id),
         bookId,
         isIdentifier,
       ),
     retryBookAnalysis: (bookId) =>
-      runValidated('retryBookAnalysis', bookRepository.retryBookAnalysis, bookId, isIdentifier),
+      runValidated(
+        'retryBookAnalysis',
+        (id) => bookRepository.retryBookAnalysis(id),
+        bookId,
+        isIdentifier,
+      ),
   }
   return service
 }

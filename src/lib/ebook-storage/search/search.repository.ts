@@ -27,6 +27,7 @@ import {
   searchPostingRecordColumns,
 } from '../schema/search'
 import { NotFoundBookError } from '../storage-errors'
+import type { SearchPageQuery, SearchRepository } from './search-repository.types'
 import { createSearchChunksSql } from './search-sql'
 
 /**
@@ -94,7 +95,7 @@ async function storeSearchChunk(
   }
 }
 
-export function createSearchRepository(database: DatabaseConnection) {
+export function createSearchRepository(database: DatabaseConnection): SearchRepository {
   const { db, sqlocal } = database
 
   async function storeSearchIndex(searchIndex: SearchIndex): Promise<void> {
@@ -149,11 +150,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchChunkPage> {
+  }: SearchPageQuery): Promise<SearchChunkPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchChunksTable)
@@ -236,11 +233,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchTermPage> {
+  }: SearchPageQuery): Promise<SearchTermPage> {
     const [result] = await db
       .select({ total: countDistinct(searchTermsTable.id) })
       .from(searchTermsTable)
@@ -265,11 +258,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<SearchPostingPage> {
+  }: SearchPageQuery): Promise<SearchPostingPage> {
     const [result] = await db
       .select({ total: count() })
       .from(searchPostingsTable)
@@ -293,11 +282,7 @@ export function createSearchRepository(database: DatabaseConnection) {
     bookId,
     limit,
     offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<ChunkSourcePage> {
+  }: SearchPageQuery): Promise<ChunkSourcePage> {
     const [result] = await db
       .select({ total: count() })
       .from(chunkSourcesTable)

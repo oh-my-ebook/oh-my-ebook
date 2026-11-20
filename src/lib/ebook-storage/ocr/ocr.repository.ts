@@ -1,4 +1,5 @@
 import type { DatabaseConnection } from '../adapters/sqlocal/database-connection'
+import type { OcrRepository } from './ocr-repository.types'
 import type {
   InsertOcrPage,
   OcrPageQuery,
@@ -20,7 +21,7 @@ import {
 } from '../schema/ocr'
 import { NotFoundBookError } from '../storage-errors'
 
-export function createOcrRepository(database: DatabaseConnection) {
+export function createOcrRepository(database: DatabaseConnection): OcrRepository {
   const { db, sqlocal } = database
 
   async function initializeOcrPages(bookid: string): Promise<void> {

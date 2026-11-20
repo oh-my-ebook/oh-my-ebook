@@ -1,5 +1,6 @@
 import type { DatabaseConnection } from '../adapters/sqlocal/database-connection'
 import type { Book, InsertBook, BookAnalysisStatus, BookCover } from '../types/book'
+import type { BookRepository } from './book-repository.types'
 import { and, eq, gte } from 'drizzle-orm'
 import { booksTable } from '../schema'
 import { bookDetailsColumns } from '../schema/book'
@@ -7,7 +8,7 @@ import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../stor
 import { deleteUnusedSearchTerms, recalculateTermFrequencies } from '../search/search.repository'
 import { isBookAnalysisStatus } from '../validation'
 
-export function createBookRepository(database: DatabaseConnection) {
+export function createBookRepository(database: DatabaseConnection): BookRepository {
   const { db, sqlocal } = database
 
   async function addBook(book: InsertBook): Promise<string> {

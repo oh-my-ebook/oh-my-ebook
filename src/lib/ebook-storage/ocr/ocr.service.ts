@@ -1,68 +1,54 @@
-import type {
-  NextOcrPage,
-  StoredOcrPage,
-  OcrPageRecord,
-  OcrLinePage,
-  OcrLineForChunking,
-  OcrPageResult,
-  OcrPageQuery,
-} from '../types/ocr'
-import type { createOcrRepository } from './ocr.repository'
 import { isOcrPageQuery, isIdentifier, isOcrPageResult, runValidated } from '../validation'
+import type { OcrRepository } from './ocr-repository.types'
 
-export interface OcrService {
-  initializeOcrPages(bookId: string): Promise<void>
-  prepareOcrPagesForRun(bookId: string): Promise<void>
-  acquireNextOcrPage(bookId: string): Promise<NextOcrPage | null>
-  storeOcrPage(ocrPage: OcrPageResult): Promise<boolean>
-  failOcrPage(pageId: string): Promise<void>
-  getStoredOcrPage(ocrPageQuery: OcrPageQuery): Promise<StoredOcrPage | null>
-  listOcrPages(bookId: string): Promise<OcrPageRecord[]>
-  listOcrLines({
-    bookId,
-    limit,
-    offset,
-  }: {
-    bookId: string
-    limit: number
-    offset: number
-  }): Promise<OcrLinePage>
-  getOcrLinesForChunking(bookId: string): Promise<OcrLineForChunking[]>
-}
+export type OcrService = OcrRepository
 
-export function createOcrService(
-  ocrRepository: ReturnType<typeof createOcrRepository>,
-): OcrService {
+export function createOcrService(ocrRepository: OcrRepository): OcrService {
   const ocrService: OcrService = {
     initializeOcrPages: (bookId) =>
-      runValidated('initializeOcrPages', ocrRepository.initializeOcrPages, bookId, isIdentifier),
+      runValidated(
+        'initializeOcrPages',
+        (id) => ocrRepository.initializeOcrPages(id),
+        bookId,
+        isIdentifier,
+      ),
     prepareOcrPagesForRun: (bookId) =>
       runValidated(
         'prepareOcrPagesForRun',
-        ocrRepository.prepareOcrPagesForRun,
+        (id) => ocrRepository.prepareOcrPagesForRun(id),
         bookId,
         isIdentifier,
       ),
     acquireNextOcrPage: (bookId) =>
-      runValidated('acquireNextOcrPage', ocrRepository.acquireNextOcrPage, bookId, isIdentifier),
+      runValidated(
+        'acquireNextOcrPage',
+        (id) => ocrRepository.acquireNextOcrPage(id),
+        bookId,
+        isIdentifier,
+      ),
     storeOcrPage: (ocrPage) =>
-      runValidated('storeOcrPage', ocrRepository.storeOcrPage, ocrPage, isOcrPageResult),
+      runValidated(
+        'storeOcrPage',
+        (page) => ocrRepository.storeOcrPage(page),
+        ocrPage,
+        isOcrPageResult,
+      ),
     failOcrPage: (pageId) =>
-      runValidated('failOcrPage', ocrRepository.failOcrPage, pageId, isIdentifier),
+      runValidated('failOcrPage', (id) => ocrRepository.failOcrPage(id), pageId, isIdentifier),
     getStoredOcrPage: (ocrPageQuery) =>
       runValidated(
         'getStoredOcrPage',
-        ocrRepository.getStoredOcrPage,
+        (query) => ocrRepository.getStoredOcrPage(query),
         ocrPageQuery,
         isOcrPageQuery,
       ),
     listOcrPages: (bookId) =>
-      runValidated('listOcrPages', ocrRepository.listOcrPages, bookId, isIdentifier),
+      runValidated('listOcrPages', (id) => ocrRepository.listOcrPages(id), bookId, isIdentifier),
     listOcrLines: (ocrLineQuery) => ocrRepository.listOcrLines(ocrLineQuery),
     getOcrLinesForChunking: (bookId) =>
       runValidated(
         'getOcrLinesForChunking',
-        ocrRepository.getOcrLinesForChunking,
+        (id) => ocrRepository.getOcrLinesForChunking(id),
         bookId,
         isIdentifier,
       ),
