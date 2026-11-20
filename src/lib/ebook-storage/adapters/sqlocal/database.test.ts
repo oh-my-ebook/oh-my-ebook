@@ -1,15 +1,15 @@
-import { createBookRepository } from './book/book.repository'
-import { createOcrRepository } from './ocr/ocr.repository'
-import { createSearchRepository } from './search/search.repository'
+import { createBookRepository } from './book.repository'
+import { createOcrRepository } from './ocr.repository'
+import { createSearchRepository } from './search.repository'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { DrizzleQueryError } from 'drizzle-orm'
-import { createNewBook, createTestConnection } from '../../test/sqlocal'
+import { createNewBook, createTestConnection } from '@/test/sqlocal'
 import {
   DeletedBookError,
   DuplicateBookError,
-  getErrorCode,
   NotFoundBookError,
-} from './storage-errors'
+} from '@shared/lib/ebook-storage/storage-errors'
+import { getErrorCode } from '../../storage-errors'
 
 async function setup() {
   const db = await createTestConnection()

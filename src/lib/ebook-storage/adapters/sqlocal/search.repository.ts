@@ -1,5 +1,5 @@
 import type { TransactionHandle } from 'sqlocal'
-import type { DatabaseConnection } from '../adapters/sqlocal/database-connection'
+import type { DatabaseConnection } from './database-connection'
 import type {
   SearchIndex,
   ChunkSourcePage,
@@ -11,7 +11,7 @@ import type {
   SearchChunkQuery,
   SearchChunkResult,
   SearchChunkSource,
-} from '../types/search'
+} from '@shared/lib/ebook-storage/types/search'
 import { asc, count, countDistinct, eq, inArray, notExists, sql } from 'drizzle-orm'
 import {
   booksTable,
@@ -20,14 +20,17 @@ import {
   searchChunksTable,
   searchPostingsTable,
   searchTermsTable,
-} from '../schema'
+} from '@shared/lib/ebook-storage/schema'
 import {
   chunkSourceRecordColumns,
   searchChunkSourceColumns,
   searchPostingRecordColumns,
-} from '../schema/search'
-import { NotFoundBookError } from '../storage-errors'
-import type { SearchPageQuery, SearchRepository } from './search-repository.types'
+} from '@shared/lib/ebook-storage/schema/search'
+import { NotFoundBookError } from '@shared/lib/ebook-storage/storage-errors'
+import type {
+  SearchPageQuery,
+  SearchRepository,
+} from '@shared/lib/ebook-storage/search/search-repository.types'
 import { createSearchChunksSql } from './search-sql'
 
 /**

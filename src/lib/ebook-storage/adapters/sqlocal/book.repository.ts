@@ -1,12 +1,21 @@
-import type { DatabaseConnection } from '../adapters/sqlocal/database-connection'
-import type { Book, InsertBook, BookAnalysisStatus, BookCover } from '../types/book'
-import type { BookRepository } from './book-repository.types'
+import type { DatabaseConnection } from './database-connection'
+import type {
+  Book,
+  InsertBook,
+  BookAnalysisStatus,
+  BookCover,
+} from '@shared/lib/ebook-storage/types/book'
+import type { BookRepository } from '@shared/lib/ebook-storage/book/book-repository.types'
 import { and, eq, gte } from 'drizzle-orm'
-import { booksTable } from '../schema'
-import { bookDetailsColumns } from '../schema/book'
-import { DeletedBookError, DuplicateBookError, NotFoundBookError } from '../storage-errors'
-import { deleteUnusedSearchTerms, recalculateTermFrequencies } from '../search/search.repository'
-import { isBookAnalysisStatus } from '../validation'
+import { booksTable } from '@shared/lib/ebook-storage/schema'
+import { bookDetailsColumns } from '@shared/lib/ebook-storage/schema/book'
+import {
+  DeletedBookError,
+  DuplicateBookError,
+  NotFoundBookError,
+} from '@shared/lib/ebook-storage/storage-errors'
+import { deleteUnusedSearchTerms, recalculateTermFrequencies } from './search.repository'
+import { isBookAnalysisStatus } from '@shared/lib/ebook-storage/validation'
 
 export function createBookRepository(database: DatabaseConnection): BookRepository {
   const { db, sqlocal } = database

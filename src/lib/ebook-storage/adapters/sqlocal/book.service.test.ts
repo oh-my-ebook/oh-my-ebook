@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { createNewBook, createTestConnection } from '@/test/sqlocal'
 import { createBookRepository } from './book.repository'
-import { createBookService } from './book.service'
+import { createBookService } from '@shared/lib/ebook-storage/book/book.service'
 
 function createPdfFileStore(pdfData = new Uint8Array()) {
   return {
