@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookFileData, createNewBook, createTestConnection } from '../../test/sqlocal'
 import { createBookRepository } from './book/book.repository'
-import * as connection from './database-connection'
+import * as connection from './adapters/sqlocal/database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './adapters/opfs/pdf-files'
 
-vi.mock('./database-connection', () => ({
+vi.mock('./adapters/sqlocal/database-connection', () => ({
   initializeDatabase: vi.fn(),
   resetDatabase: vi.fn(),
   get db() {

@@ -1,4 +1,4 @@
-import type { DatabaseConnection } from '../database-connection'
+import type { DatabaseConnection } from '../adapters/sqlocal/database-connection'
 import type {
   InsertOcrPage,
   OcrPageQuery,

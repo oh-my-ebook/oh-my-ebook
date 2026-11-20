@@ -1,5 +1,5 @@
 import type { EbookStore } from './ebook-store'
-import * as database from './database-connection'
+import * as database from './adapters/sqlocal/database-connection'
 import { createBookRepository } from './book/book.repository'
 import { createBookService } from './book/book.service'
 import * as opfsPdfFiles from './adapters/opfs/pdf-files'
