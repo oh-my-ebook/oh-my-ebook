@@ -1,8 +1,8 @@
 import type { KiwiRequestType, KIWI_REQUEST } from './kiwi.const'
 
-export interface KiwiTools {
+export interface KiwiTextAnalyzer {
   tokenize(text: string): Array<{ str: string; tag: string }>
-  joinSent(morphs: Array<{ form: string; tag: string }>): { str: string }
+  joinSentence(morphemes: Array<{ form: string; tag: string }>): { str: string }
 }
 
 export interface KiwiSearchTerm {
@@ -14,13 +14,6 @@ export interface KiwiWorkerRequest {
   id: number
   type: KiwiRequestType
   text: string
-}
-
-export interface PendingRequest {
-  type: KiwiRequestType
-  resolve(result: unknown): void
-  reject(error: unknown): void
-  removeAbortListener(): void
 }
 
 interface NormalizeTextResponse {

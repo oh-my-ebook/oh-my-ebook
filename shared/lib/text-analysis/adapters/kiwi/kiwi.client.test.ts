@@ -66,7 +66,7 @@ describe('KiwiClient', () => {
     await expect(normalization).resolves.toBe('정규화한 문장')
     await expect(extraction).resolves.toEqual([{ term: '검색', termFrequency: 2 }])
     expect(workers).toHaveLength(1)
-    expect(String(worker.url)).toContain('/lib/kiwi/kiwi.worker.ts')
+    expect(worker.url.href).toBe(new URL('./kiwi.worker.ts', import.meta.url).href)
     expect(worker.requests).toEqual([
       { id: 1, type: 'normalize-text', text: 'OCR 문장' },
       { id: 2, type: 'extract-search-terms', text: '전자책 검색 검색' },

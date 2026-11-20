@@ -1,5 +1,5 @@
 import type { SearchChunkQuery, SearchChunkResult } from '@/lib/ebook-storage/types/search'
-import { kiwiClient } from '@/lib/kiwi/kiwi.client'
+import { kiwiClient } from '@shared/lib/text-analysis/adapters/kiwi/kiwi.client'
 import type { TextMessagePart, ThreadMessage } from '@assistant-ui/react'
 
 const SEARCH_CHUNK_LIMIT = 5
