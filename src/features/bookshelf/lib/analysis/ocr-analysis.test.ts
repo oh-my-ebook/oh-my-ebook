@@ -9,7 +9,7 @@ async function createAnalysisStub() {
   const recognize = vi.fn()
 
   vi.doMock('@/lib/pdf/load-document', () => ({ loadPdfDocument }))
-  vi.doMock('@/lib/reader-ocr/reader-ocr.service', () => ({ readerOcrService: { recognize } }))
+  vi.doMock('@/app-services', () => ({ readerOcrService: { recognize } }))
   const renderPdfPageForOcr = vi.fn(async () => ({
     bytes: new Uint8Array([1]),
     mimeType: 'image/png',
@@ -37,7 +37,7 @@ describe('runOcrAnalysis', () => {
   afterEach(() => {
     vi.resetModules()
     vi.doUnmock('@/lib/pdf/load-document')
-    vi.doUnmock('@/lib/reader-ocr/reader-ocr.service')
+    vi.doUnmock('@/app-services')
     vi.doUnmock('@/lib/pdf/render-page-image')
     vi.doUnmock('./search-chunking')
     vi.doUnmock('@shared/lib/text-analysis/adapters/kiwi/kiwi.client')

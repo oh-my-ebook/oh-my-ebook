@@ -11,7 +11,6 @@ import { usePdfDocument } from '../hooks/use-pdf-document'
 import { useReaderLayout } from '../hooks/use-reader-layout'
 import { calculatePageSpread, type PageViewMode } from '../lib/page-spread'
 import type { PdfDocumentSource } from '@/lib/pdf/document'
-import type { StoredOcrPageResult } from '@/lib/reader-ocr/reader-ocr.types'
 import { focusTocPageThumbnail } from '../lib/toc-focus'
 import {
   FIT_HEIGHT_ZOOM,
@@ -24,7 +23,7 @@ import {
   type ReaderZoom,
 } from '../lib/reader-zoom'
 import { PageNavigator } from './page-navigator'
-import { PdfViewport, type OcrText } from './pdf-viewport'
+import { PdfViewport, type OcrText, type StoredOcrPageResult } from './pdf-viewport'
 import { ReaderPanel } from './reader-panel'
 import { ReaderToc } from './reader-toc'
 import { ReaderToolbar } from './reader-toolbar'

@@ -21,12 +21,13 @@ pnpm dev
 
 ### 코드 구조
 
-기능 전용 코드는 `src/features/<기능>/`에 모은다. 여러 기능이 함께 쓰는 Kiwi 텍스트 분석 코드는 저장소 루트의 `shared/`에 둔다.
+기능 전용 코드는 `src/features/<기능>/`에 모은다. 여러 기능에서 함께 쓰는 OCR과 Kiwi 텍스트 분석 모듈은 저장소 루트의 `shared/`에 둔다.
 아래는 현재 주요 모듈의 구조다. 테스트 파일과 일부 화면·유틸리티는 생략했다.
 
 ```text
 src/
 ├── app.tsx                         # 랜딩 라우트·독서 라우트 지연 로딩
+├── app-services.ts                 # PaddleOCR과 Kiwi를 연결해 웹 앱의 OCR 서비스 구성
 ├── main.tsx                        # React 진입점
 ├── pages/                          # 라우팅·기능 화면 조합·저장소 전달
 │   ├── reading-routes.tsx          # 서재·리더·콘솔 등의 라우트 구성
@@ -77,30 +78,34 @@ src/
 │   │   ├── errors.ts              # 공개 오류 코드·메시지·오류 클래스
 │   │   ├── storage-errors.ts      # 내부 오류와 공개 오류 코드 변환
 │   │   └── browser-storage.ts     # 브라우저 지원 여부·저장소 사용량
-│   ├── pdf/
-│   │   ├── document.ts             # 문서·페이지 타입 정의와 좌표 배율
-│   │   ├── load-document.ts        # PDF 로딩·취소·자원 정리
-│   │   ├── render-page-image.ts    # OCR 입력용 PDF 페이지 이미지 변환
-│   │   ├── extract-text.ts         # 내장 텍스트 추출과 좌표 변환
-│   │   ├── extract-images.ts       # 이미지 영역 추출·병합
-│   │   ├── text-layout.ts          # 텍스트 선택 레이어의 글꼴 크기·가로 배율 계산
-│   │   └── errors.ts               # PDF 로딩 오류 분류·변환
-│   └── reader-ocr/
-│       ├── reader-ocr.service.ts   # OCR 인식·읽기 순서 정렬·Kiwi 후처리
-│       ├── reader-ocr.types.ts     # 이미지·텍스트 좌표·OCR 계약
-│       ├── reader-ocr.util.ts      # OCR 텍스트 레이어 크기 계산
-│       ├── reading-order.ts        # OCR 결과의 읽기 순서 계산
-│       └── adaptors/
-│           └── paddle-ocr/         # PaddleOCR 초기화·인식·요청 취소
+│   └── pdf/
+│       ├── document.ts             # 문서·페이지 타입 정의와 좌표 배율
+│       ├── load-document.ts        # PDF 로딩·취소·자원 정리
+│       ├── render-page-image.ts    # OCR 입력용 PDF 페이지 이미지 변환
+│       ├── extract-text.ts         # 내장 텍스트 추출과 좌표 변환
+│       ├── extract-images.ts       # 이미지 영역 추출·병합
+│       ├── text-layout.ts          # 텍스트 선택 레이어의 글꼴 크기·가로 배율 계산
+│       └── errors.ts               # PDF 로딩 오류 분류·변환
 └── index.css                       # Tailwind 설정·공통 테마
 
-shared/lib/text-analysis/adapters/kiwi/
-├── kiwi.client.ts                  # 호출부에서 쓰는 정규화·검색어 추출 API와 요청 취소
-├── kiwi.worker.ts                  # Worker 메시지 처리와 형태소 분석
-├── kiwi.provider.ts                # WASM·모델 초기화와 Kiwi 인스턴스 캐싱
-├── kiwi.types.ts                   # 분석 결과와 Worker 메시지 타입
-├── kiwi.util.ts                    # 줄을 유지하는 텍스트 정규화와 검색어 집계
-└── kiwi.const.ts                   # 요청 종류·모델 파일·검색어 품사
+shared/
+└── lib/
+    ├── ocr/
+    │   ├── reader-ocr.service.ts     # 이미지 인식·읽기 순서 정렬·텍스트 정규화
+    │   ├── reader-ocr.types.ts       # 이미지·텍스트 좌표·인식기와 정규화기 계약
+    │   ├── reader-ocr.util.ts        # 브라우저 Canvas에서 선택 레이어의 글자 크기 계산
+    │   ├── reading-order.ts          # OCR 결과의 읽기 순서 계산
+    │   └── adapters/
+    │       └── paddle-ocr/           # PaddleOCR 초기화·인식·요청 취소
+    └── text-analysis/
+        └── adapters/
+            └── kiwi/
+                ├── kiwi.client.ts    # 호출부에서 쓰는 정규화·검색어 추출 API와 요청 취소
+                ├── kiwi.worker.ts    # Worker 메시지 처리와 형태소 분석
+                ├── kiwi.provider.ts  # WASM·모델 초기화와 Kiwi 인스턴스 캐싱
+                ├── kiwi.types.ts     # 분석 결과와 Worker 메시지 타입
+                ├── kiwi.util.ts      # 줄을 유지하는 텍스트 정규화와 검색어 집계
+                └── kiwi.const.ts     # 요청 종류·모델 파일·검색어 품사
 ```
 
 - 앱·페이지·컴포넌트·훅·유틸리티 파일 이름은 모두 kebab-case로 작성한다. 컴포넌트 함수 이름은 PascalCase를 사용한다.
@@ -109,7 +114,7 @@ shared/lib/text-analysis/adapters/kiwi/
 - feature끼리 내부 컴포넌트·훅·로직을 직접 import하지 않는다. 리더와 채팅 연결처럼 여러 기능이 만나는 부분은 앱이나 페이지에서 조합한다.
 - 전자책 저장소는 책 정보·표지·PDF 원본·독서 위치·OCR 결과·검색 색인을 관리한다. 페이지에서 공통 저장소를 전달하고, 서재·리더·콘솔은 필요한 저장소 메서드를 인터페이스로 정의한다.
 - 책·검색·OCR 데이터 타입은 `lib/ebook-storage/types/`에 모은다. DB 실행용 Worker와 OPFS DB 연결은 SQLocal이 관리한다. PDF 파일 작업은 비동기 파일 API로 처리한다. Kiwi Worker는 해당 공통 모듈에, WebLLM Worker는 채팅 기능에 둔다.
-- 책 추가와 분석 실행 흐름은 `bookshelf`에, PDF 로딩·내장 텍스트·이미지 추출은 `lib/pdf`에 둔다. 리더와 서재 분석의 OCR은 `lib/reader-ocr`의 같은 서비스를 사용한다. 텍스트 레이아웃(text layout)은 기존 글자 영역에 맞춰 선택 레이어의 크기·배율을 계산하며, 문서 전체 레이아웃을 재배치하지 않는다.
+- 책 추가와 분석 실행 흐름은 `bookshelf`에, PDF 로딩·내장 텍스트·이미지 추출은 `lib/pdf`에 둔다. 리더와 서재 분석은 `app-services.ts`에서 구성한 OCR 서비스를 함께 사용한다. 텍스트 레이아웃(text layout)은 기존 글자 영역에 맞춰 선택 레이어의 크기·배율을 계산하며, 문서 전체 레이아웃을 재배치하지 않는다.
 - 테스트는 대상 파일 옆에 `reader-state.test.ts`, `pdf-viewport.test.tsx`처럼 둔다.
 
 ### 테스트

@@ -2,8 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPromiseController } from '@/test/promise-controller'
-import type { PageImage, TextBox } from '@/lib/reader-ocr/reader-ocr.types'
-import type { ReaderOcrClient } from './reader-ocr.types'
+import type { PageImage, ReaderOcrClient, TextBox } from './reader-ocr.types'
 import { ReaderOcrService } from './reader-ocr.service'
 
 afterEach(() => vi.restoreAllMocks())
