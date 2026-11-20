@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BookListItem } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@shared/lib/ebook-storage/types/book'
 import { BookCard } from './book-card'
 
 const book: BookListItem = {

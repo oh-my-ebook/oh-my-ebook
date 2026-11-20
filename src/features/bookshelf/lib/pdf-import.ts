@@ -1,5 +1,5 @@
 import { GlobalWorkerOptions, getDocument, type PDFPageProxy } from 'pdfjs-dist'
-import type { BookFileData } from '@/lib/ebook-storage/types/book'
+import type { BookFileData } from '@shared/lib/ebook-storage/types/book'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl

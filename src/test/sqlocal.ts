@@ -2,8 +2,8 @@ import { createDrizzleDatabase } from '../lib/ebook-storage/adapters/sqlocal/dri
 import type { DatabaseConnection } from '../lib/ebook-storage/adapters/sqlocal/database-connection'
 import { onTestFinished, vi } from 'vitest'
 import type { SQLocalDrizzle } from 'sqlocal/drizzle'
-import type { BookFileData, Book } from '../lib/ebook-storage/types/book'
-import { INITIAL_SCHEMA_SQL } from '../lib/ebook-storage/schema-sql'
+import type { BookFileData, Book } from '@shared/lib/ebook-storage/types/book'
+import { INITIAL_SCHEMA_SQL } from '@shared/lib/ebook-storage/schema-sql'
 
 export async function createTestDatabase(schema = INITIAL_SCHEMA_SQL) {
   const { SQLocalDrizzle } =

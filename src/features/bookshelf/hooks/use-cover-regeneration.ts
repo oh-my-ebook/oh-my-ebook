@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BookListItem } from '@/lib/ebook-storage/types/book'
+import type { BookListItem } from '@shared/lib/ebook-storage/types/book'
 import { EbookStoreError } from '@/lib/ebook-storage/errors'
 import type { BookshelfStore } from '../lib/bookshelf-store'
 import { analyzePdf } from '../lib/pdf-import'

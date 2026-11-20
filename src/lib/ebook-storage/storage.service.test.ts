@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookFileData, createNewBook, createTestConnection } from '../../test/sqlocal'
-import { createBookRepository } from './book/book.repository'
+import { createBookRepository } from './adapters/sqlocal/book.repository'
 import * as connection from './adapters/sqlocal/database-connection'
 import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './adapters/opfs/pdf-files'
 
@@ -177,7 +177,7 @@ describe('책 저장 작업', () => {
 
   it('빈 ID로 제목·표지를 수정하거나 없는 책을 조회하면 오류를 반환한다', async () => {
     const { storageService } = await setup()
-    const { DeletedBookError } = await import('./storage-errors')
+    const { DeletedBookError } = await import('@shared/lib/ebook-storage/storage-errors')
     const bookCover = {
       coverData: new Uint8Array([1]).buffer,
       coverMime: 'image/png',

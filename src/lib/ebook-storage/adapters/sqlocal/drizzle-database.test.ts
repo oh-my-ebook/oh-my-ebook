@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { createNewBook, createTestConnection } from '@/test/sqlocal'
-import { booksTable, ocrPagesTable, searchTermsTable } from '../../schema'
+import { booksTable, ocrPagesTable, searchTermsTable } from '@shared/lib/ebook-storage/schema'
 
 describe('Drizzle 저장 시각', () => {
   it('등록 시 생성·수정 시각을 밀리초로 채우고 분석 완료 시각은 비워 둔다', async () => {

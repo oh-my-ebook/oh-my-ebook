@@ -6,7 +6,7 @@ import {
   GET_SCHEMA_VERSION_SQL,
   INITIAL_SCHEMA_SQL,
   REMOVE_COVER_STATUS_SQL,
-} from '../../schema-sql'
+} from '@shared/lib/ebook-storage/schema-sql'
 
 export interface DatabaseConnection {
   sqlocal: SQLocalDrizzle

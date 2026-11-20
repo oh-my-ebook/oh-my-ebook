@@ -2,7 +2,7 @@ import { locks } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SQLocalDrizzle } from 'sqlocal/drizzle'
 import { createTestDatabase } from '@/test/sqlocal'
-import { searchTermsTable } from '../../schema'
+import { searchTermsTable } from '@shared/lib/ebook-storage/schema'
 
 vi.mock('sqlocal/drizzle', () => ({ SQLocalDrizzle: vi.fn() }))
 afterEach(() => {

@@ -1,4 +1,4 @@
-import type { EbookStore } from './ebook-store'
+import type { EbookStore } from '@shared/lib/ebook-storage/ebook-store'
 import { EbookStoreError } from './errors'
 import { getErrorCode } from './storage-errors'
 
