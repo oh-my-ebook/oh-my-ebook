@@ -31,10 +31,7 @@ function setupResizeObserverMock() {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
 }
 
-// ReaderChat이 실제로 렌더링될 때 useLocalRuntime + Thread가 만드는 ThreadMessage가
-// webLlmChatModelAdapter의 toWebLlmMessages를 거쳐 엔진에 전달하는 실제 요청 형태를 확인한다.
-// 다른 테스트는 전부 webLlmChatModelAdapter 자체를 Mock으로 치환해서, 이 경로는 지금까지
-// 한 번도 검증된 적이 없다.
+// ReaderChat의 입력이 WebLLM 요청에 전달되고 응답이 화면에 표시되는지 확인한다.
 describe('ReaderChat + 실제 webLlmChatModelAdapter 연결', () => {
   const restoreGpu: (() => void)[] = []
 

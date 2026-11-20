@@ -1,13 +1,10 @@
 import { TriangleAlert } from 'lucide-react'
+import { useStore } from 'zustand'
+import { webLlmProvider } from '@/app-services'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import {
-  prepareWebLlmModel,
-  useWebLlmModelStore,
-  type WebLlmModelPhase,
-  type WebLlmModelStatus,
-} from '../lib/web-llm/model'
+import type { WebLlmModelPhase, WebLlmModelStatus } from '@/lib/chat/adapters/web-llm/web-llm.type'
 
 const BUTTON = {
   idle: { text: '다운로드', label: '모델 다운로드' },
@@ -37,14 +34,14 @@ function getStatusText(status: WebLlmModelStatus, error?: string) {
 }
 
 function handleDownload() {
-  prepareWebLlmModel().catch((error: unknown) => {
+  webLlmProvider.prepareModel().catch((error: unknown) => {
     // 화면에는 사용자용 안내 문구만 보이므로, 원인 파악을 위해 실제 에러는 콘솔에 남긴다.
     console.error('모델을 준비하는 중 오류가 발생했습니다.', error)
   })
 }
 
 export function ModelDownloadAlert() {
-  const { status, phase, progress, progressDetail, error } = useWebLlmModelStore()
+  const { status, phase, progress, progressDetail, error } = useStore(webLlmProvider.modelStore)
   const button =
     status === 'loading' && phase === 'downloading'
       ? { text: '다운로드 중', label: '모델 다운로드 중' }

@@ -16,9 +16,7 @@ vi.mock('@/lib/ebook-storage/connection', () => ({
 }))
 vi.mock('@/app-services', () => ({
   readerOcrService: { init: vi.fn(async () => undefined) },
-}))
-vi.mock('../features/chat/lib/web-llm/model', () => ({
-  prepareCachedWebLlmModel: vi.fn(async () => undefined),
+  webLlmProvider: { prepareCachedModel: vi.fn(async () => undefined) },
 }))
 vi.mock('./reader-page', () => ({
   ReaderPage: ({ title }: { title: string }) => <main aria-label="독서 화면">{title}</main>,

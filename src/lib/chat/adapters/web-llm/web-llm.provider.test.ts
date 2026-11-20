@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPromiseController } from '../../../../test/promise-controller'
-import { stubGpu, stubSupportedGpu, stubWorker } from '../../../../test/web-llm-stubs'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { createPromiseController } from '@/test/promise-controller'
+import { stubGpu, stubSupportedGpu, stubWorker } from '@/test/web-llm-stubs'
 import type { InitProgressReport } from '@mlc-ai/web-llm'
-import type { WebLlmEngine } from './model'
+import { WEBLLM_MODEL_ID, WebLlmProvider } from './web-llm.provider'
+import type { WebLlmEngine } from './web-llm.type'
 
 const NETWORK_ERROR_MESSAGE =
   '모델 다운로드 연결에 실패했습니다. VPN이나 네트워크 설정을 확인하고 다시 시도해 주세요.'
@@ -20,33 +21,20 @@ function mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine: unknown) {
   vi.doMock('@mlc-ai/web-llm', () => ({ CreateWebWorkerMLCEngine: createWebWorkerMLCEngine }))
 }
 
-// 엔진 캐시와 상태 store가 모듈 범위에 있으므로 테스트마다 새 모듈을 불러온다.
-async function importFreshModule() {
-  const module = await import('./model')
-  return { ...module, getState: () => module.useWebLlmModelStore.getState() }
-}
-
 describe('WebLLM 모델 로딩과 상태', () => {
-  const restoreGpu: (() => void)[] = []
-
-  beforeEach(() => {
-    vi.resetModules()
-  })
-
   afterEach(() => {
-    restoreGpu.splice(0).forEach((restore) => restore())
     vi.unstubAllGlobals()
     vi.doUnmock('@mlc-ai/web-llm')
   })
 
   it('WebGPU를 지원하지 않으면 에러 상태와 브라우저 안내 메시지를 남긴다', async () => {
-    restoreGpu.push(stubGpu(undefined))
+    onTestFinished(stubGpu(undefined))
     stubWorker()
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
+    await expect(provider.prepareModel()).rejects.toThrow()
 
-    expect(getState()).toMatchObject({
+    expect(provider.modelStore.getState()).toMatchObject({
       status: 'error',
       error:
         '이 브라우저나 기기에서 필요한 WebGPU 기능을 사용할 수 없습니다. 데스크톱 Chrome 또는 Edge에서 열어 주세요.',
@@ -54,18 +42,18 @@ describe('WebLLM 모델 로딩과 상태', () => {
   })
 
   it('shader-f16을 지원하지 않으면 에러 상태와 브라우저 안내 메시지를 남긴다', async () => {
-    restoreGpu.push(stubGpu({ requestAdapter: async () => ({ features: new Set() }) }))
+    onTestFinished(stubGpu({ requestAdapter: async () => ({ features: new Set() }) }))
     stubWorker()
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
+    await expect(provider.prepareModel()).rejects.toThrow()
 
-    expect(getState().status).toBe('error')
-    expect(getState().error).toContain('WebGPU 기능을 사용할 수 없습니다')
+    expect(provider.modelStore.getState().status).toBe('error')
+    expect(provider.modelStore.getState().error).toContain('WebGPU 기능을 사용할 수 없습니다')
   })
 
   it('모델 로딩 중 진행률을 갱신하고 완료되면 준비 완료 상태가 된다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     const engineController = createPromiseController<WebLlmEngine>()
     mockCreateWebWorkerMLCEngine(
@@ -84,39 +72,57 @@ describe('WebLLM 모델 로딩과 상태', () => {
         },
       ),
     )
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    const preparePromise = prepareWebLlmModel()
-    await vi.waitFor(() => expect(getState().progress).toBe(50))
-    expect(getState().status).toBe('loading')
+    const preparePromise = provider.prepareModel()
+    await vi.waitFor(() => expect(provider.modelStore.getState().progress).toBe(50))
+    expect(provider.modelStore.getState().status).toBe('loading')
 
     engineController.resolve(createIdleEngine())
     await preparePromise
 
-    expect(getState()).toMatchObject({ status: 'ready', progress: 100 })
+    expect(provider.modelStore.getState()).toMatchObject({ status: 'ready', progress: 100 })
   })
 
   it('이미 준비됐거나 로딩 중이면 모델을 다시 불러오지 않는다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     const createWebWorkerMLCEngine = vi.fn(async () => createIdleEngine())
     mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
-    const { prepareWebLlmModel } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await prepareWebLlmModel()
-    await prepareWebLlmModel()
+    await provider.prepareModel()
+    await provider.prepareModel()
 
     expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(1)
   })
 
+  it('별도로 만든 Provider는 모델 준비 상태와 엔진을 각각 관리한다', async () => {
+    onTestFinished(stubSupportedGpu())
+    stubWorker()
+    mockCreateWebWorkerMLCEngine(vi.fn(async () => createIdleEngine()))
+    const firstProvider = new WebLlmProvider()
+    const secondProvider = new WebLlmProvider()
+
+    await firstProvider.prepareModel()
+
+    expect(firstProvider.modelStore.getState().status).toBe('ready')
+    expect(secondProvider.modelStore.getState().status).toBe('idle')
+    await expect(secondProvider.getReadyEngine()).rejects.toThrow('모델이 준비되지 않았습니다.')
+
+    await secondProvider.prepareModel()
+
+    expect(await firstProvider.getReadyEngine()).not.toBe(await secondProvider.getReadyEngine())
+  })
+
   it('모델을 8192토큰 컨텍스트로 불러온다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     const createWebWorkerMLCEngine = vi.fn(async () => createIdleEngine())
     mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
-    const { prepareWebLlmModel, WEBLLM_MODEL_ID } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await prepareWebLlmModel()
+    await provider.prepareModel()
 
     expect(createWebWorkerMLCEngine).toHaveBeenCalledWith(
       expect.anything(),
@@ -127,22 +133,25 @@ describe('WebLLM 모델 로딩과 상태', () => {
   })
 
   it('네트워크 오류로 로딩에 실패하면 재시도 안내를 남기고, 재시도하면 다시 불러온다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     const workerInstances = stubWorker()
     const createWebWorkerMLCEngine = vi
       .fn()
       .mockRejectedValueOnce(new Error('failed to fetch model shard'))
       .mockResolvedValueOnce(createIdleEngine())
     mockCreateWebWorkerMLCEngine(createWebWorkerMLCEngine)
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
-    expect(getState()).toMatchObject({ status: 'error', error: NETWORK_ERROR_MESSAGE })
+    await expect(provider.prepareModel()).rejects.toThrow()
+    expect(provider.modelStore.getState()).toMatchObject({
+      status: 'error',
+      error: NETWORK_ERROR_MESSAGE,
+    })
     expect(workerInstances[0]?.terminate).toHaveBeenCalledOnce()
 
-    await prepareWebLlmModel()
+    await provider.prepareModel()
 
-    expect(getState().status).toBe('ready')
+    expect(provider.modelStore.getState().status).toBe('ready')
     expect(createWebWorkerMLCEngine).toHaveBeenCalledTimes(2)
   })
 
@@ -162,32 +171,35 @@ describe('WebLLM 모델 로딩과 상태', () => {
     // "GPU"만 언급된 오류는 GPU 메모리 안내로 단정하지 않는다.
     ['메모리와 무관한 GPU 오류', 'failed to query GPU vendor', UNKNOWN_ERROR_MESSAGE],
   ])('%s 오류는 원인에 맞는 안내를 남긴다', async (_case, rawMessage, expectedMessage) => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     mockCreateWebWorkerMLCEngine(vi.fn().mockRejectedValue(new Error(rawMessage)))
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareWebLlmModel()).rejects.toThrow()
+    await expect(provider.prepareModel()).rejects.toThrow()
 
-    expect(getState().error).toBe(expectedMessage)
+    expect(provider.modelStore.getState().error).toBe(expectedMessage)
   })
 
   it('워커 로딩 중 오류가 발생하면 안내 메시지를 남긴다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     const workerInstances = stubWorker()
     mockCreateWebWorkerMLCEngine(vi.fn(() => new Promise(() => undefined)))
-    const { prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    const preparePromise = prepareWebLlmModel()
+    const preparePromise = provider.prepareModel()
     await vi.waitFor(() => expect(workerInstances).toHaveLength(1))
     workerInstances[0]?.dispatchEvent(new Event('error'))
 
     await expect(preparePromise).rejects.toThrow()
-    expect(getState()).toMatchObject({ status: 'error', error: UNKNOWN_ERROR_MESSAGE })
+    expect(provider.modelStore.getState()).toMatchObject({
+      status: 'error',
+      error: UNKNOWN_ERROR_MESSAGE,
+    })
   })
 
   it('다운로드와 GPU 로딩·실행 준비의 진행률을 구분하고 이전 단계의 상세를 지운다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     const controller = createPromiseController<WebLlmEngine>()
     const createEngine = vi.fn(
@@ -207,10 +219,10 @@ describe('WebLLM 모델 로딩과 상태', () => {
       },
     )
     mockCreateWebWorkerMLCEngine(createEngine)
-    const { prepareWebLlmModel, getState } = await importFreshModule()
-    const loading = prepareWebLlmModel()
+    const provider = new WebLlmProvider()
+    const loading = provider.prepareModel()
     await vi.waitFor(() =>
-      expect(getState()).toMatchObject({
+      expect(provider.modelStore.getState()).toMatchObject({
         status: 'loading',
         phase: 'downloading',
         progress: 100,
@@ -225,7 +237,7 @@ describe('WebLLM 모델 로딩과 상태', () => {
       text: 'Loading model from cache[4/30]: 208MB loaded.',
       timeElapsed: 2,
     })
-    expect(getState()).toMatchObject({
+    expect(provider.modelStore.getState()).toMatchObject({
       phase: 'loading-gpu',
       progress: 25,
       progressDetail: '4/30개 파일 · 208MB',
@@ -235,23 +247,27 @@ describe('WebLLM 모델 로딩과 상태', () => {
       text: 'Loading GPU shader modules[10/20]: 50% completed, 1 secs elapsed.',
       timeElapsed: 1,
     })
-    expect(getState()).toMatchObject({
+    expect(provider.modelStore.getState()).toMatchObject({
       phase: 'compiling',
       progress: 50,
       progressDetail: '10/20개',
     })
     report({ progress: 0, text: 'An unknown future phase', timeElapsed: 0 })
-    expect(getState()).toMatchObject({ phase: 'preparing', progress: 0, progressDetail: undefined })
+    expect(provider.modelStore.getState()).toMatchObject({
+      phase: 'preparing',
+      progress: 0,
+      progressDetail: undefined,
+    })
 
     controller.resolve(createIdleEngine())
     await loading
-    expect(getState().status).toBe('ready')
+    expect(provider.modelStore.getState().status).toBe('ready')
   })
 
   it.each([false, true])(
     '완전한 모델 캐시 여부(%s)에 따라 자동 준비를 결정한다',
     async (cached) => {
-      restoreGpu.push(stubSupportedGpu())
+      onTestFinished(stubSupportedGpu())
       stubWorker()
       vi.stubGlobal('caches', { has: async () => true })
       const createEngine = vi.fn(async () => createIdleEngine())
@@ -260,18 +276,18 @@ describe('WebLLM 모델 로딩과 상태', () => {
         CreateWebWorkerMLCEngine: createEngine,
         hasModelInCache,
       }))
-      const { prepareCachedWebLlmModel, getState, WEBLLM_MODEL_ID } = await importFreshModule()
+      const provider = new WebLlmProvider()
 
-      await prepareCachedWebLlmModel()
+      await provider.prepareCachedModel()
 
       expect(hasModelInCache).toHaveBeenCalledWith(WEBLLM_MODEL_ID)
-      expect(getState().status).toBe(cached ? 'ready' : 'idle')
+      expect(provider.modelStore.getState().status).toBe(cached ? 'ready' : 'idle')
       expect(createEngine).toHaveBeenCalledTimes(cached ? 1 : 0)
     },
   )
 
   it('캐시 확인이 실패해도 수동 다운로드는 가능하다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     vi.stubGlobal('caches', { has: async () => true })
     const createEngine = vi.fn(async () => createIdleEngine())
@@ -279,17 +295,17 @@ describe('WebLLM 모델 로딩과 상태', () => {
       CreateWebWorkerMLCEngine: createEngine,
       hasModelInCache: vi.fn().mockRejectedValue(new Error('cache unavailable')),
     }))
-    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareCachedWebLlmModel()).rejects.toThrow('cache unavailable')
-    expect(getState().status).toBe('idle')
+    await expect(provider.prepareCachedModel()).rejects.toThrow('cache unavailable')
+    expect(provider.modelStore.getState().status).toBe('idle')
     expect(createEngine).not.toHaveBeenCalled()
-    await prepareWebLlmModel()
-    expect(getState().status).toBe('ready')
+    await provider.prepareModel()
+    expect(provider.modelStore.getState().status).toBe('ready')
   })
 
   it('캐시 확인 도중 수동 준비가 시작되면 엔진을 중복 생성하지 않는다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     stubWorker()
     vi.stubGlobal('caches', { has: async () => true })
     const cache = createPromiseController<boolean>()
@@ -300,22 +316,22 @@ describe('WebLLM 모델 로딩과 상태', () => {
       CreateWebWorkerMLCEngine: createEngine,
       hasModelInCache,
     }))
-    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    const automatic = prepareCachedWebLlmModel()
+    const automatic = provider.prepareCachedModel()
     await vi.waitFor(() => expect(hasModelInCache).toHaveBeenCalled())
-    const manual = prepareWebLlmModel()
+    const manual = provider.prepareModel()
     cache.resolve(true)
     await automatic
     engine.resolve(createIdleEngine())
     await manual
 
-    expect(getState().status).toBe('ready')
+    expect(provider.modelStore.getState().status).toBe('ready')
     expect(createEngine).toHaveBeenCalledOnce()
   })
 
   it('자동 GPU 준비가 실패하면 재시도할 수 있고 자동으로 반복하지 않는다', async () => {
-    restoreGpu.push(stubSupportedGpu())
+    onTestFinished(stubSupportedGpu())
     const workers = stubWorker()
     vi.stubGlobal('caches', { has: async () => true })
     const createEngine = vi
@@ -326,24 +342,27 @@ describe('WebLLM 모델 로딩과 상태', () => {
       CreateWebWorkerMLCEngine: createEngine,
       hasModelInCache: vi.fn(async () => true),
     }))
-    const { prepareCachedWebLlmModel, prepareWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await expect(prepareCachedWebLlmModel()).rejects.toThrow('GPU device lost')
-    await prepareCachedWebLlmModel()
-    expect(getState()).toMatchObject({ status: 'error', error: GPU_MEMORY_ERROR_MESSAGE })
+    await expect(provider.prepareCachedModel()).rejects.toThrow('GPU device lost')
+    await provider.prepareCachedModel()
+    expect(provider.modelStore.getState()).toMatchObject({
+      status: 'error',
+      error: GPU_MEMORY_ERROR_MESSAGE,
+    })
     expect(createEngine).toHaveBeenCalledOnce()
     expect(workers[0]?.terminate).toHaveBeenCalledOnce()
-    await prepareWebLlmModel()
-    expect(getState().status).toBe('ready')
+    await provider.prepareModel()
+    expect(provider.modelStore.getState().status).toBe('ready')
   })
 
   it('Cache Storage가 없으면 자동 준비를 건너뛴다', async () => {
     vi.stubGlobal('caches', undefined)
     const createEngine = vi.fn()
     mockCreateWebWorkerMLCEngine(createEngine)
-    const { prepareCachedWebLlmModel, getState } = await importFreshModule()
-    await prepareCachedWebLlmModel()
-    expect(getState().status).toBe('idle')
+    const provider = new WebLlmProvider()
+    await provider.prepareCachedModel()
+    expect(provider.modelStore.getState().status).toBe('idle')
     expect(createEngine).not.toHaveBeenCalled()
   })
 
@@ -351,11 +370,11 @@ describe('WebLLM 모델 로딩과 상태', () => {
     vi.stubGlobal('caches', { has: async () => false })
     const loadLibrary = vi.fn(() => ({ hasModelInCache: vi.fn() }))
     vi.doMock('@mlc-ai/web-llm', loadLibrary)
-    const { prepareCachedWebLlmModel, getState } = await importFreshModule()
+    const provider = new WebLlmProvider()
 
-    await prepareCachedWebLlmModel()
+    await provider.prepareCachedModel()
 
     expect(loadLibrary).not.toHaveBeenCalled()
-    expect(getState().status).toBe('idle')
+    expect(provider.modelStore.getState().status).toBe('idle')
   })
 })

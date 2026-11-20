@@ -4,17 +4,15 @@ import type {
   TextMessagePart,
   ThreadMessage,
 } from '@assistant-ui/react'
-import type { ChatCompletionMessageParam } from '@mlc-ai/web-llm'
+import type { ChatMessage, ChatModel } from '@shared/lib/chat/chat-model'
 import type { SearchChunkResult } from '@/lib/ebook-storage/types/search'
 import { decodeQuoteTexts } from '@/lib/quote'
-import { BOOK_CITATIONS_DATA_NAME } from '../rag/book-citations'
+import { BOOK_CITATIONS_DATA_NAME } from './rag/book-citations'
 import {
   estimateTextTokens,
   formatSearchContextWithChunks,
   truncateToTokenBudget,
-} from '../rag/format-search-context'
-import { searchBookChunks, type SearchChunks } from '../rag/search-book-chunks'
-import { getReadyEngine, invalidateDefaultEngine, type WebLlmEngine } from './model'
+} from './rag/format-search-context'
 
 const PAGE_SUMMARY_QUESTION = '이 페이지에 대해 요약해줘'
 const EXPLAIN_SELECTION_QUESTION =
@@ -52,8 +50,8 @@ const RETRIEVAL_PROMPT = [
   'If the excerpts do not support an answer, say that you do not know.',
 ].join('\n')
 
-export const MAX_MODEL_CONTEXT_TOKENS = 8_000
-export const MAX_COMPLETION_TOKENS = 512
+const MAX_MODEL_CONTEXT_TOKENS = 8_000
+const MAX_COMPLETION_TOKENS = 512
 const MAX_PROMPT_TOKENS = MAX_MODEL_CONTEXT_TOKENS - MAX_COMPLETION_TOKENS
 const MESSAGE_OVERHEAD_TOKENS = 8
 
@@ -90,46 +88,33 @@ function getText(message: ThreadMessage) {
   return `${quoteContext}\n\n${text}`
 }
 
-function getMessageContent(message: ChatCompletionMessageParam): string {
-  return typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+function estimateChatMessageTokens(message: ChatMessage): number {
+  return MESSAGE_OVERHEAD_TOKENS + estimateTextTokens(message.content)
 }
 
-function estimateWebLlmMessageTokens(message: ChatCompletionMessageParam): number {
-  return MESSAGE_OVERHEAD_TOKENS + estimateTextTokens(getMessageContent(message))
-}
-
-export function estimateWebLlmMessagesTokens(
-  messages: readonly ChatCompletionMessageParam[],
-): number {
-  return messages.reduce((total, message) => total + estimateWebLlmMessageTokens(message), 0)
-}
-
-function truncateMessage(
-  message: ChatCompletionMessageParam,
-  tokenBudget: number,
-): ChatCompletionMessageParam | null {
+function truncateMessage(message: ChatMessage, tokenBudget: number): ChatMessage | null {
   const contentBudget = tokenBudget - MESSAGE_OVERHEAD_TOKENS
   if (contentBudget <= 0) return null
-  return { ...message, content: truncateToTokenBudget(getMessageContent(message), contentBudget) }
+  return { ...message, content: truncateToTokenBudget(message.content, contentBudget) }
 }
 
 function fitMessagesToPromptBudget(
   system: string | undefined,
-  history: ChatCompletionMessageParam[],
-): ChatCompletionMessageParam[] {
+  history: ChatMessage[],
+): ChatMessage[] {
   const latestMessage = history.at(-1)
   const latestReservation = latestMessage
-    ? Math.min(estimateWebLlmMessageTokens(latestMessage), Math.floor(MAX_PROMPT_TOKENS / 2))
+    ? Math.min(estimateChatMessageTokens(latestMessage), Math.floor(MAX_PROMPT_TOKENS / 2))
     : 0
   const systemMessage = system
     ? truncateMessage({ role: 'system', content: system }, MAX_PROMPT_TOKENS - latestReservation)
     : null
-  const selectedHistory: ChatCompletionMessageParam[] = []
+  const selectedHistory: ChatMessage[] = []
   let remainingTokens =
-    MAX_PROMPT_TOKENS - (systemMessage ? estimateWebLlmMessageTokens(systemMessage) : 0)
+    MAX_PROMPT_TOKENS - (systemMessage ? estimateChatMessageTokens(systemMessage) : 0)
 
   for (const message of history.toReversed()) {
-    const messageTokens = estimateWebLlmMessageTokens(message)
+    const messageTokens = estimateChatMessageTokens(message)
     if (messageTokens <= remainingTokens) {
       selectedHistory.unshift(message)
       remainingTokens -= messageTokens
@@ -145,15 +130,15 @@ function fitMessagesToPromptBudget(
   return systemMessage ? [systemMessage, ...selectedHistory] : selectedHistory
 }
 
-function toWebLlmMessages(
+function buildChatRequest(
   { context, messages }: ChatModelRunOptions,
   chunks?: SearchChunkResult[],
-): { citationChunks: readonly SearchChunkResult[]; messages: ChatCompletionMessageParam[] } {
+): { citationChunks: readonly SearchChunkResult[]; messages: ChatMessage[] } {
   if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
     console.debug('[ReaderChat] getContext', context.system ?? '')
   }
 
-  const history = messages.map((message): ChatCompletionMessageParam => ({
+  const history = messages.map((message): ChatMessage => ({
     role: message.role,
     content: getText(message),
   }))
@@ -166,8 +151,8 @@ function toWebLlmMessages(
   const excerptBudget = Math.max(
     0,
     MAX_PROMPT_TOKENS -
-      estimateWebLlmMessageTokens({ role: 'system', content: fixedSystem }) -
-      (latestMessage ? estimateWebLlmMessageTokens(latestMessage) : 0),
+      estimateChatMessageTokens({ role: 'system', content: fixedSystem }) -
+      (latestMessage ? estimateChatMessageTokens(latestMessage) : 0),
   )
   const formattedContext = formatSearchContextWithChunks(chunks, excerptBudget)
   const retrievalSystem = [fixedSystem, formattedContext.context].filter(Boolean).join('\n\n')
@@ -182,13 +167,7 @@ type RetrieveChunks = (
   signal: AbortSignal,
 ) => Promise<SearchChunkResult[]>
 
-// 엔진을 불러오고 캐싱하는 책임은 loadEngine(프로덕션에서는 getReadyEngine이 돌려주는 싱글턴)에 온전히 맡긴다.
-// 어댑터가 자체 캐시를 두면 두 캐시의 생명주기(특히 실패 시 초기화)를 따로 맞춰야 해서 어긋나기 쉽다.
-export function createWebLlmChatModelAdapter(
-  loadEngine: () => Promise<WebLlmEngine>,
-  onEngineFailure?: (error: unknown) => void,
-  retrieveChunks?: RetrieveChunks,
-) {
+export function createChatModelAdapter(model: ChatModel, retrieveChunks?: RetrieveChunks) {
   return {
     async *run(options) {
       if (options.abortSignal.aborted) {
@@ -198,60 +177,35 @@ export function createWebLlmChatModelAdapter(
       const retrievedChunks = retrieveChunks
         ? await retrieveChunks(options.messages, options.abortSignal)
         : undefined
-      const engine = await loadEngine()
+      options.abortSignal.throwIfAborted()
 
-      const interrupt = () => engine.interruptGenerate()
-      options.abortSignal.addEventListener('abort', interrupt, { once: true })
+      const { messages, citationChunks } = buildChatRequest(options, retrievedChunks)
+      const streamResponse = model.streamResponse({
+        messages,
+        maxOutputTokens: MAX_COMPLETION_TOKENS,
+        signal: options.abortSignal,
+      })
+      let text = ''
 
-      try {
-        const requestContext = toWebLlmMessages(options, retrievedChunks)
-        const stream = await engine.chat.completions.create({
-          messages: requestContext.messages,
-          // WebLLM은 Qwen 권장 설정의 top_k(20)를 지원하지 않아, 온도를 낮춰 확률이 낮은 토큰을 줄인다.
-          temperature: 0.3,
-          max_tokens: MAX_COMPLETION_TOKENS,
-          stream: true,
-        })
-        let text = ''
-
-        for await (const chunk of stream) {
-          text += chunk.choices[0]?.delta.content ?? ''
-          if (text) {
-            yield { content: [{ type: 'text', text }] }
-          }
+      for await (const chunk of streamResponse) {
+        text += chunk
+        if (text) {
+          yield { content: [{ type: 'text', text }] }
         }
-        if (text && requestContext.citationChunks.length > 0) {
-          yield {
-            content: [
-              { type: 'text', text },
-              {
-                type: 'data',
-                name: BOOK_CITATIONS_DATA_NAME,
-                data: { chunks: requestContext.citationChunks },
-              },
-            ],
-            status: { type: 'complete', reason: 'stop' },
-          }
+      }
+      if (text && citationChunks.length > 0) {
+        yield {
+          content: [
+            { type: 'text', text },
+            {
+              type: 'data',
+              name: BOOK_CITATIONS_DATA_NAME,
+              data: { chunks: citationChunks },
+            },
+          ],
+          status: { type: 'complete', reason: 'stop' },
         }
-      } catch (error) {
-        // 생성 도중 엔진이 죽으면(워커 크래시, GPU device lost 등) 캐시에 고장난 엔진이 남아
-        // 이후 모든 요청이 영구히 실패하므로, 캐시를 비우도록 알린다.
-        onEngineFailure?.(error)
-        throw error
-      } finally {
-        options.abortSignal.removeEventListener('abort', interrupt)
       }
     },
   } satisfies ChatModelAdapter
 }
-
-export function createBookSearchWebLlmChatModelAdapter(bookId: string, searchChunks: SearchChunks) {
-  return createWebLlmChatModelAdapter(getReadyEngine, invalidateDefaultEngine, (messages, signal) =>
-    searchBookChunks({ bookId, messages, searchChunks, signal }),
-  )
-}
-
-export const webLlmChatModelAdapter = createWebLlmChatModelAdapter(
-  getReadyEngine,
-  invalidateDefaultEngine,
-)

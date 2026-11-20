@@ -2,7 +2,8 @@ import type { PropsWithChildren } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TestRouter } from '@/test/test-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { webLlmProvider } from '@/app-services'
 import App from './app'
 import { Reader } from './features/reader/components/reader'
 import type { LoadedPdfDocument, PdfDocumentHandle, PdfDocumentLoader } from '@/lib/pdf/document'
@@ -10,12 +11,6 @@ import { createPromiseController } from './test/promise-controller'
 
 const loadPdfDocumentMock = vi.hoisted(() => vi.fn<PdfDocumentLoader>())
 const prepareOcrMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const prepareCachedModelMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-
-vi.mock('./features/chat/lib/web-llm/model', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./features/chat/lib/web-llm/model')>()),
-  prepareCachedWebLlmModel: prepareCachedModelMock,
-}))
 
 // 레이아웃을 확인하는 테스트라 실제 OCR 경로까지 들어가지 않는다.
 const readImageMock = vi.hoisted(() =>
@@ -27,7 +22,8 @@ vi.mock('@/lib/pdf/load-document', async (importOriginal) => {
   const pdfDocument = await importOriginal<typeof import('@/lib/pdf/load-document')>()
   return { ...pdfDocument, loadPdfDocument: loadPdfDocumentMock }
 })
-vi.mock('@/app-services', () => ({
+vi.mock('@/app-services', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app-services')>()),
   readerOcrService: { init: prepareOcrMock, readImage: readImageMock },
 }))
 vi.mock('@/lib/pdf/render-page-image', () => ({
@@ -103,7 +99,6 @@ describe('App', () => {
   beforeEach(() => {
     loadPdfDocumentMock.mockReset()
     prepareOcrMock.mockClear()
-    prepareCachedModelMock.mockClear()
     disconnectResizeObserver.mockReset()
     resizeNotifications.length = 0
     vi.stubGlobal('devicePixelRatio', 1)
@@ -126,6 +121,10 @@ describe('App', () => {
   })
 
   it('첫 페이지 전체를 읽기 영역에 맞추고 영역 크기가 바뀌면 다시 계산한다', async () => {
+    const prepareCachedModel = vi.spyOn(webLlmProvider, 'prepareCachedModel').mockResolvedValue()
+    onTestFinished(() => {
+      prepareCachedModel.mockRestore()
+    })
     const documentLoad = createPromiseController<LoadedPdfDocument>()
     const { loadedDocument } = createLoadedDocument()
     loadPdfDocumentMock.mockReturnValue(documentLoad.promise)
@@ -133,7 +132,7 @@ describe('App', () => {
 
     await screen.findByRole('heading', { name: '기본 PDF 리더 샘플' })
     expect(prepareOcrMock).toHaveBeenCalledOnce()
-    expect(prepareCachedModelMock).toHaveBeenCalledOnce()
+    expect(prepareCachedModel).toHaveBeenCalledOnce()
     expect(screen.getByRole('heading', { name: '기본 PDF 리더 샘플' })).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'PDF 불러오는 중' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '페이지 위치' })).not.toBeInTheDocument()
