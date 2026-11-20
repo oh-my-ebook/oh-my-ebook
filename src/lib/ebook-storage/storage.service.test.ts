@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBookFileData, createNewBook, createTestConnection } from '../../test/sqlocal'
 import { createBookRepository } from './book/book.repository'
 import * as connection from './database-connection'
-import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './book/pdf-files'
+import { clearPdfFiles, deletePdf, hasPdf, readPdf, writePdf } from './adapters/opfs/pdf-files'
 
 vi.mock('./database-connection', () => ({
   initializeDatabase: vi.fn(),
@@ -14,8 +14,8 @@ vi.mock('./database-connection', () => ({
     throw new Error('Test database not configured')
   },
 }))
-vi.mock('./book/pdf-files', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./book/pdf-files')>()),
+vi.mock('./adapters/opfs/pdf-files', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./adapters/opfs/pdf-files')>()),
   clearPdfFiles: vi.fn(),
   deletePdf: vi.fn(),
   hasPdf: vi.fn(),

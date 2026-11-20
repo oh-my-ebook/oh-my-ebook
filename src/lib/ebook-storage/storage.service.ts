@@ -2,14 +2,14 @@ import type { EbookStore } from './ebook-store'
 import * as database from './database-connection'
 import { createBookRepository } from './book/book.repository'
 import { createBookService } from './book/book.service'
-import { clearPdfFiles } from './book/pdf-files'
+import * as opfsPdfFiles from './adapters/opfs/pdf-files'
 import { createOcrRepository } from './ocr/ocr.repository'
 import { createOcrService } from './ocr/ocr.service'
 import { createSearchRepository } from './search/search.repository'
 import { createSearchService } from './search/search.service'
 
 export const storageService: EbookStore = {
-  ...createBookService(createBookRepository(database)),
+  ...createBookService(createBookRepository(database), opfsPdfFiles),
   ...createOcrService(createOcrRepository(database)),
   ...createSearchService(createSearchRepository(database)),
   async initialize() {
@@ -17,6 +17,6 @@ export const storageService: EbookStore = {
   },
   async clearStorage() {
     await database.resetDatabase()
-    await clearPdfFiles()
+    await opfsPdfFiles.clearPdfFiles()
   },
 }

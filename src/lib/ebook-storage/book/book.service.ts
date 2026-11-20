@@ -7,7 +7,7 @@ import type {
   BookCover,
 } from '../types/book'
 import type { createBookRepository } from './book.repository'
-import { deletePdf, hasPdf, readPdf, writePdf } from './pdf-files'
+import type { PdfFileStore } from './pdf-file-store'
 import {
   isBookFileData,
   isContentHash,
@@ -33,11 +33,9 @@ export interface BookService {
 
 export function createBookService(
   bookRepository: ReturnType<typeof createBookRepository>,
+  pdfFileStore: PdfFileStore,
 ): BookService {
-  /**
-   * SQLite에 책 정보를 먼저 저장한 후, 콘텐츠 해시를 기준으로 OPFS에 PDF 파일 저장
-   * 만약 OPFS 저장에 실패하면 SQLite에 저장한 책 정보를 삭제
-   */
+  // 책 정보를 먼저 등록해 중복을 확인하고, PDF 쓰기에 실패하면 등록을 되돌린다.
   async function saveBook(book: BookFileData): Promise<string> {
     validateData(book, 'saveBook', isBookFileData)
     const { pdfData, coverData, ...fields } = book
@@ -53,7 +51,7 @@ export function createBookService(
     const id = await bookRepository.addBook(newBook)
 
     try {
-      await writePdf(book.contentHash, pdfData)
+      await pdfFileStore.writePdf(book.contentHash, pdfData)
       return id
     } catch (error) {
       try {
@@ -70,7 +68,7 @@ export function createBookService(
     const book = await bookRepository.getBookDetails(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
-    const pdfData = await readPdf(contentHash)
+    const pdfData = await pdfFileStore.readPdf(contentHash)
 
     return { ...book, pdfData }
   }
@@ -81,7 +79,7 @@ export function createBookService(
     const libraryBooks = await Promise.all(
       books.map(async (book) => {
         if (!isContentHash(book.contentHash)) throw new Error('Invalid content hash')
-        const hasPdfFile = await hasPdf(book.contentHash)
+        const hasPdfFile = await pdfFileStore.hasPdf(book.contentHash)
 
         const listItem: BookListItem = {
           ...book,
@@ -93,17 +91,14 @@ export function createBookService(
     return libraryBooks
   }
 
-  /**
-   * OPFS에 저장된 PDF 파일을 삭제한 후, SQLite에 저장된 책 정보를 삭제
-   * 만약 OPFS 삭제에 실패하면 Error를 발생
-   */
+  // PDF 삭제에 실패하면 재시도할 수 있도록 책 정보를 유지한다.
   async function deleteBook(bookId: string): Promise<void> {
     validateData(bookId, 'bookId', isIdentifier)
     const book = await bookRepository.getBookDetails(bookId)
     const contentHash = book.contentHash
     if (!isContentHash(contentHash)) throw new Error('Invalid content hash')
 
-    await deletePdf(contentHash)
+    await pdfFileStore.deletePdf(contentHash)
     await bookRepository.deleteBookById(bookId)
   }
 
