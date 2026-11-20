@@ -79,6 +79,7 @@ src/
 │   │   ├── errors.ts              # 공개 오류 코드·메시지·오류 클래스
 │   │   ├── storage-errors.ts      # 내부 오류와 공개 오류 코드 변환
 │   │   └── browser-storage.ts     # 브라우저 지원 여부·저장소 사용량
+│   ├── ocr/adapters/paddle-ocr/    # 웹에서 쓸 인식기 초기화·인식·요청 취소
 │   └── pdf/
 │       ├── document.ts             # 문서·페이지 타입 정의와 좌표 배율
 │       ├── load-document.ts        # PDF 로딩·취소·자원 정리
@@ -95,9 +96,7 @@ shared/
     │   ├── reader-ocr.service.ts     # 이미지 인식·읽기 순서 정렬·텍스트 정규화
     │   ├── reader-ocr.types.ts       # 이미지·텍스트 좌표·인식기와 정규화기 계약
     │   ├── reader-ocr.util.ts        # 브라우저 Canvas에서 선택 레이어의 글자 크기 계산
-    │   ├── reading-order.ts          # OCR 결과의 읽기 순서 계산
-    │   └── adapters/
-    │       └── paddle-ocr/           # PaddleOCR 초기화·인식·요청 취소
+    │   └── reading-order.ts          # OCR 결과의 읽기 순서 계산
     └── text-analysis/
         └── adapters/
             └── kiwi/

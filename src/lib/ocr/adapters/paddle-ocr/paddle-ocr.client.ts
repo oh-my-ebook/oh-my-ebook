@@ -1,6 +1,16 @@
-import { toBoundingBox } from '../../reader-ocr.util'
-import type { PageImage, ReaderOcrClient, TextBox } from '../../reader-ocr.types'
+import type {
+  BoundingBox,
+  PageImage,
+  ReaderOcrClient,
+  TextBox,
+} from '@shared/lib/ocr/reader-ocr.types'
 import { PaddleOcrProvider } from './paddle-ocr.provider'
+
+function toBoundingBox(points: readonly (readonly [number, number])[]): BoundingBox {
+  const xs = points.map(([x]) => x)
+  const ys = points.map(([, y]) => y)
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
+}
 
 export class PaddleOcrClient implements ReaderOcrClient {
   private readonly provider = new PaddleOcrProvider()
